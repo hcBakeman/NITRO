@@ -1,0 +1,368 @@
+/**
+ * game.js – State machine, input, lap/checkpoint logic, troll prevention
+ * States: MENU → LOBBY → RACING → FINISHED
+ */
+import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
+import * as Physics  from './physics.js';
+import * as Network  from './network.js';
+import * as Graphics from './graphics.js';
+import { generateMap, checkCheckpointProximity, checkCrateProximity, updateCrateRespawns } from './map.js';
+
+// ── State ──────────────────────────────────────────────────────────────────
+export const STATE = { MENU: 'MENU', LOBBY: 'LOBBY', RACING: 'RACING', FINISHED: 'FINISHED' };
+let currentState = STATE.MENU;
+
+export function getState() { return currentState; }
+export function setState(s) {
+  currentState = s;
+  document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+  const hudEl = document.getElementById('hud');
+  if (s === STATE.MENU)     { document.getElementById('screen-menu').classList.add('active'); hudEl.classList.add('hidden'); }
+  if (s === STATE.LOBBY)    { document.getElementById('screen-lobby').classList.add('active'); hudEl.classList.add('hidden'); }
+  if (s === STATE.RACING)   { hudEl.classList.remove('hidden'); }
+  if (s === STATE.FINISHED) { document.getElementById('screen-finished').classList.add('active'); hudEl.classList.add('hidden'); }
+}
+
+// ── Input ──────────────────────────────────────────────────────────────────
+export const input = { forward: false, backward: false, left: false, right: false, fire: false };
+let fireQueued = false;
+
+export function initInput() {
+  const down = e => {
+    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp')    input.forward  = true;
+    if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown')  input.backward = true;
+    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft')  input.left     = true;
+    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') input.right    = true;
+    if (e.key === ' ' && !input.fire) { input.fire = true; fireQueued = true; }
+  };
+  const up = e => {
+    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp')    input.forward  = false;
+    if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown')  input.backward = false;
+    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft')  input.left     = false;
+    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') input.right    = false;
+    if (e.key === ' ')  input.fire = false;
+  };
+  window.addEventListener('keydown', down);
+  window.addEventListener('keyup',   up);
+}
+
+export function consumeFire() {
+  const f = fireQueued;
+  fireQueued = false;
+  return f;
+}
+
+// ── Weapon ─────────────────────────────────────────────────────────────────
+const AMMO = { ROCKET: 2, OIL_SLICK: 2, BOOST: 1 };
+export let heldWeapon = null;
+export let heldAmmo   = 0;
+
+export function pickupWeapon(type) {
+  heldWeapon = type;
+  heldAmmo   = AMMO[type] || 1;
+  _updateWeaponHUD();
+}
+
+export function consumeWeapon() {
+  if (!heldWeapon || heldAmmo <= 0) return null;
+  const w = heldWeapon;
+  heldAmmo--;
+  if (heldAmmo <= 0) heldWeapon = null;
+  _updateWeaponHUD();
+  return w;
+}
+
+function _updateWeaponHUD() {
+  const icons = { ROCKET: '🚀', OIL_SLICK: '🛢', BOOST: '⚡' };
+  document.getElementById('hud-weapon').textContent = heldWeapon
+    ? `${icons[heldWeapon] || '?'} ${heldWeapon}`
+    : 'NO WEAPON';
+  document.getElementById('hud-ammo').textContent = heldAmmo > 0 ? `×${heldAmmo}` : '';
+}
+
+// ── Race data ──────────────────────────────────────────────────────────────
+let mapData   = null;
+let lapCount  = 3;
+let myLap     = 0;
+let myCheckpointsThisLap = 0;
+let raceStartTime = 0;
+let raceFinished  = false;
+let trollTimer    = 0;
+let winnerFinishedAt = null;
+const TROLL_TIMEOUT = 15;
+let lastPos = null;
+let stuckTimer = 0;
+
+export let racePhase = 'COUNTDOWN'; // 'COUNTDOWN', 'ACTIVE', 'FINISHED'
+export let raceCountdown = 4.0;
+export let currentRaceTime = 0;
+export let currentLapTime = 0;
+export let bestCheckpointTimes = [];
+export let bestLapTime = Infinity;
+
+export function initRace(seed, laps, world, groundMat, wallMat) {
+  lapCount = laps;
+  myLap    = 1;
+  myCheckpointsThisLap = 0;
+  raceFinished  = false;
+  trollTimer    = 0;
+  winnerFinishedAt = null;
+  heldWeapon    = 'ROCKET';
+  heldAmmo      = 100;
+  lastPos       = null;
+  stuckTimer    = 0;
+
+  racePhase = 'COUNTDOWN';
+  raceCountdown = 4.0;
+  currentRaceTime = 0;
+  currentLapTime = 0;
+  bestCheckpointTimes = [];
+  bestLapTime = Infinity;
+  let penaltyTime = 0;
+
+  mapData = generateMap(seed, world, groundMat, wallMat);
+  raceStartTime = performance.now() / 1000;
+
+  _updateLapHUD();
+  _updateWeaponHUD();
+  return mapData;
+}
+
+export function getRaceMapData() { return mapData; }
+
+// ── Per-frame race update ──────────────────────────────────────────────────
+export function updateRace(dt, chassis) {
+  if (currentState !== STATE.RACING || !mapData || !chassis) return;
+
+  const pos = chassis.position;
+
+  if (racePhase === 'COUNTDOWN') {
+    if (currentRaceTime === 0 && (input.forward || input.backward)) {
+      currentRaceTime = 5.0; // Temporary storage for penalty
+      _showSplitMsg("JUMP START! +5s PENALTY", "positive");
+    }
+    
+    raceCountdown -= dt;
+    if (raceCountdown <= 0) {
+      racePhase = 'ACTIVE';
+      currentLapTime = currentRaceTime; // Applies the 5s penalty if they jump started
+    }
+    // We do NOT return here, allowing them to move and hit checkpoints even if they jump start
+  } else {
+    currentRaceTime += dt;
+    currentLapTime += dt;
+  }
+
+  // ── Checkpoint detection ──
+  const hitCp = checkCheckpointProximity(pos, mapData.checkpoints);
+  if (hitCp) {
+    const expected = myCheckpointsThisLap;
+    if (hitCp.index === expected % mapData.checkpoints.length) {
+      hitCp.passed = true;
+      myCheckpointsThisLap++;
+      Graphics.flashCheckpoint(hitCp.index);
+      
+      const cpIndex = hitCp.index;
+      if (bestCheckpointTimes[cpIndex]) {
+        const split = currentLapTime - bestCheckpointTimes[cpIndex];
+        const sign = split > 0 ? '+' : '';
+        _showSplitMsg(`${sign}${split.toFixed(2)}s`, split > 0 ? 'positive' : 'negative');
+        if (currentLapTime < bestCheckpointTimes[cpIndex]) {
+          bestCheckpointTimes[cpIndex] = currentLapTime;
+        }
+      } else {
+        bestCheckpointTimes[cpIndex] = currentLapTime;
+      }
+
+      _showHUDMsg(`CHECKPOINT ${hitCp.index + 1}!`);
+
+      // Finish line = checkpoint index 3 (t=1.0) + all others passed
+      if (hitCp.index === 3 && myCheckpointsThisLap >= 4) {
+        _completeLap();
+      }
+    }
+  }
+
+  // ── Wrong Way Detection (throttled) ──
+  if (chassis && mapData.spline && chassis.velocity.lengthSquared() > 10) {
+    if (!chassis._lastWwCheck || (performance.now() - chassis._lastWwCheck) > 500) {
+      chassis._lastWwCheck = performance.now();
+      let closestT = 0;
+      let minDist = Infinity;
+      const pos = chassis.position;
+      for(let i = 0; i <= 20; i++) {
+        const t = i / 20;
+        const pt = mapData.spline.getPointAt(t);
+        const dist = pt.distanceToSquared(pos);
+        if (dist < minDist) { minDist = dist; closestT = t; }
+      }
+      const tan = mapData.spline.getTangentAt(closestT).normalize();
+      const fwd = new CANNON.Vec3(0, 0, -1);
+      chassis.quaternion.vmult(fwd, fwd);
+      
+      const dot = fwd.x * tan.x + fwd.z * tan.z;
+      const msgEl = document.getElementById('wrong-way-msg');
+      if (dot < -0.3) {
+        msgEl.classList.remove('hidden');
+      } else {
+        msgEl.classList.add('hidden');
+      }
+    }
+  } else {
+    document.getElementById('wrong-way-msg')?.classList.add('hidden');
+  }
+
+  // ── Troll / Stuck Detection ──
+  const hitCrate = checkCrateProximity(pos, mapData.weaponCrateSpawns);
+  if (hitCrate && !heldWeapon) {
+    const idx = mapData.weaponCrateSpawns.indexOf(hitCrate);
+    hitCrate.active = false;
+    hitCrate.respawnTimer = 20;
+    Graphics.updateCrateMesh(idx, false);
+    pickupWeapon(hitCrate.type);
+    Network.sendCratePickup(idx, hitCrate.type);
+    _showHUDMsg(`PICKED UP ${hitCrate.type.replace('_', ' ')}!`);
+  }
+
+  // ── Crate respawn ──
+  updateCrateRespawns(mapData.weaponCrateSpawns, dt);
+  mapData.weaponCrateSpawns.forEach((c, i) => Graphics.updateCrateMesh(i, c.active));
+
+  // ── Troll prevention ──
+  if (winnerFinishedAt !== null && !raceFinished) {
+    if (lastPos) {
+      const dx = pos.x - lastPos.x, dz = pos.z - lastPos.z;
+      const moved = Math.sqrt(dx*dx + dz*dz);
+      if (moved < 0.5) {
+        stuckTimer += dt;
+        if (stuckTimer >= TROLL_TIMEOUT && myCheckpointsThisLap < mapData.checkpoints.length * lapCount) {
+          _disqualify();
+        }
+      } else {
+        stuckTimer = 0;
+      }
+    }
+    lastPos = { x: pos.x, y: pos.y, z: pos.z };
+  }
+
+  // ── Speed HUD ──
+  const speed = chassis.velocity.length() * 3.6; // m/s → km/h
+  document.getElementById('hud-speed').textContent = Math.round(speed);
+
+  // ── Flip HUD ──
+  const flip = Physics.getFlipProgress();
+  const recEl = document.getElementById('hud-recovery');
+  if (flip.timer > 0.2) {
+    recEl.classList.remove('hidden');
+  } else {
+    recEl.classList.add('hidden');
+  }
+}
+
+// ── Notify external winner ─────────────────────────────────────────────────
+export function notifyWinnerFinished() {
+  if (winnerFinishedAt === null) winnerFinishedAt = performance.now() / 1000;
+}
+
+// ── Lap logic ─────────────────────────────────────────────────────────────
+function _completeLap() {
+  if (currentLapTime > 0 && currentLapTime < bestLapTime) bestLapTime = currentLapTime;
+
+  // Reset checkpoints for next lap
+  mapData.checkpoints.forEach(cp => cp.passed = false);
+  myCheckpointsThisLap = 0;
+  currentLapTime = 0; // Reset lap time
+
+  if (myLap >= lapCount) {
+    _finishRace();
+  } else {
+    myLap++;
+    _updateLapHUD();
+    _showHUDMsg(`LAP ${myLap}!`);
+    Network.sendLapComplete(myLap);
+  }
+}
+
+function _finishRace() {
+  if (currentLapTime > 0 && currentLapTime < bestLapTime) bestLapTime = currentLapTime;
+  raceFinished = true;
+  racePhase = 'FINISHED';
+  const elapsed = currentRaceTime;
+  Network.sendFinished(elapsed, bestLapTime);
+  notifyWinnerFinished();
+  Graphics.spawnFinishBurst(Physics.playerChassis?.position || { x: 0, y: 1, z: 0 });
+  _showHUDMsg('FINISH!');
+  setTimeout(() => _showResults(), 3000);
+}
+
+function _disqualify() {
+  raceFinished = true;
+  _showHUDMsg('DISQUALIFIED!');
+  setTimeout(() => _showResults(), 2000);
+}
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.floor((seconds % 1) * 1000);
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+}
+
+function _showResults() {
+  const pl = Network.players;
+  const sorted = Object.entries(pl)
+    .filter(([, p]) => p.finished || p.disqualified)
+    .sort((a, b) => {
+      if (a[1].disqualified) return 1;
+      if (b[1].disqualified) return -1;
+      return (a[1].finishTime || 999) - (b[1].finishTime || 999);
+    });
+
+  const list = document.getElementById('results-list');
+  list.innerHTML = '';
+  sorted.forEach(([id, p], i) => {
+    const li = document.createElement('li');
+    const dot = document.createElement('span');
+    dot.className = 'player-color-dot';
+    dot.style.background = '#' + (Graphics.PLAYER_COLORS[p.colorIndex % 6] || 0xffffff).toString(16).padStart(6, '0');
+    li.appendChild(dot);
+    
+    const totalTimeStr = p.finishTime ? formatTime(p.finishTime) : 'N/A';
+    const bestLapStr = p.bestLap && p.bestLap < Infinity ? formatTime(p.bestLap) : 'N/A';
+    
+    li.appendChild(document.createTextNode(`${i + 1}. ${p.name || id.slice(0, 6)} - Time: ${totalTimeStr} | Best Lap: ${bestLapStr}${p.disqualified ? ' (DSQ)' : ''}`));
+    list.appendChild(li);
+  });
+
+  if (Network.getIsHost()) {
+    document.getElementById('btn-lobby').classList.remove('hidden');
+  } else {
+    document.getElementById('btn-lobby').classList.add('hidden');
+  }
+
+  setState(STATE.FINISHED);
+}
+
+// ── HUD helpers ────────────────────────────────────────────────────────────
+function _updateLapHUD() {
+  document.getElementById('hud-lap').textContent = `LAP ${myLap}/${lapCount}`;
+}
+
+let _flashTimeout = null;
+function _showHUDMsg(msg) {
+  const el = document.getElementById('hud-msg');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  if (_flashTimeout) clearTimeout(_flashTimeout);
+  _flashTimeout = setTimeout(() => el.classList.add('hidden'), 2200);
+}
+
+let _splitTimeout = null;
+function _showSplitMsg(msg, className) {
+  const el = document.getElementById('split-time-msg');
+  el.textContent = msg;
+  el.className = `hud-flash ${className}`;
+  if (_splitTimeout) clearTimeout(_splitTimeout);
+  _splitTimeout = setTimeout(() => el.classList.add('hidden'), 2000);
+}

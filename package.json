@@ -1,0 +1,19 @@
+{
+  "name": "nitro-seed",
+  "version": "1.0.0",
+  "description": "Modular 3D top-down combat racer",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "cannon-es": "^0.20.0",
+    "peerjs": "^1.5.4",
+    "three": "^0.165.0"
+  },
+  "devDependencies": {
+    "vite": "^5.2.0"
+  }
+}
