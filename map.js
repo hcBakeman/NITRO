@@ -28,6 +28,7 @@ const WALL_D        = 2.5;   // depth of each wall segment box
 const WALL_T        = 0.5;   // wall half-thickness
 
 export function generateMap(seed, world, groundMat, wallMat) {
+  const isTest = (Number(seed) === 0);
   let rng = mulberry32(seed);
   let spline, length;
 
@@ -37,7 +38,6 @@ export function generateMap(seed, world, groundMat, wallMat) {
     const pts = [];
     for (let i = 0; i < NUM_POINTS; i++) {
       const angle  = (i / NUM_POINTS) * Math.PI * 2;
-      const isTest = (Number(seed) === 0);
       const r      = RING_RADIUS + (isTest ? 0 : (rng() - 0.5) * 2 * OFFSET_MAX);
       const ox     = isTest ? 0 : (rng() - 0.5) * OFFSET_MAX * 0.6;
       const oz     = isTest ? 0 : (rng() - 0.5) * OFFSET_MAX * 0.6;
@@ -101,7 +101,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
   roadGeo.setIndex(indices);
   roadGeo.computeVertexNormals();
 
-  const roadMat = _buildRoadMaterial();
+  const roadMat = isTest ? new THREE.MeshLambertMaterial({ color: 0x2244ff }) : _buildRoadMaterial();
   const trackMesh = new THREE.Mesh(roadGeo, roadMat);
   trackMesh.receiveShadow = true;
 
