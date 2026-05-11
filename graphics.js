@@ -144,6 +144,7 @@ export function addMapToScene(mapData) {
   _buildCheckpointArches(mapData.checkpoints, mapData.spline);
   _buildFinishLine(mapData.finishLinePt, mapData.finishTangent);
   _buildWeaponCrateMeshes(mapData.weaponCrateSpawns);
+  _buildMapRamps(mapData.rampSpawns);
 
   // Minimap
   const mc = document.getElementById('minimap-canvas');
@@ -290,6 +291,31 @@ function _buildWeaponCrateMeshes(crates) {
     raceGroup.add(mesh);
     crateMeshes[idx] = mesh;
   });
+}
+
+function _buildMapRamps(ramps) {
+  if (!ramps || ramps.length === 0) return;
+  
+  gltfLoader.setPath('objects/').load('low_poly_used_bike_ramp.glb', gltf => {
+    const original = gltf.scene;
+    // Standardize scale if needed, assuming the model is small
+    original.scale.set(1.5, 1.5, 1.5); 
+    
+    ramps.forEach(spawn => {
+      const mesh = original.clone();
+      mesh.position.copy(spawn.position);
+      mesh.quaternion.copy(spawn.quaternion);
+      
+      mesh.traverse(child => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      
+      raceGroup.add(mesh);
+    });
+  }, undefined, err => console.error("Ramp load failed", err));
 }
 
 export function updateCrateMesh(idx, active) {

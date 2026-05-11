@@ -196,6 +196,23 @@ export function generateMap(seed, world, groundMat, wallMat) {
     });
   }
 
+  // ── Ramp Spawns ────────────────────────────────────────────────────────
+  const rampCount = 1 + Math.floor(rng() * 3);
+  const rampSpawns = [];
+  for (let i = 0; i < rampCount; i++) {
+    let rt;
+    // Keep ramps away from start/finish and other objects
+    do { rt = 0.15 + rng() * 0.7; } while ([...usedTs].some(u => Math.abs(u - rt) < 0.1));
+    usedTs.add(rt);
+
+    const pos = spline.getPointAt(rt);
+    const tan = spline.getTangentAt(rt).normalize();
+    // Align with track (facing +Z)
+    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan);
+    
+    rampSpawns.push({ position: pos.clone(), quaternion: quat.clone() });
+  }
+
   // ── Ground plane (visual only) ─────────────────────────────────────────
   const groundGeo  = new THREE.PlaneGeometry(2000, 2000, 4, 4);
   const groundMesh = new THREE.Mesh(groundGeo, _buildGrassMaterial());
@@ -218,6 +235,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
     finishLinePt,
     finishTangent,
     startGrid,
+    rampSpawns,
     spline,
     roadLength: length,
   };

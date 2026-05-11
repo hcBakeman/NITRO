@@ -311,6 +311,7 @@ async function _startRace(seed, lapCount, driveMode) {
   // Generate map (same seed → identical on all clients)
   const mapData = Game.initRace(seed, lapCount, world, gMat, wMat);
   Graphics.addMapToScene(mapData);
+  Physics.createRamps(mapData.rampSpawns);
 
   if (Network.getIsHost()) {
     document.getElementById('btn-return-lobby').classList.remove('hidden');

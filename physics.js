@@ -429,3 +429,30 @@ export function clearPhysicsWorld() {
 export function getActiveRockets() { return activeRockets; }
 export function getActiveOilSlicks() { return activeOilSlicks; }
 export function getFlipProgress() { return { timer: flipTimer, max: FLIP_RECOVERY }; }
+
+// ── Ramps ─────────────────────────────────────────────────────────────────
+export function createRamps(rampSpawns) {
+  rampSpawns.forEach(spawn => {
+    // Standard bike ramp dimensions: ~3m wide, 4m long, 1.5m high
+    const rampBody = new CANNON.Body({ mass: 0 });
+    
+    // We use a Box shape tilted to act as the slope.
+    // Half-extents: 1.5m wide, 0.1m thick, 2.2m long (slope length)
+    const shape = new CANNON.Box(new CANNON.Vec3(1.5, 0.1, 2.2));
+    rampBody.addShape(shape);
+    
+    // Position it slightly above ground so the center of the tilted box is correct
+    rampBody.position.set(spawn.position.x, 0.65, spawn.position.z);
+    
+    // 1. Start with the track's direction
+    const q = new CANNON.Quaternion(spawn.quaternion.x, spawn.quaternion.y, spawn.quaternion.z, spawn.quaternion.w);
+    
+    // 2. Apply a 15-degree tilt up (Negative X rotation in local space)
+    const tilt = new CANNON.Quaternion();
+    tilt.setFromEuler(-0.3, 0, 0); 
+    q.mult(tilt, q);
+    
+    rampBody.quaternion.copy(q);
+    world.addBody(rampBody);
+  });
+}
