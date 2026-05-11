@@ -366,9 +366,9 @@ function loadCarModelGltf(modelName) {
       
       // Fix models exported with incorrect forward axes
       if (modelName === 'dacia_duster_low_poly') {
-        innerMesh.rotation.y = -Math.PI / 2; // Face forward (-Z)
+        innerMesh.rotation.y = Math.PI / 2; // Face forward (+Z)
       } else {
-        // Face forward (-Z)
+        // Models face +Z by default in this repo
         innerMesh.rotation.y = 0;
       }
 
@@ -631,8 +631,8 @@ export function updateCamera(targetPos, carQuat, dt) {
 
   // Dynamically lower the camera height at low zoom levels to see more horizon
   const hFactor = 0.35 + (cameraZoom / 60) * 0.5; // 0.85 at max zoom, ~0.45 at min zoom
-  // Zoom offset (Behind the car at +Z)
-  const offset = new THREE.Vector3(0, cameraZoom * hFactor, cameraZoom * 0.6);
+  // Zoom offset (Behind the car at -Z)
+  const offset = new THREE.Vector3(0, cameraZoom * hFactor, -cameraZoom * 0.6);
   offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraYaw);
   
   if (carQuat) {

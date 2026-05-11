@@ -156,11 +156,8 @@ export function generateMap(seed, world, groundMat, wallMat) {
     const right = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
     pt.addScaledVector(right, side * 2.5); // 2.5m offset left/right
     
-    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), tan);
-    // Flip 180 degrees so we face the correct way on the grid
-    const flip = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
-    quat.multiply(flip);
-    
+    // Use +Z as the forward reference for the grid
+    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan);
     startGrid.push({ pos: pt, quat });
 
     // Visual grid spot (short line crossing the road sideways)
