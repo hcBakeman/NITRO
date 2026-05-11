@@ -147,7 +147,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
   }
 
   // ── Jump Pillars ────────────────────────────────────────────────────────
-  const pillarGeo = new THREE.BoxGeometry(13, 30, 2);
+  const pillarGeo = new THREE.BoxGeometry(13, 30, 0.5); // Narrower
   const pillarMat = new THREE.MeshLambertMaterial({ color: 0x333333, flatShading: true });
   jumpZones.forEach(zone => {
     [zone.startT, zone.endT].forEach(t => {
@@ -210,6 +210,21 @@ export function generateMap(seed, world, groundMat, wallMat) {
   const weaponCrateSpawns = [];
   const usedTs = new Set();
 
+  // ── Mandatory Jump Boosts ──────────────────────────────────────────────
+  // Place 1 boost pad right before each jump so players can always make it.
+  jumpZones.forEach(zone => {
+    const boostT = zone.startT - 0.02;
+    const boostPos = spline.getPointAt(boostT);
+    boostPos.y += 0.5;
+    weaponCrateSpawns.push({
+      t: boostT,
+      position: boostPos.clone(),
+      type: 'BOOST',
+      active: true,
+      respawnTimer: 0,
+    });
+  });
+
   for (let i = 0; i < crateCount; i++) {
     let ct;
     do { ct = 0.05 + rng() * 0.9; } while ([...usedTs].some(u => Math.abs(u - ct) < 0.06));
@@ -262,7 +277,7 @@ function _buildWallMaterial() {
   return new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide });
 }
 
-function _buildContinuousWallGeo(spline, length, samples, side) {
+function _buildContinuousWallGeo(spline, length, samples, side, jumpZones) {
   const geo = new THREE.BufferGeometry();
   const vertices = [];
   const uvs = [];
@@ -279,10 +294,11 @@ function _buildContinuousWallGeo(spline, length, samples, side) {
     const innerV = center.clone().addScaledVector(outDir, -WALL_T);
     const outerV = center.clone().addScaledVector(outDir, WALL_T);
 
-    vertices.push(innerV.x, 0, innerV.z);
-    vertices.push(innerV.x, WALL_H, innerV.z);
-    vertices.push(outerV.x, WALL_H, outerV.z);
-    vertices.push(outerV.x, 0, outerV.z);
+    // Wall follows the hilly pt.y
+    vertices.push(innerV.x, pt.y, innerV.z);
+    vertices.push(innerV.x, pt.y + WALL_H, innerV.z);
+    vertices.push(outerV.x, pt.y + WALL_H, outerV.z);
+    vertices.push(outerV.x, pt.y, outerV.z);
 
     const uLen = t * length / 4; 
     uvs.push(0, uLen);
@@ -292,6 +308,10 @@ function _buildContinuousWallGeo(spline, length, samples, side) {
   }
 
   for (let i = 0; i < samples; i++) {
+    const t = i / samples;
+    const isInGap = jumpZones && jumpZones.some(z => t >= z.startT && t <= z.endT);
+    if (isInGap) continue;
+
     const v = i * 4;
     const nv = (i + 1) * 4;
 
