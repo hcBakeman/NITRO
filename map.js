@@ -40,20 +40,29 @@ export function generateMap(seed, world, groundMat, wallMat) {
       const r      = RING_RADIUS + (rng() - 0.5) * 2 * OFFSET_MAX;
       const ox     = (rng() - 0.5) * OFFSET_MAX * 0.6;
       const oz     = (rng() - 0.5) * OFFSET_MAX * 0.6;
-      // Add smooth procedural hills (Sine wave based on ring position)
-      const y      = Math.max(0, Math.sin(angle * 2.5) * 8.5); 
-      pts.push(new THREE.Vector3(
-        Math.cos(angle) * r + ox,
-        y,
-        Math.sin(angle) * r + oz
-      ));
+      
+      // Procedural height: Make it a gentle roller coaster generally,
+      // but add sharp kicks at the jump zones.
+      const t = i / NUM_POINTS;
+      let y = Math.max(0, Math.sin(angle * 2) * 5); 
+      
+      // If we are just before a jump gap (at t ~0.15 or ~0.60), kick up!
+      if ((t > 0.10 && t < 0.15) || (t > 0.55 && t < 0.60)) {
+        y += 10; // The Kicker
+      }
+      
+      pts.push(new THREE.Vector3(Math.cos(angle) * r + ox, y, Math.sin(angle) * r + oz));
     }
     spline = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', 0.5);
     length = spline.getLength();
     if (length >= 600 && length <= 1000) break;
   }
 
-  const samples = Math.ceil(length / 1.5);  // ~1 sample per 1.5m
+  const samples = Math.ceil(length / 1.5); 
+  const jumpZones = [
+    { startT: 0.15, endT: 0.17 }, 
+    { startT: 0.60, endT: 0.62 }
+  ];
 
   // ── Road geometry ──────────────────────────────────────────────────────
   const roadGeo = new THREE.BufferGeometry();
@@ -67,19 +76,21 @@ export function generateMap(seed, world, groundMat, wallMat) {
     const tan = spline.getTangentAt(t % 1 || 0.999).normalize();
     const right = new THREE.Vector3(-tan.z, 0, tan.x).normalize().multiplyScalar(ROAD_HALF);
 
-    // Left vertex
-    vertices.push(pt.x - right.x, pt.y, pt.z - right.z);
-    // Right vertex
-    vertices.push(pt.x + right.x, pt.y, pt.z + right.z);
+    vertices.push(pt.x - right.x, pt.y, pt.z - right.z); // Left
+    vertices.push(pt.x + right.x, pt.y, pt.z + right.z); // Right
 
     uvs.push(0, t * length / 10);
     uvs.push(1, t * length / 10);
   }
 
   for (let i = 0; i < samples; i++) {
-    const v = i * 2;
-    indices.push(v, v + 1, v + 2);
-    indices.push(v + 1, v + 3, v + 2);
+    const t = i / samples;
+    const isInGap = jumpZones.some(z => t >= z.startT && t <= z.endT);
+    if (!isInGap) {
+      const v = i * 2;
+      indices.push(v, v + 1, v + 2);
+      indices.push(v + 1, v + 3, v + 2);
+    }
   }
 
   roadGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
@@ -87,103 +98,99 @@ export function generateMap(seed, world, groundMat, wallMat) {
   roadGeo.setIndex(indices);
   roadGeo.computeVertexNormals();
 
-  const roadMat  = _buildRoadMaterial();
+  const roadMat = _buildRoadMaterial();
   const trackMesh = new THREE.Mesh(roadGeo, roadMat);
   trackMesh.receiveShadow = true;
-  trackMesh.castShadow    = false;
 
-  // --- Physics Trimesh for the Road ---
-  // Create solid collision from the visual mesh vertices
-  const roadShape = new CANNON.Trimesh(
-    roadGeo.attributes.position.array,
-    roadGeo.index.array
-  );
+  // --- Physics Trimesh ---
+  const roadShape = new CANNON.Trimesh(roadGeo.attributes.position.array, roadGeo.index.array);
   const roadBody = new CANNON.Body({ mass: 0, material: groundMat });
   roadBody.addShape(roadShape);
   world.addBody(roadBody);
 
   // ── Wall physics and visual meshes ──────────────────────────────────────
   const wallMeshes  = [];
-  const wallBodies  = [];
   const wallMatVisual = _buildWallMaterial();
   
-  const leftGeo = _buildContinuousWallGeo(spline, length, samples, -1);
+  // Left wall
+  const leftGeo = _buildContinuousWallGeo(spline, length, samples, -1, jumpZones);
   const leftMesh = new THREE.Mesh(leftGeo, wallMatVisual);
   leftMesh.castShadow = true; leftMesh.receiveShadow = true;
   wallMeshes.push(leftMesh);
 
-  const rightGeo = _buildContinuousWallGeo(spline, length, samples, 1);
+  // Right wall
+  const rightGeo = _buildContinuousWallGeo(spline, length, samples, 1, jumpZones);
   const rightMesh = new THREE.Mesh(rightGeo, wallMatVisual);
   rightMesh.castShadow = true; rightMesh.receiveShadow = true;
   wallMeshes.push(rightMesh);
 
+  // Wall Physics (Static Boxes, skipping gaps)
   const WALL_STEP_M = 2.0;
   const wallSamplesPhys = Math.ceil(length / WALL_STEP_M);
-
   for (let i = 0; i < wallSamplesPhys; i++) {
-    const t   = i / wallSamplesPhys;
+    const t = i / wallSamplesPhys;
+    const isInGap = jumpZones.some(z => t >= z.startT && t <= z.endT);
+    if (isInGap) continue;
+
     const pt  = spline.getPointAt(t);
     const tan = spline.getTangentAt(t).normalize();
     const perp = new THREE.Vector3(-tan.z, 0, tan.x);
-
     [-1, 1].forEach(side => {
       const pos = pt.clone().addScaledVector(perp, side * (ROAD_HALF + WALL_T));
       const angle = Math.atan2(tan.x, tan.z);
-      
-      const quat = new CANNON.Quaternion();
-      quat.setFromEuler(0, angle, 0);
       const wBody = new CANNON.Body({ mass: 0, material: wallMat });
       wBody.addShape(new CANNON.Box(new CANNON.Vec3(WALL_T, WALL_H / 2, (WALL_STEP_M + 0.5) / 2)));
-      wBody.position.set(pos.x, WALL_H / 2, pos.z);
-      wBody.quaternion.copy(quat);
+      wBody.position.set(pos.x, pt.y + WALL_H / 2, pos.z);
+      wBody.quaternion.setFromEuler(0, angle, 0);
       world.addBody(wBody);
-      wallBodies.push(wBody);
     });
   }
 
-  // ── Checkpoints ────────────────────────────────────────────────────────
+  // ── Jump Pillars ────────────────────────────────────────────────────────
+  const pillarGeo = new THREE.BoxGeometry(13, 30, 2);
+  const pillarMat = new THREE.MeshLambertMaterial({ color: 0x333333, flatShading: true });
+  jumpZones.forEach(zone => {
+    [zone.startT, zone.endT].forEach(t => {
+      const pt = spline.getPointAt(t);
+      const tan = spline.getTangentAt(t);
+      const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+      pillar.position.set(pt.x, pt.y - 14.8, pt.z);
+      pillar.rotation.y = Math.atan2(tan.x, tan.z);
+      pillar.receiveShadow = true;
+      wallMeshes.push(pillar);
+    });
+  });
+
+  // ── Checkpoints & Finish ────────────────────────────────────────────────
   const checkpoints = [0.25, 0.5, 0.75, 1.0].map((t, idx) => {
     const pt  = spline.getPointAt(t % 1 || 0.999);
     const tan = spline.getTangentAt(t % 1 || 0.999);
     return { t, index: idx, position: pt.clone(), tangent: tan.clone(), passed: false };
   });
 
-  // Finish line = t=1.0 (same as checkpoint 3)
   const finishLinePt  = spline.getPointAt(0.001);
   const finishTangent = spline.getTangentAt(0.001);
 
-  // ── Start Grid (F1 staggered style) ──────────────────────────────────────
+  // ── Start Grid ──────────────────────────────────────────────────────────
   const startGrid = [];
   const startGridMeshes = [];
-  const dtPerMeter = 1.0 / length;
-
   for (let i = 0; i < 8; i++) {
-    const distBack = 6 + Math.floor(i / 2) * 8; // Row distance
-    let t = 1.0 - (distBack * dtPerMeter);
-    if (t < 0) t += 1.0;
-    
-    const pt = spline.getPointAt(t);
-    const tan = spline.getTangentAt(t).normalize();
+    const t = 1.0 - ( (6 + Math.floor(i / 2) * 8) / length );
+    const pt = spline.getPointAt(t % 1);
+    const tan = spline.getTangentAt(t % 1).normalize();
     const side = (i % 2 === 0) ? -1 : 1; 
     const right = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
-    pt.addScaledVector(right, side * 2.5); // 2.5m offset left/right
+    const spawnPos = pt.clone().addScaledVector(right, side * 3);
+    spawnPos.y += 0.5;
     
-    // Use +Z as the forward reference for the grid
     const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan);
-    startGrid.push({ pos: pt, quat });
+    startGrid.push({ position: spawnPos, quaternion: quat.clone() });
 
-    // Visual grid spot (short line crossing the road sideways)
-    const spotGeo = new THREE.BoxGeometry(3.0, 0.05, 0.3);
-    const spotMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const spot = new THREE.Mesh(spotGeo, spotMat);
-    spot.position.copy(pt);
-    spot.position.y = 0.02; // Slightly above road to prevent z-fighting
-    spot.quaternion.copy(quat);
-    spot.receiveShadow = true;
+    const spot = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 0.3), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    spot.position.copy(spawnPos); spot.position.y = pt.y + 0.02;
+    spot.quaternion.copy(quat); spot.receiveShadow = true;
     startGridMeshes.push(spot);
   }
-
-  // Add grid spots to track mesh
   startGridMeshes.forEach(mesh => trackMesh.add(mesh));
 
   // ── Weapon crate spawns ────────────────────────────────────────────────
