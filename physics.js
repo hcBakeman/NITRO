@@ -437,19 +437,19 @@ export function createRamps(rampSpawns) {
     const rampBody = new CANNON.Body({ mass: 0 });
     
     // We use a Box shape tilted to act as the slope.
-    // Box half-extents: 6.5m wide (full track), 0.1m thick, 4.0m long (slope length)
-    const shape = new CANNON.Box(new CANNON.Vec3(6.5, 0.1, 4.0));
+    // Box half-extents: 6.5m wide (full track), 0.1m thick, 6.0m long (slope length)
+    const shape = new CANNON.Box(new CANNON.Vec3(6.5, 0.1, 6.0));
     rampBody.addShape(shape);
     
-    // Position it to account for 3m height (center at ~1.3m to bury edge)
-    rampBody.position.set(spawn.position.x, 1.3, spawn.position.z);
+    // Position it for a shallow 8-degree slope
+    rampBody.position.set(spawn.position.x, 0.8, spawn.position.z);
     
     // 1. Start with the track's direction
     const q = new CANNON.Quaternion(spawn.quaternion.x, spawn.quaternion.y, spawn.quaternion.z, spawn.quaternion.w);
     
-    // 2. Apply a 15-degree tilt up (Negative X rotation in local space)
+    // 2. Apply a gentle 8-degree tilt up
     const tilt = new CANNON.Quaternion();
-    tilt.setFromEuler(-0.35, 0, 0); 
+    tilt.setFromEuler(-0.15, 0, 0); 
     q.mult(tilt, q);
     
     rampBody.quaternion.copy(q);
