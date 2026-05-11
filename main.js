@@ -472,7 +472,7 @@ function gameLoop(now) {
       if (slipDot < 0.98 || (isTurning && speed > 28)) {
         Audio.setScreech(true);
         const q = chassis.quaternion, p = chassis.position;
-        const rl = new CANNON.Vec3(-0.9, -0.4, 1.4), rr = new CANNON.Vec3(0.9, -0.4, 1.4);
+        const rl = new CANNON.Vec3(-0.7, -0.4, -1.4), rr = new CANNON.Vec3(0.7, -0.4, -1.4);
         q.vmult(rl, rl); q.vmult(rr, rr);
         Graphics.spawnTireSmoke(p.vadd(rl));
         Graphics.spawnTireSmoke(p.vadd(rr));
