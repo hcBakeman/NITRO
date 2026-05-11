@@ -169,25 +169,38 @@ export function generateMap(seed, world, groundMat, wallMat) {
 
       let mesh;
       if (style.type === 'WEDGE' || style.type === 'KICKER') {
-        mesh = new THREE.Mesh(new THREE.BoxGeometry(...style.size), new THREE.MeshLambertMaterial({ color: 0xffcc00 }));
+        // Create a Tapered Box (Triangular Prism)
+        const geo = new THREE.BoxGeometry(...style.size);
+        const posAttr = geo.attributes.position;
+        // Taper the front-facing vertices (local Z > 0) to the bottom
+        for (let i = 0; i < posAttr.count; i++) {
+          if (posAttr.getZ(i) > 0) {
+            posAttr.setY(i, -style.size[1] / 2);
+          }
+        }
+        geo.computeVertexNormals();
+        mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0xffcc00 }));
         mesh.position.copy(pos);
         mesh.quaternion.copy(quat);
-        const tilt = style.type === 'WEDGE' ? -0.18 : -0.45;
-        mesh.rotateX(tilt);
       } else {
+        // Roller (Rounded pipe)
         mesh = new THREE.Mesh(new THREE.CylinderGeometry(style.size[1], style.size[1], style.size[0], 32), new THREE.MeshLambertMaterial({ color: 0xffaa00 }));
         mesh.position.copy(pos);
         mesh.quaternion.copy(quat);
         mesh.rotateZ(Math.PI / 2);
-        mesh.position.y -= 1.0; // Sink into road
+        // Sink it so only the top curve is visible
+        mesh.position.y -= style.size[1] * 0.8; 
       }
 
       trackMesh.add(mesh);
 
-      // Physics body matching visual
-      const shape = style.type === 'ROLLER' 
-        ? new CANNON.Cylinder(style.size[1], style.size[1], style.size[0], 20)
-        : new CANNON.Box(new CANNON.Vec3(style.size[0]/2, style.size[1]/2, style.size[2]/2));
+      // Physics: Use Trimesh for the tapered wedge to ensure perfect collision
+      let shape;
+      if (style.type === 'ROLLER') {
+        shape = new CANNON.Cylinder(style.size[1], style.size[1], style.size[0], 20);
+      } else {
+        shape = new CANNON.Trimesh(mesh.geometry.attributes.position.array, mesh.geometry.index.array);
+      }
       
       const body = new CANNON.Body({ mass: 0, material: wallMat });
       body.addShape(shape);
