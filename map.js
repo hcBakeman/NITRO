@@ -182,7 +182,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
         mesh.position.y -= 1.0; // Sink into road
       }
 
-      raceGroup.add(mesh);
+      trackMesh.add(mesh);
 
       // Physics body matching visual
       const shape = style.type === 'ROLLER' 
