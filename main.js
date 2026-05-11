@@ -386,7 +386,12 @@ function gameLoop(now) {
   const lightsEl = document.getElementById('start-lights');
   const timeEl = document.getElementById('hud-time');
   
-  if (Game.racePhase === 'COUNTDOWN') {
+  if (Game.racePhase === 'INTRO') {
+    lightsEl.classList.add('hidden');
+    timeEl.textContent = "WARMING UP...";
+    Audio.updateEngine(0, false);
+    Physics.setVehicleInput({ forward: false, backward: false, left: false, right: false, fire: false });
+  } else if (Game.racePhase === 'COUNTDOWN') {
     lightsEl.classList.remove('hidden');
     const c = Game.raceCountdown;
     document.getElementById('light-1').classList.toggle('on', c <= 4.0);
@@ -519,7 +524,13 @@ function gameLoop(now) {
     const pos  = chassis.interpolatedPosition || chassis.position;
     const quat = chassis.interpolatedQuaternion || chassis.quaternion;
     _camTarget.set(pos.x, pos.y + 0.5, pos.z);
-    Graphics.updateCamera(_camTarget, quat, dt);
+    
+    if (Game.racePhase === 'INTRO') {
+      const progress = 1.0 - (Game.raceCountdown / 5.0); // 5s intro
+      Graphics.updateIntroCamera(_camTarget, progress);
+    } else {
+      Graphics.updateCamera(_camTarget, quat, dt);
+    }
   }
 
   // 10. Minimap

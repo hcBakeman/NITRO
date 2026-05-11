@@ -94,8 +94,8 @@ const TROLL_TIMEOUT = 15;
 let lastPos = null;
 let stuckTimer = 0;
 
-export let racePhase = 'COUNTDOWN'; // 'COUNTDOWN', 'ACTIVE', 'FINISHED'
-export let raceCountdown = 4.0;
+export let racePhase = 'INTRO'; // 'INTRO', 'COUNTDOWN', 'ACTIVE', 'FINISHED'
+export let raceCountdown = 5.0; // 5s for Intro, then 4s for Lights
 export let currentRaceTime = 0;
 export let currentLapTime = 0;
 export let bestCheckpointTimes = [];
@@ -113,8 +113,8 @@ export function initRace(seed, laps, world, groundMat, wallMat) {
   lastPos       = null;
   stuckTimer    = 0;
 
-  racePhase = 'COUNTDOWN';
-  raceCountdown = 4.0;
+  racePhase = 'INTRO';
+  raceCountdown = 5.0;
   currentRaceTime = 0;
   currentLapTime = 0;
   bestCheckpointTimes = [];
@@ -137,18 +137,27 @@ export function updateRace(dt, chassis) {
 
   const pos = chassis.position;
 
+  if (racePhase === 'INTRO') {
+    raceCountdown -= dt;
+    if (raceCountdown <= 0) {
+      racePhase = 'COUNTDOWN';
+      raceCountdown = 4.0;
+      _showHUDMsg("GET READY!");
+    }
+    return; // Lock input and logic during intro
+  }
+
   if (racePhase === 'COUNTDOWN') {
     if (currentRaceTime === 0 && (input.forward || input.backward)) {
-      currentRaceTime = 5.0; // Temporary storage for penalty
+      currentRaceTime = 5.0; // Jump start penalty
       _showSplitMsg("JUMP START! +5s PENALTY", "positive");
     }
     
     raceCountdown -= dt;
     if (raceCountdown <= 0) {
       racePhase = 'ACTIVE';
-      currentLapTime = currentRaceTime; // Applies the 5s penalty if they jump started
+      currentLapTime = currentRaceTime;
     }
-    // We do NOT return here, allowing them to move and hit checkpoints even if they jump start
   } else {
     currentRaceTime += dt;
     currentLapTime += dt;

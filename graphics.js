@@ -637,6 +637,22 @@ export function updateCamera(targetPos, carQuat, dt) {
   camera.lookAt(cameraTarget);
 }
 
+export function updateIntroCamera(targetPos, progress) {
+  // Aerial view: starts high and orbits slowly towards the car
+  const angle = progress * Math.PI * 0.25; // 45 degree slow orbit
+  const radius = 80 - (progress * 40);      // Zoom in from 80 to 40
+  const height = 100 - (progress * 80);     // Drop from 100 to 20
+  
+  const offset = new THREE.Vector3(
+    Math.cos(angle) * radius,
+    height,
+    Math.sin(angle) * radius
+  );
+  
+  camera.position.copy(targetPos).add(offset);
+  camera.lookAt(targetPos);
+}
+
 // ── Minimap ────────────────────────────────────────────────────────────────
 export function updateMinimap(playerPos, crates, allPlayers) {
   if (!minimapCtx || !minimapSpline) return;
