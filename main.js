@@ -344,7 +344,6 @@ async function _startRace(seed, lapCount, driveMode) {
   }
 
   // Local vehicle
-  const myId       = Network.getMyPeerId();
   const myColorIdx = Network.players[myId]?.colorIndex || 0;
   const myCarModel = Network.players[myId]?.carModel || AVAILABLE_CARS[0];
   
