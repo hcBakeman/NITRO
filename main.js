@@ -478,7 +478,10 @@ function gameLoop(now) {
   Physics.stepPhysics(dt);
 
   // 3. Flip recovery
-  Physics.checkFlip(dt);
+  const flip = Physics.checkFlip(dt);
+  if (flip.recovered) {
+    _resetToLastCheckpoint();
+  }
 
   // 4. Out of bounds reset
   if (chassis && chassis.position.y < -5) {
