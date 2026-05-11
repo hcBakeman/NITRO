@@ -447,9 +447,9 @@ export function createRamps(rampSpawns) {
     // 1. Start with the track's direction
     const q = new CANNON.Quaternion(spawn.quaternion.x, spawn.quaternion.y, spawn.quaternion.z, spawn.quaternion.w);
     
-    // 2. Apply a gentle 8-degree tilt up
+    // 2. Apply a gentle 11-degree tilt up
     const tilt = new CANNON.Quaternion();
-    tilt.setFromEuler(-0.15, 0, 0); 
+    tilt.setFromEuler(-0.2, 0, 0); 
     q.mult(tilt, q);
     
     rampBody.quaternion.copy(q);

@@ -303,15 +303,24 @@ function _buildMapRamps(ramps) {
     
     ramps.forEach(spawn => {
       const mesh = original.clone();
-      mesh.position.copy(spawn.position);
       
-      // Align with track, then tilt up gently (8 degrees) to match physics
+      // Force center the model geometry so it pivots from the middle like the physics box
+      const box = new THREE.Box3().setFromObject(mesh);
+      const center = box.getCenter(new THREE.Vector3());
+      mesh.position.set(-center.x, -center.y, -center.z);
+      
+      const wrapper = new THREE.Group();
+      wrapper.add(mesh);
+      wrapper.position.copy(spawn.position);
+      wrapper.position.y += 0.8; // Match physics center height
+      
+      // Align with track, then tilt up (11 degrees)
       const q = spawn.quaternion.clone();
-      const tilt = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.15, 0, 0));
+      const tilt = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.2, 0, 0));
       q.multiply(tilt);
-      mesh.quaternion.copy(q);
+      wrapper.quaternion.copy(q);
       
-      mesh.traverse(child => {
+      wrapper.traverse(child => {
         if (child.isMesh) {
           child.castShadow = true;
           child.receiveShadow = true;
@@ -322,13 +331,11 @@ function _buildMapRamps(ramps) {
       const debugGeo = new THREE.BoxGeometry(13, 0.2, 12);
       const debugMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
       const debugMesh = new THREE.Mesh(debugGeo, debugMat);
-      // Position matches physics logic (center of the tilted box)
-      debugMesh.position.copy(spawn.position);
-      debugMesh.position.y += 0.8;
-      debugMesh.quaternion.copy(q);
+      debugMesh.position.copy(wrapper.position);
+      debugMesh.quaternion.copy(wrapper.quaternion);
       raceGroup.add(debugMesh);
       
-      raceGroup.add(mesh);
+      raceGroup.add(wrapper);
     });
   }, undefined, err => console.error("Ramp load failed", err));
 }
