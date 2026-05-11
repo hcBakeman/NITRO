@@ -456,6 +456,11 @@ function gameLoop(now) {
   // 3. Flip recovery
   Physics.checkFlip(dt);
 
+  // 4. Out of bounds reset
+  if (chassis && chassis.position.y < -5) {
+    _resetToLastCheckpoint();
+  }
+
   // 4. Weapon fire
   const speed = chassis ? chassis.velocity.length() : 0;
   // Drift smoke only when sliding sideways

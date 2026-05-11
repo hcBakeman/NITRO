@@ -46,9 +46,9 @@ export function generateMap(seed, world, groundMat, wallMat) {
       const t = i / NUM_POINTS;
       let y = Math.max(0, Math.sin(angle * 2) * 5); 
       
-      // If we are just before a jump gap (at t ~0.15 or ~0.60), kick up!
-      if ((t > 0.10 && t < 0.15) || (t > 0.55 && t < 0.60)) {
-        y += 10; // The Kicker
+      // If we are just before a jump gap, kick up SHARPLY!
+      if ((t > 0.12 && t < 0.15) || (t > 0.57 && t < 0.60)) {
+        y += 20; // EXTREME KICKER
       }
       
       pts.push(new THREE.Vector3(Math.cos(angle) * r + ox, y, Math.sin(angle) * r + oz));

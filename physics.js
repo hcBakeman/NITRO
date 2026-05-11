@@ -26,6 +26,14 @@ export function initPhysics() {
   world.addContactMaterial(new CANNON.ContactMaterial(groundMat, groundMat, {
     friction: 0.3, restitution: 0.0
   }));
+
+  // Physical Safety Floor (Grass Level)
+  const floorBody = new CANNON.Body({ mass: 0, material: groundMat });
+  floorBody.addShape(new CANNON.Plane());
+  floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+  floorBody.position.y = -15.0; // 15m below spline center
+  world.addBody(floorBody);
+
   return world;
 }
 
@@ -232,7 +240,7 @@ export function setVehicleInput(input) {
     playerVehicle.wheelInfos[1].frictionSlip = frontFric;
   }
 
-  const currentRoll = 0.01 + speedRatio * 0.04; // Reduced roll for stability
+  const currentRoll = 0.01 + speedRatio * 0.04; 
   playerVehicle.wheelInfos.forEach(w => w.rollInfluence = currentRoll);
 
   playerVehicle.setSteeringValue(steer, 0);
@@ -429,3 +437,11 @@ export function clearPhysicsWorld() {
 export function getActiveRockets() { return activeRockets; }
 export function getActiveOilSlicks() { return activeOilSlicks; }
 export function getFlipProgress() { return { timer: flipTimer, max: FLIP_RECOVERY }; }
+export function resetVehicle(pos, quat) {
+  if (!playerChassis) return;
+  // Use THREE.Vector3/Quaternion values
+  playerChassis.position.set(pos.x, pos.y, pos.z);
+  playerChassis.quaternion.set(quat.x, quat.y, quat.z, quat.w);
+  playerChassis.velocity.set(0, 0, 0);
+  playerChassis.angularVelocity.set(0, 0, 0);
+}
