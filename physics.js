@@ -449,7 +449,7 @@ export function createRamps(rampSpawns) {
     
     // 2. Apply a 15-degree tilt up (Negative X rotation in local space)
     const tilt = new CANNON.Quaternion();
-    tilt.setFromEuler(-0.3, 0, 0); 
+    tilt.setFromEuler(-0.35, 0, 0); 
     q.mult(tilt, q);
     
     rampBody.quaternion.copy(q);

@@ -299,12 +299,17 @@ function _buildMapRamps(ramps) {
   gltfLoader.load('objects/low_poly_used_bike_ramp.glb', gltf => {
     const original = gltf.scene;
     // Scale to cover full track (13m wide) and twice the height/length
-    original.scale.set(6.5, 3.0, 2.0); 
+    original.scale.set(13.0, 3.0, 4.0); 
     
     ramps.forEach(spawn => {
       const mesh = original.clone();
       mesh.position.copy(spawn.position);
-      mesh.quaternion.copy(spawn.quaternion);
+      
+      // Align with track, then tilt up 20 degrees to match physics
+      const q = spawn.quaternion.clone();
+      const tilt = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.35, 0, 0));
+      q.multiply(tilt);
+      mesh.quaternion.copy(q);
       
       mesh.traverse(child => {
         if (child.isMesh) {
@@ -312,6 +317,16 @@ function _buildMapRamps(ramps) {
           child.receiveShadow = true;
         }
       });
+      
+      // Debug Hitbox Wireframe (Bright Green)
+      const debugGeo = new THREE.BoxGeometry(13, 0.2, 8);
+      const debugMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
+      const debugMesh = new THREE.Mesh(debugGeo, debugMat);
+      // Position matches physics logic (center of the tilted box)
+      debugMesh.position.copy(spawn.position);
+      debugMesh.position.y += 1.3;
+      debugMesh.quaternion.copy(q);
+      raceGroup.add(debugMesh);
       
       raceGroup.add(mesh);
     });
