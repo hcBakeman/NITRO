@@ -144,7 +144,6 @@ export function addMapToScene(mapData) {
   _buildCheckpointArches(mapData.checkpoints, mapData.spline);
   _buildFinishLine(mapData.finishLinePt, mapData.finishTangent);
   _buildWeaponCrateMeshes(mapData.weaponCrateSpawns);
-  _buildMapRamps(mapData.rampSpawns);
 
   // Minimap
   const mc = document.getElementById('minimap-canvas');
@@ -201,7 +200,6 @@ function _buildCheckpointArches(checkpoints, spline) {
 
     // Position arch along spline
     grp.position.copy(cp.position);
-    grp.position.y = 0;
     const angle = Math.atan2(cp.tangent.x, cp.tangent.z);
     grp.rotation.y = angle;
     grp.castShadow = true;
@@ -268,7 +266,6 @@ function _buildFinishLine(pos, tan) {
   grp.add(groundStripe);
 
   grp.position.copy(pos);
-  grp.position.y = 0;
   grp.rotation.y = Math.atan2(tan.x, tan.z);
   raceGroup.add(grp);
 }
@@ -293,55 +290,6 @@ function _buildWeaponCrateMeshes(crates) {
   });
 }
 
-function _buildMapRamps(ramps) {
-  if (!ramps || ramps.length === 0) return;
-
-  gltfLoader.load('objects/low_poly_used_bike_ramp.glb', gltf => {
-    const original = gltf.scene;
-    // Scale to cover full track (13m wide) and make it much longer for a gentle slope
-    original.scale.set(13.0, 3.0, 6.0);
-
-    ramps.forEach(spawn => {
-      const mesh = original.clone();
-
-      // Force center the model geometry so it pivots from the middle like the physics box
-      const box = new THREE.Box3().setFromObject(mesh);
-      const center = box.getCenter(new THREE.Vector3());
-      mesh.position.set(-center.x, -center.y, -center.z);
-
-      const wrapper = new THREE.Group();
-      wrapper.add(mesh);
-      wrapper.position.copy(spawn.position);
-      wrapper.position.y = 0; 
-      
-      // Align with track direction only
-      wrapper.quaternion.copy(spawn.quaternion);
-
-      wrapper.traverse(child => {
-        if (child.isMesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
-        }
-      });
-
-      // Update Debug Hitbox to match the model's natural slope
-      const debugGeo = new THREE.BoxGeometry(13, 0.2, 12.5);
-      const debugMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
-      const debugMesh = new THREE.Mesh(debugGeo, debugMat);
-      
-      const q = spawn.quaternion.clone();
-      const tilt = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.24, 0, 0));
-      q.multiply(tilt);
-      
-      debugMesh.quaternion.copy(q);
-      debugMesh.position.copy(spawn.position);
-      debugMesh.position.y = 1.45; 
-      raceGroup.add(debugMesh);
-
-      raceGroup.add(wrapper);
-    });
-  }, undefined, err => console.error("Ramp load failed", err));
-}
 
 export function updateCrateMesh(idx, active) {
   if (crateMeshes[idx]) crateMeshes[idx].visible = active;

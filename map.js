@@ -40,9 +40,11 @@ export function generateMap(seed, world, groundMat, wallMat) {
       const r      = RING_RADIUS + (rng() - 0.5) * 2 * OFFSET_MAX;
       const ox     = (rng() - 0.5) * OFFSET_MAX * 0.6;
       const oz     = (rng() - 0.5) * OFFSET_MAX * 0.6;
+      // Add smooth procedural hills (Sine wave based on ring position)
+      const y      = Math.max(0, Math.sin(angle * 2.5) * 8.5); 
       pts.push(new THREE.Vector3(
         Math.cos(angle) * r + ox,
-        0,
+        y,
         Math.sin(angle) * r + oz
       ));
     }
@@ -66,9 +68,9 @@ export function generateMap(seed, world, groundMat, wallMat) {
     const right = new THREE.Vector3(-tan.z, 0, tan.x).normalize().multiplyScalar(ROAD_HALF);
 
     // Left vertex
-    vertices.push(pt.x - right.x, 0.01, pt.z - right.z);
+    vertices.push(pt.x - right.x, pt.y, pt.z - right.z);
     // Right vertex
-    vertices.push(pt.x + right.x, 0.01, pt.z + right.z);
+    vertices.push(pt.x + right.x, pt.y, pt.z + right.z);
 
     uvs.push(0, t * length / 10);
     uvs.push(1, t * length / 10);
@@ -89,6 +91,16 @@ export function generateMap(seed, world, groundMat, wallMat) {
   const trackMesh = new THREE.Mesh(roadGeo, roadMat);
   trackMesh.receiveShadow = true;
   trackMesh.castShadow    = false;
+
+  // --- Physics Trimesh for the Road ---
+  // Create solid collision from the visual mesh vertices
+  const roadShape = new CANNON.Trimesh(
+    roadGeo.attributes.position.array,
+    roadGeo.index.array
+  );
+  const roadBody = new CANNON.Body({ mass: 0, material: groundMat });
+  roadBody.addShape(roadShape);
+  world.addBody(roadBody);
 
   // ── Wall physics and visual meshes ──────────────────────────────────────
   const wallMeshes  = [];
@@ -185,7 +197,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
     do { ct = 0.05 + rng() * 0.9; } while ([...usedTs].some(u => Math.abs(u - ct) < 0.06));
     usedTs.add(ct);
     const cratePos  = spline.getPointAt(ct);
-    cratePos.y      = 0.5;
+    cratePos.y      += 0.5;
     const typeIdx   = Math.floor(rng() * CRATE_TYPES.length);
     weaponCrateSpawns.push({
       t: ct,
@@ -196,38 +208,13 @@ export function generateMap(seed, world, groundMat, wallMat) {
     });
   }
 
-  // ── Ramp Spawns ────────────────────────────────────────────────────────
-  const rampCount = 1 + Math.floor(rng() * 3);
-  const rampSpawns = [];
-  for (let i = 0; i < rampCount; i++) {
-    let rt, attempts = 0;
-    // Keep ramps away from start/finish and other objects (limit attempts to prevent freeze)
-    do { 
-      rt = 0.15 + rng() * 0.7; 
-      attempts++;
-    } while (attempts < 50 && [...usedTs].some(u => Math.abs(u - rt) < 0.1));
-    usedTs.add(rt);
-
-    const pos = spline.getPointAt(rt);
-    const tan = spline.getTangentAt(rt).normalize();
-    // Align with track (facing +Z)
-    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan);
-    
-    rampSpawns.push({ position: pos.clone(), quaternion: quat.clone() });
-  }
 
   // ── Ground plane (visual only) ─────────────────────────────────────────
   const groundGeo  = new THREE.PlaneGeometry(2000, 2000, 4, 4);
   const groundMesh = new THREE.Mesh(groundGeo, _buildGrassMaterial());
   groundMesh.rotation.x = -Math.PI / 2;
-  groundMesh.position.y = -0.05;
+  groundMesh.position.y = -0.5; // Slightly below track to prevent z-fighting
   groundMesh.receiveShadow = true;
-
-  // Flat Cannon ground
-  const flatGround = new CANNON.Body({ mass: 0, material: groundMat });
-  flatGround.addShape(new CANNON.Plane());
-  flatGround.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-  world.addBody(flatGround);
 
   return {
     trackMesh,
@@ -238,7 +225,6 @@ export function generateMap(seed, world, groundMat, wallMat) {
     finishLinePt,
     finishTangent,
     startGrid,
-    rampSpawns,
     spline,
     roadLength: length,
   };
