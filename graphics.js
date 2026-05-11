@@ -366,10 +366,10 @@ function loadCarModelGltf(modelName) {
       
       // Fix models exported with incorrect forward axes
       if (modelName === 'dacia_duster_low_poly') {
-        innerMesh.rotation.y = Math.PI / 2; // Face forward (+Z)
+        innerMesh.rotation.y = -Math.PI / 2; // Flip back 180
       } else {
-        // Models face -Z in files, rotate 180 to face track direction (+Z)
-        innerMesh.rotation.y = Math.PI;
+        // Flip back 180
+        innerMesh.rotation.y = 0;
       }
 
       const object = new THREE.Group();
