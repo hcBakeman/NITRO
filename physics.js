@@ -203,7 +203,7 @@ export function setVehicleInput(input) {
 
   // Flip steering sign because we are driving towards -Z
   // Left (A) = -X, which is Left when facing -Z
-  const steer = input.left ? -steerAmt : input.right ? steerAmt : 0;
+  const steer = input.left ? steerAmt : input.right ? -steerAmt : 0;
 
   // ── Drift & Steering Recovery Logic ──
   if (!playerChassis.isOiled) {
