@@ -180,7 +180,7 @@ export function setVehicleInput(input) {
   let engineForce = 0, brakeForce = 0;
 
   if (input.forward) {
-    engineForce = MAX_ENGINE * fScale; // +Z is track forward
+    engineForce = -MAX_ENGINE * fScale; // Flipped per user request
 
     // Only cut engine if NOT sliding. This allows recovery power[cite: 1]
     if (kmh >= gearLimit && !isSliding) {
@@ -195,7 +195,7 @@ export function setVehicleInput(input) {
     if (playerChassis.velocity.dot(fwd) > 0.5) {
       brakeForce = Math.min(MAX_BRAKE * (speed * speed) / 50, MAX_BRAKE);
     } else {
-      engineForce = -MAX_ENGINE * 0.5;
+      engineForce = MAX_ENGINE * 0.5;
     }
   } else {
     brakeForce = 8;
