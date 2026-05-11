@@ -94,7 +94,9 @@ export function createPlayerVehicle(startPos, startQuat) {
     useCustomSlidingRotationalSpeed: true,
   };
 
-  [[-0.9, -0.05, -1.4], [0.9, -0.05, -1.4], [-0.9, -0.05, 1.4], [0.9, -0.05, 1.4]].forEach(([x, y, z]) => {
+  // Wheels: [Front Left, Front Right, Rear Left, Rear Right]
+  // Forward is now +Z, so steering wheels go at +1.4
+  [[ -0.9, -0.05, 1.4 ], [ 0.9, -0.05, 1.4 ], [ -0.9, -0.05, -1.4 ], [ 0.9, -0.05, -1.4 ]].forEach(([x, y, z]) => {
     playerVehicle.addWheel({ ...wheelOpts, chassisConnectionPointLocal: new CANNON.Vec3(x, y, z) });
   });
 
@@ -188,7 +190,7 @@ export function setVehicleInput(input) {
       engineForce *= torqueMult;
     }
   } else if (input.backward) {
-    const fwd = new CANNON.Vec3(0, 0, -1);
+    const fwd = new CANNON.Vec3(0, 0, 1);
     playerChassis.quaternion.vmult(fwd, fwd);
     if (playerChassis.velocity.dot(fwd) > 0.5) {
       brakeForce = Math.min(MAX_BRAKE * (speed * speed) / 50, MAX_BRAKE);
