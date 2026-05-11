@@ -318,6 +318,13 @@ function _onRemoteOilDrop(id, pos, quat) {
 
 // ── Start race ─────────────────────────────────────────────────────────────
 async function _startRace(seed, lapCount, driveMode) {
+  // TESTER Cheat Code: Force Seed 0 if player name is TESTER
+  const myId = Network.getMyPeerId();
+  if (Network.players[myId] && Network.players[myId].name === 'TESTER') {
+    console.log("TESTER detected: Forcing Proving Ground mode.");
+    seed = 0;
+  }
+
   Game.setState(Game.STATE.RACING);
 
   const world = Physics.getWorld();
