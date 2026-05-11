@@ -44,12 +44,8 @@ export function generateMap(seed, world, groundMat, wallMat) {
       // Procedural height: Make it a gentle roller coaster generally,
       // but add sharp kicks at the jump zones.
       const t = i / NUM_POINTS;
-      let y = Math.max(0, Math.sin(angle * 2) * 5); 
-      
-      // If we are just before a jump gap, kick up SHARPLY!
-      if ((t > 0.12 && t < 0.15) || (t > 0.57 && t < 0.60)) {
-        y += 20; // EXTREME KICKER
-      }
+      // Smooth procedural hills
+      const y = Math.max(0, Math.sin(angle * 2.5) * 6.5); 
       
       pts.push(new THREE.Vector3(Math.cos(angle) * r + ox, y, Math.sin(angle) * r + oz));
     }
@@ -59,10 +55,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
   }
 
   const samples = Math.ceil(length / 1.5); 
-  const jumpZones = [
-    { startT: 0.15, endT: 0.17 }, 
-    { startT: 0.60, endT: 0.62 }
-  ];
+  const jumpZones = []; // Gaps removed by user request
 
   // ── Road geometry ──────────────────────────────────────────────────────
   const roadGeo = new THREE.BufferGeometry();

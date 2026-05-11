@@ -27,11 +27,11 @@ export function initPhysics() {
     friction: 0.3, restitution: 0.0
   }));
 
-  // Physical Safety Floor (Grass Level)
+  // Physical Safety Floor (Ground Level)
   const floorBody = new CANNON.Body({ mass: 0, material: groundMat });
   floorBody.addShape(new CANNON.Plane());
   floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-  floorBody.position.y = -15.0; // 15m below spline center
+  floorBody.position.y = 0.0; // Solid ground at y=0
   world.addBody(floorBody);
 
   return world;

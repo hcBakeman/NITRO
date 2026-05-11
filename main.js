@@ -33,6 +33,24 @@ let _crosshairTimer = 0;
 
 // ── Car Selection ──────────────────────────────────────────────────────────
 const AVAILABLE_CARS = ['dacia_duster_low_poly', 'police_car', 'retro_anime_suzuki_alto', 'volkswagen_golf_gti_1976', 'volvo_240'];
+
+function _resetToLastCheckpoint() {
+  const mapData = Game.getMapData();
+  if (!mapData) return;
+
+  // Find last passed checkpoint
+  let target = mapData.startGrid[Network.getSelfIndex()] || mapData.startGrid[0];
+  const passed = Game.checkpoints.filter(cp => cp.passed).sort((a, b) => b.index - a.index);
+  
+  if (passed.length > 0) {
+    const cp = passed[0];
+    target = { pos: cp.position, quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), cp.tangent) };
+  }
+
+  const respawnPos = target.pos.clone();
+  respawnPos.y += 2.0;
+  Physics.resetVehicle(respawnPos, target.quat);
+}
 let currentCarIndex = 0; // Default to first car
 
 Graphics.initCarPreview(document.getElementById('car-preview-canvas'));
