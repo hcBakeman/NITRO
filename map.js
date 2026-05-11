@@ -37,7 +37,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
     const pts = [];
     for (let i = 0; i < NUM_POINTS; i++) {
       const angle  = (i / NUM_POINTS) * Math.PI * 2;
-      const isTest = (seed === 0 || seed === "0000");
+      const isTest = (Number(seed) === 0);
       const r      = RING_RADIUS + (isTest ? 0 : (rng() - 0.5) * 2 * OFFSET_MAX);
       const ox     = isTest ? 0 : (rng() - 0.5) * OFFSET_MAX * 0.6;
       const oz     = isTest ? 0 : (rng() - 0.5) * OFFSET_MAX * 0.6;
@@ -46,7 +46,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
       const t = i / NUM_POINTS;
       let y = 0;
 
-      if (seed === 0 || seed === "0000") {
+      if (isTest) {
         // Special Test Track Obstacles
         if (t > 0.15 && t < 0.20) y = 3;   // Obstacle 1: The Bump
         if (t > 0.35 && t < 0.45) y = 8;   // Obstacle 2: The Long Ramp
