@@ -207,7 +207,7 @@ export function updateRace(dt, chassis) {
         if (dist < minDist) { minDist = dist; closestT = t; }
       }
       const tan = mapData.spline.getTangentAt(closestT).normalize();
-      const fwd = new CANNON.Vec3(0, 0, -1);
+      const fwd = new CANNON.Vec3(0, 0, 1);
       chassis.quaternion.vmult(fwd, fwd);
       
       const dot = fwd.x * tan.x + fwd.z * tan.z;

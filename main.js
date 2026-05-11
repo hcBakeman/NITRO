@@ -459,7 +459,7 @@ function gameLoop(now) {
   const speed = chassis ? chassis.velocity.length() : 0;
   // Drift smoke only when sliding sideways
   if (chassis && speed > 20) {
-    const fwd = new CANNON.Vec3(0, 0, -1);
+    const fwd = new CANNON.Vec3(0, 0, 1);
     chassis.quaternion.vmult(fwd, fwd);
     const vel = chassis.velocity.clone();
     vel.y = 0; // Ignore vertical speed

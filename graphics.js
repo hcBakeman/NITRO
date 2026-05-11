@@ -368,8 +368,8 @@ function loadCarModelGltf(modelName) {
       if (modelName === 'dacia_duster_low_poly') {
         innerMesh.rotation.y = Math.PI / 2; // Face forward (+Z)
       } else {
-        // Models face +Z by default in this repo
-        innerMesh.rotation.y = 0;
+        // Models face -Z in files, rotate 180 to face track direction (+Z)
+        innerMesh.rotation.y = Math.PI;
       }
 
       const object = new THREE.Group();
