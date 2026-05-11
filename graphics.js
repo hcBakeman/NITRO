@@ -638,6 +638,9 @@ export function updateCamera(targetPos, carQuat, dt) {
 }
 
 export function updateIntroCamera(targetPos, progress) {
+  // Sync internal target so the transition to driving cam is smooth
+  cameraTarget.copy(targetPos);
+
   // Aerial view: starts high and orbits slowly towards the car
   const angle = progress * Math.PI * 0.25; // 45 degree slow orbit
   const radius = 80 - (progress * 40);      // Zoom in from 80 to 40
@@ -650,7 +653,19 @@ export function updateIntroCamera(targetPos, progress) {
   );
   
   camera.position.copy(targetPos).add(offset);
-  camera.lookAt(targetPos);
+  camera.lookAt(cameraTarget);
+}
+
+/**
+ * Instantly snaps camera to a position (useful for race start)
+ */
+export function snapCamera(targetPos, carQuat) {
+  cameraTarget.copy(targetPos);
+  
+  // Initialize at the start of the INTRO sequence (progress 0)
+  const offset = new THREE.Vector3(80, 100, 0); // radius 80, height 100
+  camera.position.copy(targetPos).add(offset);
+  camera.lookAt(cameraTarget);
 }
 
 // ── Minimap ────────────────────────────────────────────────────────────────

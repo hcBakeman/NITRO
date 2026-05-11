@@ -349,6 +349,13 @@ async function _startRace(seed, lapCount, driveMode) {
   const testTan = mapData.spline.getTangentAt(0.05).normalize();
   testBody.quaternion.setFromEuler(0, Math.atan2(testTan.x, testTan.z), 0);
   await Graphics.loadVehicle(testId, 5, 'police_car'); // Police NPC
+
+  // Snap camera to the starting aerial view so the first frame is clean
+  const myChassis = Physics.playerChassis;
+  if (myChassis) {
+    _camTarget.set(myChassis.position.x, myChassis.position.y + 0.5, myChassis.position.z);
+    Graphics.snapCamera(_camTarget, myChassis.quaternion);
+  }
 }
 
 // ── Game loop ──────────────────────────────────────────────────────────────
