@@ -37,15 +37,25 @@ export function generateMap(seed, world, groundMat, wallMat) {
     const pts = [];
     for (let i = 0; i < NUM_POINTS; i++) {
       const angle  = (i / NUM_POINTS) * Math.PI * 2;
-      const r      = RING_RADIUS + (rng() - 0.5) * 2 * OFFSET_MAX;
-      const ox     = (rng() - 0.5) * OFFSET_MAX * 0.6;
-      const oz     = (rng() - 0.5) * OFFSET_MAX * 0.6;
+      const isTest = (seed === 0 || seed === "0000");
+      const r      = RING_RADIUS + (isTest ? 0 : (rng() - 0.5) * 2 * OFFSET_MAX);
+      const ox     = isTest ? 0 : (rng() - 0.5) * OFFSET_MAX * 0.6;
+      const oz     = isTest ? 0 : (rng() - 0.5) * OFFSET_MAX * 0.6;
       
-      // Procedural height: Make it a gentle roller coaster generally,
-      // but add sharp kicks at the jump zones.
+      // Procedural height: Flat by default, but with test obstacles for Seed 0
       const t = i / NUM_POINTS;
-      // Smooth procedural hills
-      const y = Math.max(0, Math.sin(angle * 2.5) * 6.5); 
+      let y = 0;
+
+      if (seed === 0 || seed === "0000") {
+        // Special Test Track Obstacles
+        if (t > 0.15 && t < 0.20) y = 3;   // Obstacle 1: The Bump
+        if (t > 0.35 && t < 0.45) y = 8;   // Obstacle 2: The Long Ramp
+        if (t > 0.55 && t < 0.60) y = 15;  // Obstacle 3: The Kicker
+        if (t > 0.75 && t < 0.85) y = 5;   // Obstacle 4: The Double
+      } else {
+        // Regular procedural hills for other seeds
+        y = Math.max(0, Math.sin(angle * 2.5) * 6.5); 
+      }
       
       pts.push(new THREE.Vector3(Math.cos(angle) * r + ox, y, Math.sin(angle) * r + oz));
     }
