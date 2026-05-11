@@ -52,9 +52,12 @@ const allVehicleBodies = [];
 const remoteVehicles = {};
 
 function _addVanShapes(body) {
-  const chassisShape = new CANNON.Box(new CANNON.Vec3(1.0, 0.45, 1.8));
+  // Tightened hitbox: 1.64m wide, 0.9m tall, 3.5m long
+  const chassisShape = new CANNON.Box(new CANNON.Vec3(0.82, 0.45, 1.75));
   body.addShape(chassisShape, new CANNON.Vec3(0, 0, 0));
-  const cabinShape = new CANNON.Box(new CANNON.Vec3(0.8, 0.35, 0.9));
+  
+  // Cabin is narrower to allow for more lean in corners
+  const cabinShape = new CANNON.Box(new CANNON.Vec3(0.65, 0.35, 0.85));
   body.addShape(cabinShape, new CANNON.Vec3(0, 0.8, 0));
 }
 
