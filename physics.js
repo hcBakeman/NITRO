@@ -95,8 +95,8 @@ export function createPlayerVehicle(startPos, startQuat) {
   };
 
   // Wheels: [Front Left, Front Right, Rear Left, Rear Right]
-  // Forward is now +Z, so steering wheels go at +1.4
-  [[ -0.9, -0.05, 1.4 ], [ 0.9, -0.05, 1.4 ], [ -0.9, -0.05, -1.4 ], [ 0.9, -0.05, -1.4 ]].forEach(([x, y, z]) => {
+  // Standard: -Z is Forward. Steering wheels at -1.4, Rear wheels at 1.4
+  [[ -0.9, -0.05, -1.4 ], [ 0.9, -0.05, -1.4 ], [ -0.9, -0.05, 1.4 ], [ 0.9, -0.05, 1.4 ]].forEach(([x, y, z]) => {
     playerVehicle.addWheel({ ...wheelOpts, chassisConnectionPointLocal: new CANNON.Vec3(x, y, z) });
   });
 
@@ -180,7 +180,7 @@ export function setVehicleInput(input) {
   let engineForce = 0, brakeForce = 0;
 
   if (input.forward) {
-    engineForce = MAX_ENGINE * fScale;
+    engineForce = -MAX_ENGINE * fScale; // Negative Z is forward
 
     // Only cut engine if NOT sliding. This allows recovery power[cite: 1]
     if (kmh >= gearLimit && !isSliding) {
@@ -190,18 +190,19 @@ export function setVehicleInput(input) {
       engineForce *= torqueMult;
     }
   } else if (input.backward) {
-    const fwd = new CANNON.Vec3(0, 0, 1);
+    const fwd = new CANNON.Vec3(0, 0, -1);
     playerChassis.quaternion.vmult(fwd, fwd);
     if (playerChassis.velocity.dot(fwd) > 0.5) {
       brakeForce = Math.min(MAX_BRAKE * (speed * speed) / 50, MAX_BRAKE);
     } else {
-      engineForce = -MAX_ENGINE * 0.5;
+      engineForce = MAX_ENGINE * 0.5;
     }
   } else {
     brakeForce = 8;
   }
 
-  const steer = input.left ? steerAmt : input.right ? -steerAmt : 0;
+  // Flip steering sign because we are driving towards -Z
+  const steer = input.left ? -steerAmt : input.right ? steerAmt : 0;
 
   // ── Drift & Steering Recovery Logic ──
   if (!playerChassis.isOiled) {
