@@ -396,7 +396,6 @@ export async function loadVehicle(peerId, colorIndex, modelName) {
   try {
     const { mesh, dims } = await loadCarModelGltf(modelName);
     group = mesh;
-    group.rotation.y = Math.PI; // Face local -Z
     
     // Apply visual dimensions to the physics body for a perfect hitbox
     import('./physics.js').then(Physics => {
@@ -423,7 +422,6 @@ export async function loadVehicle(peerId, colorIndex, modelName) {
 function _buildFallbackCar(color) {
   const grp = new THREE.Group();
   const container = new THREE.Group();
-  container.rotation.y = Math.PI; // Face local -Z
   grp.add(container);
 
   const mat  = new THREE.MeshLambertMaterial({ color, flatShading: true });
