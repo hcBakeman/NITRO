@@ -296,7 +296,7 @@ function _buildWeaponCrateMeshes(crates) {
 function _buildMapRamps(ramps) {
   if (!ramps || ramps.length === 0) return;
   
-  gltfLoader.setPath('objects/').load('low_poly_used_bike_ramp.glb', gltf => {
+  gltfLoader.load('objects/low_poly_used_bike_ramp.glb', gltf => {
     const original = gltf.scene;
     // Standardize scale if needed, assuming the model is small
     original.scale.set(1.5, 1.5, 1.5); 
@@ -387,7 +387,7 @@ function loadCarModelGltf(modelName) {
   }
 
   return new Promise((resolve, reject) => {
-    gltfLoader.setPath('objects/').load(`${modelName}.glb`, gltf => {
+    gltfLoader.load(`objects/${modelName}.glb`, gltf => {
       const innerMesh = gltf.scene;
       
       // Fix models exported with incorrect forward axes

@@ -441,8 +441,8 @@ export function createRamps(rampSpawns) {
     const shape = new CANNON.Box(new CANNON.Vec3(1.5, 0.1, 2.2));
     rampBody.addShape(shape);
     
-    // Position it slightly above ground so the center of the tilted box is correct
-    rampBody.position.set(spawn.position.x, 0.65, spawn.position.z);
+    // Position it slightly lower to bury the leading edge under the road
+    rampBody.position.set(spawn.position.x, 0.5, spawn.position.z);
     
     // 1. Start with the track's direction
     const q = new CANNON.Quaternion(spawn.quaternion.x, spawn.quaternion.y, spawn.quaternion.z, spawn.quaternion.w);
