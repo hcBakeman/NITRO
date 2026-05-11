@@ -54,7 +54,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
         if (t > 0.75 && t < 0.85) y = 5;   // Obstacle 4: The Double
       } else {
         // Regular procedural hills for other seeds
-        y = Math.max(0, Math.sin(angle * 2.5) * 6.5); 
+        y = Math.max(0, Math.sin(angle * 3.0) * 6.5); 
       }
       
       pts.push(new THREE.Vector3(Math.cos(angle) * r + ox, y, Math.sin(angle) * r + oz));
