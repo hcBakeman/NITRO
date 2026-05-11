@@ -200,9 +200,12 @@ export function generateMap(seed, world, groundMat, wallMat) {
   const rampCount = 1 + Math.floor(rng() * 3);
   const rampSpawns = [];
   for (let i = 0; i < rampCount; i++) {
-    let rt;
-    // Keep ramps away from start/finish and other objects
-    do { rt = 0.15 + rng() * 0.7; } while ([...usedTs].some(u => Math.abs(u - rt) < 0.1));
+    let rt, attempts = 0;
+    // Keep ramps away from start/finish and other objects (limit attempts to prevent freeze)
+    do { 
+      rt = 0.15 + rng() * 0.7; 
+      attempts++;
+    } while (attempts < 50 && [...usedTs].some(u => Math.abs(u - rt) < 0.1));
     usedTs.add(rt);
 
     const pos = spline.getPointAt(rt);
