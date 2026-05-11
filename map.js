@@ -174,7 +174,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
         const posAttr = geo.attributes.position;
         // Taper the front-facing vertices (local Z > 0) to the bottom
         for (let i = 0; i < posAttr.count; i++) {
-          if (posAttr.getZ(i) > 0) {
+          if (posAttr.getZ(i) < 0) {
             posAttr.setY(i, -style.size[1] / 2);
           }
         }
