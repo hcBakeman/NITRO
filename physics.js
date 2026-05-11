@@ -297,7 +297,7 @@ function _autoRight() {
 // ── Boost ─────────────────────────────────────────────────────────────────
 export function applyBoost() {
   if (!playerChassis) return;
-  const fwd = new CANNON.Vec3(0, 0, -1);
+  const fwd = new CANNON.Vec3(0, 0, 1);
   playerChassis.quaternion.vmult(fwd, fwd);
   playerChassis.applyImpulse(fwd.scale(3500), new CANNON.Vec3(0, 0, 0));
 }
@@ -306,7 +306,7 @@ export function applyBoost() {
 const activeRockets = [];
 
 export function fireRocket(startPos, startQuat, onExplode, ownerBody) {
-  const fwd = new CANNON.Vec3(0, 0, -1);
+  const fwd = new CANNON.Vec3(0, 0, 1);
   startQuat.vmult(fwd, fwd);
   const pos = startPos.clone();
   // Spawn further ahead to prevent rocket appearing beside the car
@@ -363,7 +363,7 @@ export function deployOilSlick(position, quaternion) {
   const body = new CANNON.Body({ mass: 0, collisionResponse: false });
   // Round oil slick (Cylinder)
   body.addShape(new CANNON.Cylinder(2.5, 2.5, 0.1, 16));
-  const fwd = new CANNON.Vec3(0, 0, -1);
+  const fwd = new CANNON.Vec3(0, 0, 1);
   if (quaternion) { quaternion.vmult(fwd, fwd); body.quaternion.copy(quaternion); }
   body.position.set(position.x - fwd.x * 3.0, position.y - 0.1, position.z - fwd.z * 3.0);
   world.addBody(body);
@@ -388,7 +388,7 @@ export function deployOilSlick(position, quaternion) {
 
 export function raycastForward(body) {
   if (!body) return null;
-  const fwd = new CANNON.Vec3(0, 0, -1);
+  const fwd = new CANNON.Vec3(0, 0, 1);
   body.quaternion.vmult(fwd, fwd);
   const from = new CANNON.Vec3(body.position.x + fwd.x * 2.0, body.position.y + 0.75, body.position.z + fwd.z * 2.0);
   const to = new CANNON.Vec3(from.x + fwd.x * 100, from.y + fwd.y * 100, from.z + fwd.z * 100);

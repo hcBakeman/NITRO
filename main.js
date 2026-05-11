@@ -29,6 +29,7 @@ Game.setState(Game.STATE.MENU);
 
 // Reusable camera target
 const _camTarget = new THREE.Vector3();
+let _crosshairTimer = 0;
 
 // ── Car Selection ──────────────────────────────────────────────────────────
 const AVAILABLE_CARS = ['dacia_duster_low_poly', 'police_car', 'retro_anime_suzuki_alto', 'volkswagen_golf_gti_1976', 'volvo_240'];
