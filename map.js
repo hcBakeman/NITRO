@@ -174,24 +174,35 @@ export function generateMap(seed, world, groundMat, wallMat) {
   // ── Start Grid ──────────────────────────────────────────────────────────
   const startGrid = [];
   const startGridMeshes = [];
+  const dtPerMeter = 1.0 / length;
+
   for (let i = 0; i < 8; i++) {
-    const t = 1.0 - ( (6 + Math.floor(i / 2) * 8) / length );
+    // F1 staggered grid: 6m back for row 1, then 8m increments
+    const distBack = 6 + Math.floor(i / 2) * 8; 
+    let t = 1.0 - (distBack * dtPerMeter);
+    if (t < 0) t += 1.0;
+    
     const pt = spline.getPointAt(t % 1);
     const tan = spline.getTangentAt(t % 1).normalize();
     const side = (i % 2 === 0) ? -1 : 1; 
     const right = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+    
+    // Position car 3m to the side, and 1.5m ABOVE the road to ensure it drops onto the mesh
     const spawnPos = pt.clone().addScaledVector(right, side * 3);
-    spawnPos.y += 0.5;
+    spawnPos.y += 1.5; 
     
     const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan);
     startGrid.push({ position: spawnPos, quaternion: quat.clone() });
 
-    const spot = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 0.3), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    spot.position.copy(spawnPos); spot.position.y = pt.y + 0.02;
-    spot.quaternion.copy(quat); spot.receiveShadow = true;
+    // Visual grid spot
+    const spot = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 0.5), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    spot.position.copy(spawnPos); 
+    spot.position.y = pt.y + 0.05;
+    spot.quaternion.copy(quat);
+    spot.receiveShadow = true;
     startGridMeshes.push(spot);
   }
-  startGridMeshes.forEach(mesh => trackMesh.add(mesh));
+  startGridMeshes.forEach(m => trackMesh.add(m));
 
   // ── Weapon crate spawns ────────────────────────────────────────────────
   const CRATE_TYPES  = ['ROCKET', 'OIL_SLICK', 'BOOST'];
@@ -204,7 +215,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
     do { ct = 0.05 + rng() * 0.9; } while ([...usedTs].some(u => Math.abs(u - ct) < 0.06));
     usedTs.add(ct);
     const cratePos  = spline.getPointAt(ct);
-    cratePos.y      += 0.5;
+    cratePos.y      += 0.8; // Floating above hills
     const typeIdx   = Math.floor(rng() * CRATE_TYPES.length);
     weaponCrateSpawns.push({
       t: ct,
@@ -215,12 +226,11 @@ export function generateMap(seed, world, groundMat, wallMat) {
     });
   }
 
-
   // ── Ground plane (visual only) ─────────────────────────────────────────
   const groundGeo  = new THREE.PlaneGeometry(2000, 2000, 4, 4);
   const groundMesh = new THREE.Mesh(groundGeo, _buildGrassMaterial());
   groundMesh.rotation.x = -Math.PI / 2;
-  groundMesh.position.y = -0.5; // Slightly below track to prevent z-fighting
+  groundMesh.position.y = -1.0; // Lowered further to avoid clipping with low road parts
   groundMesh.receiveShadow = true;
 
   return {
