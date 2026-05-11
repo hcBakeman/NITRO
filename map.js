@@ -18,13 +18,11 @@ export function mulberry32(seed) {
 }
 
 // ── Track generation ──────────────────────────────────────────────────────
-const ROAD_WIDTH    = 12;
-const ROAD_HALF     = ROAD_WIDTH / 2;
-const RING_RADIUS   = 130;
-const OFFSET_MAX    = 45;
-const NUM_POINTS    = 12;
-const WALL_H        = 1.8;
-const WALL_D        = 2.5;   // depth of each wall segment box
+const NUM_POINTS    = 18;
+const RING_RADIUS   = 150;
+const OFFSET_MAX    = 35;
+const ROAD_HALF     = 5.5;
+const WALL_H        = 2.5; 
 const WALL_T        = 0.5;   // wall half-thickness
 
 export function generateMap(seed, world, groundMat, wallMat) {
