@@ -59,15 +59,15 @@ export function generateMap(seed, world, groundMat, wallMat) {
       
       pts.push(new THREE.Vector3(Math.cos(angle) * r + ox, y, Math.sin(angle) * r + oz));
     }
-    spline = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', 0.5);
+    spline = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', 0.2);
     length = spline.getLength();
     if (length >= 600 && length <= 1000) break;
   }
 
-  const samples = Math.ceil(length / 1.5); 
-  const jumpZones = []; // Gaps removed by user request
+  const samples = Math.ceil(length / 3.0); // Larger triangles are more stable
+  const jumpZones = []; 
 
-  // ── Road geometry ──────────────────────────────────────────────────────
+  // ── Road geometry (3-point cross section for stability) ──────────────
   const roadGeo = new THREE.BufferGeometry();
   const vertices = [];
   const uvs = [];
@@ -79,21 +79,26 @@ export function generateMap(seed, world, groundMat, wallMat) {
     const tan = spline.getTangentAt(t % 1 || 0.999).normalize();
     const right = new THREE.Vector3(-tan.z, 0, tan.x).normalize().multiplyScalar(ROAD_HALF);
 
+    // Three vertices per segment: Left, Center, Right
     vertices.push(pt.x - right.x, pt.y, pt.z - right.z); // Left
+    vertices.push(pt.x,           pt.y, pt.z);           // Center
     vertices.push(pt.x + right.x, pt.y, pt.z + right.z); // Right
 
-    uvs.push(0, t * length / 10);
-    uvs.push(1, t * length / 10);
+    const uvY = t * length / 10;
+    uvs.push(0, uvY, 0.5, uvY, 1, uvY);
   }
 
   for (let i = 0; i < samples; i++) {
-    const t = i / samples;
-    const isInGap = jumpZones.some(z => t >= z.startT && t <= z.endT);
-    if (!isInGap) {
-      const v = i * 2;
-      indices.push(v, v + 1, v + 2);
-      indices.push(v + 1, v + 3, v + 2);
-    }
+    const v = i * 3;
+    const nv = (i + 1) * 3;
+
+    // Left Quad
+    indices.push(v, v + 1, nv);
+    indices.push(v + 1, nv + 1, nv);
+
+    // Right Quad
+    indices.push(v + 1, v + 2, nv + 1);
+    indices.push(v + 2, nv + 2, nv + 1);
   }
 
   roadGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
