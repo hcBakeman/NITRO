@@ -45,11 +45,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
       let y = 0;
 
       if (isTest) {
-        // Special Test Track Obstacles
-        if (t > 0.15 && t < 0.20) y = 3;   // Obstacle 1: The Bump
-        if (t > 0.35 && t < 0.45) y = 8;   // Obstacle 2: The Long Ramp
-        if (t > 0.55 && t < 0.60) y = 15;  // Obstacle 3: The Kicker
-        if (t > 0.75 && t < 0.85) y = 5;   // Obstacle 4: The Double
+        y = 0; // Totally flat ground for testing modular ramps
       } else {
         // Regular procedural hills for other seeds
         y = Math.max(0, Math.sin(angle * 3.0) * 6.5); 
@@ -152,20 +148,54 @@ export function generateMap(seed, world, groundMat, wallMat) {
     });
   }
 
-  // ── Jump Pillars ────────────────────────────────────────────────────────
-  const pillarGeo = new THREE.BoxGeometry(13, 30, 0.5); // Narrower
-  const pillarMat = new THREE.MeshLambertMaterial({ color: 0x333333, flatShading: true });
-  jumpZones.forEach(zone => {
-    [zone.startT, zone.endT].forEach(t => {
-      const pt = spline.getPointAt(t);
-      const tan = spline.getTangentAt(t);
-      const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-      pillar.position.set(pt.x, pt.y - 14.8, pt.z);
-      pillar.rotation.y = Math.atan2(tan.x, tan.z);
-      pillar.receiveShadow = true;
-      wallMeshes.push(pillar);
+  // ── Modular Ramps (Seed 0000 only) ───────────────────────────────────────
+  if (isTest) {
+    const rampStyles = [
+      { t: 0.15, type: 'WEDGE', size: [11, 2, 10] },   // Long & Smooth
+      { t: 0.35, type: 'KICKER', size: [11, 4, 6] },    // Short & Steep
+      { t: 0.55, type: 'ROLLER', size: [11, 2.5, 8] }, // Rounded
+      { t: 0.75, type: 'KICKER', size: [11, 6, 8] },   // The Big One
+    ];
+
+    rampStyles.forEach(style => {
+      const pt = spline.getPointAt(style.t);
+      const tan = spline.getTangentAt(style.t).normalize();
+      const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan);
+      
+      const pos = pt.clone();
+      // Offset forward so base starts at t
+      pos.add(tan.clone().multiplyScalar(style.size[2] / 2));
+      pos.y += style.size[1] / 3; // Move up slightly
+
+      let mesh;
+      if (style.type === 'WEDGE' || style.type === 'KICKER') {
+        mesh = new THREE.Mesh(new THREE.BoxGeometry(...style.size), new THREE.MeshLambertMaterial({ color: 0xffcc00 }));
+        mesh.position.copy(pos);
+        mesh.quaternion.copy(quat);
+        const tilt = style.type === 'WEDGE' ? -0.18 : -0.45;
+        mesh.rotateX(tilt);
+      } else {
+        mesh = new THREE.Mesh(new THREE.CylinderGeometry(style.size[1], style.size[1], style.size[0], 32), new THREE.MeshLambertMaterial({ color: 0xffaa00 }));
+        mesh.position.copy(pos);
+        mesh.quaternion.copy(quat);
+        mesh.rotateZ(Math.PI / 2);
+        mesh.position.y -= 1.0; // Sink into road
+      }
+
+      raceGroup.add(mesh);
+
+      // Physics body matching visual
+      const shape = style.type === 'ROLLER' 
+        ? new CANNON.Cylinder(style.size[1], style.size[1], style.size[0], 20)
+        : new CANNON.Box(new CANNON.Vec3(style.size[0]/2, style.size[1]/2, style.size[2]/2));
+      
+      const body = new CANNON.Body({ mass: 0, material: wallMat });
+      body.addShape(shape);
+      body.position.set(mesh.position.x, mesh.position.y, mesh.position.z);
+      body.quaternion.set(mesh.quaternion.x, mesh.quaternion.y, mesh.quaternion.z, mesh.quaternion.w);
+      world.addBody(body);
     });
-  });
+  }
 
   // ── Checkpoints & Finish ────────────────────────────────────────────────
   const checkpoints = [0.25, 0.5, 0.75, 1.0].map((t, idx) => {
