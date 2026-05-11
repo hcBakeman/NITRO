@@ -180,7 +180,7 @@ export function setVehicleInput(input) {
   let engineForce = 0, brakeForce = 0;
 
   if (input.forward) {
-    engineForce = MAX_ENGINE * fScale; // Positive Z is now forward
+    engineForce = -MAX_ENGINE * fScale; // -Z is track forward
 
     // Only cut engine if NOT sliding. This allows recovery power[cite: 1]
     if (kmh >= gearLimit && !isSliding) {
@@ -190,18 +190,19 @@ export function setVehicleInput(input) {
       engineForce *= torqueMult;
     }
   } else if (input.backward) {
-    const fwd = new CANNON.Vec3(0, 0, 1);
+    const fwd = new CANNON.Vec3(0, 0, -1);
     playerChassis.quaternion.vmult(fwd, fwd);
     if (playerChassis.velocity.dot(fwd) > 0.5) {
       brakeForce = Math.min(MAX_BRAKE * (speed * speed) / 50, MAX_BRAKE);
     } else {
-      engineForce = -MAX_ENGINE * 0.5;
+      engineForce = MAX_ENGINE * 0.5;
     }
   } else {
     brakeForce = 8;
   }
 
   // Flip steering sign because we are driving towards -Z
+  // Left (A) = -X, which is Left when facing -Z
   const steer = input.left ? -steerAmt : input.right ? steerAmt : 0;
 
   // ── Drift & Steering Recovery Logic ──
