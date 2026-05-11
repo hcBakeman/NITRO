@@ -192,7 +192,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
     spawnPos.y += 1.5; 
     
     const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan);
-    startGrid.push({ position: spawnPos, quaternion: quat.clone() });
+    startGrid.push({ pos: spawnPos, quat: quat.clone() });
 
     // Visual grid spot
     const spot = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 0.5), new THREE.MeshBasicMaterial({ color: 0xffffff }));
