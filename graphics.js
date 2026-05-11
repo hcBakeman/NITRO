@@ -344,10 +344,10 @@ export async function setPreviewCar(modelName) {
       previewCarGroup.remove(previewCarGroup.children[0]); 
   }
   try {
-    const model = await loadCarModelGltf(modelName);
-    if (model) {
+    const { mesh, dims } = await loadCarModelGltf(modelName);
+    if (mesh) {
       const previewWrapper = new THREE.Group();
-      previewWrapper.add(model);
+      previewWrapper.add(mesh);
       previewWrapper.position.y += 0.45; 
       previewCarGroup.add(previewWrapper);
     }
@@ -355,7 +355,10 @@ export async function setPreviewCar(modelName) {
 }
 
 function loadCarModelGltf(modelName) {
-  if (loadedModelsCache[modelName]) return Promise.resolve(loadedModelsCache[modelName].clone());
+  if (loadedModelsCache[modelName]) {
+    const cached = loadedModelsCache[modelName];
+    return Promise.resolve({ mesh: cached.mesh.clone(), dims: cached.dims });
+  }
 
   return new Promise((resolve, reject) => {
     gltfLoader.setPath('objects/').load(`${modelName}.glb`, gltf => {
@@ -377,12 +380,13 @@ function loadCarModelGltf(modelName) {
       
       const center = box.getCenter(new THREE.Vector3());
       const bottomY = box.min.y;
-      object.position.set(-center.x * scale, -bottomY * scale - 0.45, -center.z * scale);
+      object.position.set(-center.x * scale, -bottomY * scale - 0.42, -center.z * scale);
       
+      const dims = { width: size.x * scale, length: size.z * scale };
       const wrapper = new THREE.Group();
       wrapper.add(object);
-      loadedModelsCache[modelName] = wrapper;
-      resolve(wrapper.clone());
+      loadedModelsCache[modelName] = { mesh: wrapper, dims };
+      resolve({ mesh: wrapper.clone(), dims });
     }, undefined, reject);
   });
 }
@@ -390,13 +394,16 @@ function loadCarModelGltf(modelName) {
 export async function loadVehicle(peerId, colorIndex, modelName) {
   let group;
   try {
-    const model = await loadCarModelGltf(modelName);
-    model.rotation.y = Math.PI; // Face local -Z
+    const { mesh, dims } = await loadCarModelGltf(modelName);
+    group = mesh;
+    group.rotation.y = Math.PI; // Face local -Z
     
-    group = new THREE.Group();
-    group.add(model);
+    // Apply visual dimensions to the physics body for a perfect hitbox
+    import('./physics.js').then(Physics => {
+      Physics.setVehicleHitbox(peerId, dims.width, 0.9, dims.length);
+    });
     
-    model.traverse(child => {
+    group.traverse(child => {
       if (child.isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;

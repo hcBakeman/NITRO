@@ -132,6 +132,26 @@ export function getVehicleBody(id) {
   return remoteVehicles[id];
 }
 
+/**
+ * Adjusts a vehicle's physics hitbox to match its 3D model dimensions
+ */
+export function setVehicleHitbox(id, width, height, length) {
+  const body = getVehicleBody(id);
+  if (!body) return;
+  
+  // Remove all existing shapes
+  const shapes = [...body.shapes];
+  shapes.forEach(s => body.removeShape(s));
+  
+  // Add new chassis shape (slightly inset width for better "rubbing" physics)
+  const chassisShape = new CANNON.Box(new CANNON.Vec3(width * 0.46, 0.45, length * 0.48));
+  body.addShape(chassisShape, new CANNON.Vec3(0, 0, 0));
+  
+  // Add new cabin shape
+  const cabinShape = new CANNON.Box(new CANNON.Vec3(width * 0.35, 0.35, length * 0.25));
+  body.addShape(cabinShape, new CANNON.Vec3(0, 0.8, 0));
+}
+
 // ── Vehicle Input ─────────────────────────────────────────────────────────
 export function setVehicleInput(input) {
   if (!playerVehicle || !playerChassis) return;
