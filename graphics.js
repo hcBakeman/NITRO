@@ -22,6 +22,8 @@ let   checkpointMeshes = [];
 let   finishLineMesh   = null;
 let   finishBannerTime = 0;
 const explosionParticles = [];
+const rocketLightPool = [];
+const ROCKET_LIGHT_COUNT = 8;
 
 let minimapCtx, minimapSpline, minimapCratePositions = [], minimapPlayerPos = new THREE.Vector2();
 let raceGroup = new THREE.Group();
@@ -41,6 +43,13 @@ export function initGraphics(canvas) {
 
   scene = new THREE.Scene();
   scene.fog = new THREE.Fog(0x1a9bff, 250, 800);
+
+  // Pre-instantiate rocket lights for pooling
+  for (let i = 0; i < ROCKET_LIGHT_COUNT; i++) {
+    const light = new THREE.PointLight(0xff6600, 0, 20);
+    scene.add(light);
+    rocketLightPool.push(light);
+  }
 
   // 90's Sky Gradient Sphere
   const skyGeo = new THREE.SphereGeometry(900, 32, 15);
@@ -501,9 +510,14 @@ export function createRocketMesh() {
     group.add(fin);
   }
 
-  const light = new THREE.PointLight(0xff6600, 80, 20);
-  light.position.set(0, 0, 0.8);
-  group.add(light);
+  // Get a light from the pool instead of creating a new one
+  if (rocketLightPool.length > 0) {
+    const light = rocketLightPool.pop();
+    light.intensity = 80;
+    light.position.set(0, 0, 0.8);
+    group.add(light);
+    group.userData.poolLight = light;
+  }
 
   scene.add(group);
   return group;
@@ -531,9 +545,10 @@ const _tireSmokeGeo = new THREE.SphereGeometry(0.15, 4, 4);
 const _tireSmokeMat = new THREE.MeshBasicMaterial({ color: 0xdddddd, transparent: true, opacity: 0.4 });
 
 function _spawnSmoke(pos) {
-  const mesh = new THREE.Mesh(_smokeGeo, _smokeMat.clone());
+  const mesh = new THREE.Mesh(_smokeGeo, _smokeMat); // Shared material, no .clone()
   mesh.position.set(pos.x, pos.y, pos.z);
-  mesh.scale.setScalar(0.75 + Math.random() * 0.5);
+  mesh.userData.baseScale = 0.75 + Math.random() * 0.5;
+  mesh.scale.setScalar(mesh.userData.baseScale);
   scene.add(mesh);
   explosionParticles.push({ mesh, life: 0.6, maxLife: 0.6 });
 }
@@ -548,6 +563,14 @@ export function spawnTireSmoke(pos) {
 
 export function removeMesh(mesh) {
   if (mesh && mesh.parent) {
+    // Return light to pool if it has one
+    if (mesh.userData.poolLight) {
+      const light = mesh.userData.poolLight;
+      light.intensity = 0;
+      scene.add(light); // Re-attach to scene root
+      rocketLightPool.push(light);
+      mesh.userData.poolLight = null;
+    }
     mesh.parent.remove(mesh);
   }
 }
@@ -696,14 +719,17 @@ export function renderScene(dt) {
   for (let i = explosionParticles.length - 1; i >= 0; i--) {
     const ep = explosionParticles[i];
     ep.life -= dt;
-    const scale = ep.life / ep.maxLife;
-    ep.mesh.scale.setScalar(1 + (1 - scale) * 3);
-    ep.mesh.material.opacity = scale;
-    ep.mesh.material.transparent = true;
     if (ep.life <= 0) {
       scene.remove(ep.mesh);
       explosionParticles.splice(i, 1);
+      continue;
     }
+    const ratio = ep.life / ep.maxLife;
+    const baseScale = ep.mesh.userData.baseScale || 1.0;
+    
+    // For smoke/particles, we shrink them to zero. 
+    // For large explosions, we might expand then shrink, but let's keep it simple for now.
+    ep.mesh.scale.setScalar(baseScale * ratio);
   }
 
   renderer.render(scene, camera);
