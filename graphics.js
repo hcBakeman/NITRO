@@ -298,8 +298,8 @@ function _buildMapRamps(ramps) {
   
   gltfLoader.load('objects/low_poly_used_bike_ramp.glb', gltf => {
     const original = gltf.scene;
-    // Standardize scale if needed, assuming the model is small
-    original.scale.set(1.5, 1.5, 1.5); 
+    // Scale to cover full track (13m wide) and twice the height/length
+    original.scale.set(6.5, 3.0, 2.0); 
     
     ramps.forEach(spawn => {
       const mesh = original.clone();
