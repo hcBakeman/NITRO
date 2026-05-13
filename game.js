@@ -4,24 +4,43 @@
  */
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import * as Physics  from './physics.js';
-import * as Network  from './network.js';
+import * as Physics from './physics.js';
+import * as Network from './network.js';
 import * as Graphics from './graphics.js';
-import { generateMap, checkCheckpointProximity, checkCrateProximity, updateCrateRespawns } from './map.js';
+import {
+  generateMap,
+  checkCheckpointProximity,
+  checkCrateProximity,
+  updateCrateRespawns,
+} from './map.js';
+import { formatTime } from './utils.js';
 
 // ── State ──────────────────────────────────────────────────────────────────
 export const STATE = { MENU: 'MENU', LOBBY: 'LOBBY', RACING: 'RACING', FINISHED: 'FINISHED' };
 let currentState = STATE.MENU;
 
-export function getState() { return currentState; }
+export function getState() {
+  return currentState;
+}
 export function setState(s) {
   currentState = s;
   document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
   const hudEl = document.getElementById('hud');
-  if (s === STATE.MENU)     { document.getElementById('screen-menu').classList.add('active'); hudEl.classList.add('hidden'); }
-  if (s === STATE.LOBBY)    { document.getElementById('screen-lobby').classList.add('active'); hudEl.classList.add('hidden'); }
-  if (s === STATE.RACING)   { hudEl.classList.remove('hidden'); }
-  if (s === STATE.FINISHED) { document.getElementById('screen-finished').classList.add('active'); hudEl.classList.add('hidden'); }
+  if (s === STATE.MENU) {
+    document.getElementById('screen-menu').classList.add('active');
+    hudEl.classList.add('hidden');
+  }
+  if (s === STATE.LOBBY) {
+    document.getElementById('screen-lobby').classList.add('active');
+    hudEl.classList.add('hidden');
+  }
+  if (s === STATE.RACING) {
+    hudEl.classList.remove('hidden');
+  }
+  if (s === STATE.FINISHED) {
+    document.getElementById('screen-finished').classList.add('active');
+    hudEl.classList.add('hidden');
+  }
 }
 
 // ── Input ──────────────────────────────────────────────────────────────────
@@ -30,21 +49,24 @@ let fireQueued = false;
 
 export function initInput() {
   const down = e => {
-    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp')    input.forward  = true;
-    if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown')  input.backward = true;
-    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft')  input.left     = true;
-    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') input.right    = true;
-    if (e.key === ' ' && !input.fire) { input.fire = true; fireQueued = true; }
+    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') input.forward = true;
+    if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') input.backward = true;
+    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') input.left = true;
+    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') input.right = true;
+    if (e.key === ' ' && !input.fire) {
+      input.fire = true;
+      fireQueued = true;
+    }
   };
   const up = e => {
-    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp')    input.forward  = false;
-    if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown')  input.backward = false;
-    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft')  input.left     = false;
-    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') input.right    = false;
-    if (e.key === ' ')  input.fire = false;
+    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') input.forward = false;
+    if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') input.backward = false;
+    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') input.left = false;
+    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') input.right = false;
+    if (e.key === ' ') input.fire = false;
   };
   window.addEventListener('keydown', down);
-  window.addEventListener('keyup',   up);
+  window.addEventListener('keyup', up);
 }
 
 export function consumeFire() {
@@ -56,11 +78,11 @@ export function consumeFire() {
 // ── Weapon ─────────────────────────────────────────────────────────────────
 const AMMO = { ROCKET: 2, OIL_SLICK: 2, BOOST: 1 };
 export let heldWeapon = null;
-export let heldAmmo   = 0;
+export let heldAmmo = 0;
 
 export function pickupWeapon(type) {
   heldWeapon = type;
-  heldAmmo   = AMMO[type] || 1;
+  heldAmmo = AMMO[type] || 1;
   _updateWeaponHUD();
 }
 
@@ -82,13 +104,13 @@ function _updateWeaponHUD() {
 }
 
 // ── Race data ──────────────────────────────────────────────────────────────
-let mapData   = null;
-let lapCount  = 3;
-let myLap     = 0;
+let mapData = null;
+let lapCount = 3;
+let myLap = 0;
 let myCheckpointsThisLap = 0;
 let raceStartTime = 0;
-let raceFinished  = false;
-let trollTimer    = 0;
+let raceFinished = false;
+let trollTimer = 0;
 let winnerFinishedAt = null;
 const TROLL_TIMEOUT = 15;
 let lastPos = null;
@@ -103,15 +125,15 @@ export let bestLapTime = Infinity;
 
 export function initRace(seed, laps, world, groundMat, wallMat) {
   lapCount = laps;
-  myLap    = 1;
+  myLap = 1;
   myCheckpointsThisLap = 0;
-  raceFinished  = false;
-  trollTimer    = 0;
+  raceFinished = false;
+  trollTimer = 0;
   winnerFinishedAt = null;
-  heldWeapon    = 'ROCKET';
-  heldAmmo      = 100;
-  lastPos       = null;
-  stuckTimer    = 0;
+  heldWeapon = null;
+  heldAmmo = 0;
+  lastPos = null;
+  stuckTimer = 0;
 
   racePhase = 'INTRO';
   raceCountdown = 5.0;
@@ -119,7 +141,6 @@ export function initRace(seed, laps, world, groundMat, wallMat) {
   currentLapTime = 0;
   bestCheckpointTimes = [];
   bestLapTime = Infinity;
-  let penaltyTime = 0;
 
   mapData = generateMap(seed, world, groundMat, wallMat);
   raceStartTime = performance.now() / 1000;
@@ -129,7 +150,9 @@ export function initRace(seed, laps, world, groundMat, wallMat) {
   return mapData;
 }
 
-export function getRaceMapData() { return mapData; }
+export function getRaceMapData() {
+  return mapData;
+}
 
 // ── Per-frame race update ──────────────────────────────────────────────────
 export function updateRace(dt, chassis) {
@@ -142,7 +165,7 @@ export function updateRace(dt, chassis) {
     if (raceCountdown <= 0) {
       racePhase = 'COUNTDOWN';
       raceCountdown = 4.0;
-      _showHUDMsg("GET READY!");
+      _showHUDMsg('GET READY!');
     }
     return; // Lock input and logic during intro
   }
@@ -150,9 +173,9 @@ export function updateRace(dt, chassis) {
   if (racePhase === 'COUNTDOWN') {
     if (currentRaceTime === 0 && (input.forward || input.backward)) {
       currentRaceTime = 5.0; // Jump start penalty
-      _showSplitMsg("JUMP START! +5s PENALTY", "positive");
+      _showSplitMsg('JUMP START! +5s PENALTY', 'positive');
     }
-    
+
     raceCountdown -= dt;
     if (raceCountdown <= 0) {
       racePhase = 'ACTIVE';
@@ -171,7 +194,7 @@ export function updateRace(dt, chassis) {
       hitCp.passed = true;
       myCheckpointsThisLap++;
       Graphics.flashCheckpoint(hitCp.index);
-      
+
       const cpIndex = hitCp.index;
       if (bestCheckpointTimes[cpIndex]) {
         const split = currentLapTime - bestCheckpointTimes[cpIndex];
@@ -195,21 +218,29 @@ export function updateRace(dt, chassis) {
 
   // ── Wrong Way Detection (throttled) ──
   if (chassis && mapData.spline && chassis.velocity.lengthSquared() > 10) {
-    if (!chassis._lastWwCheck || (performance.now() - chassis._lastWwCheck) > 500) {
+    if (!chassis._lastWwCheck || performance.now() - chassis._lastWwCheck > 500) {
       chassis._lastWwCheck = performance.now();
-      let closestT = 0;
+      // Search only around the cached closest t (±0.12) for better perf
+      const prevT = chassis._closestT ?? 0.5;
+      const searchMin = Math.max(0, prevT - 0.12);
+      const searchMax = Math.min(1, prevT + 0.12);
+      const STEPS = 12;
+      let closestT = prevT;
       let minDist = Infinity;
-      const pos = chassis.position;
-      for(let i = 0; i <= 20; i++) {
-        const t = i / 20;
+      for (let i = 0; i <= STEPS; i++) {
+        const t = searchMin + (searchMax - searchMin) * (i / STEPS);
         const pt = mapData.spline.getPointAt(t);
         const dist = pt.distanceToSquared(pos);
-        if (dist < minDist) { minDist = dist; closestT = t; }
+        if (dist < minDist) {
+          minDist = dist;
+          closestT = t;
+        }
       }
+      chassis._closestT = closestT;
       const tan = mapData.spline.getTangentAt(closestT).normalize();
       const fwd = new CANNON.Vec3(0, 0, 1);
       chassis.quaternion.vmult(fwd, fwd);
-      
+
       const dot = fwd.x * tan.x + fwd.z * tan.z;
       const msgEl = document.getElementById('wrong-way-msg');
       if (dot < -0.3) {
@@ -228,7 +259,7 @@ export function updateRace(dt, chassis) {
     const idx = mapData.weaponCrateSpawns.indexOf(hitCrate);
     hitCrate.active = false;
     hitCrate.respawnTimer = 20;
-    Graphics.updateCrateMesh(idx, false);
+    hitCrate._dirty = true; // Signal mesh update needed
     pickupWeapon(hitCrate.type);
     Network.sendCratePickup(idx, hitCrate.type);
     _showHUDMsg(`PICKED UP ${hitCrate.type.replace('_', ' ')}!`);
@@ -236,16 +267,26 @@ export function updateRace(dt, chassis) {
 
   // ── Crate respawn ──
   updateCrateRespawns(mapData.weaponCrateSpawns, dt);
-  mapData.weaponCrateSpawns.forEach((c, i) => Graphics.updateCrateMesh(i, c.active));
+  // Only update mesh when state changed (dirty flag), not every frame
+  mapData.weaponCrateSpawns.forEach((c, i) => {
+    if (c._dirty) {
+      Graphics.updateCrateMesh(i, c.active);
+      c._dirty = false;
+    }
+  });
 
   // ── Troll prevention ──
   if (winnerFinishedAt !== null && !raceFinished) {
     if (lastPos) {
-      const dx = pos.x - lastPos.x, dz = pos.z - lastPos.z;
-      const moved = Math.sqrt(dx*dx + dz*dz);
+      const dx = pos.x - lastPos.x,
+        dz = pos.z - lastPos.z;
+      const moved = Math.sqrt(dx * dx + dz * dz);
       if (moved < 0.5) {
         stuckTimer += dt;
-        if (stuckTimer >= TROLL_TIMEOUT && myCheckpointsThisLap < mapData.checkpoints.length * lapCount) {
+        if (
+          stuckTimer >= TROLL_TIMEOUT &&
+          myCheckpointsThisLap < mapData.checkpoints.length * lapCount
+        ) {
           _disqualify();
         }
       } else {
@@ -279,7 +320,7 @@ function _completeLap() {
   if (currentLapTime > 0 && currentLapTime < bestLapTime) bestLapTime = currentLapTime;
 
   // Reset checkpoints for next lap
-  mapData.checkpoints.forEach(cp => cp.passed = false);
+  mapData.checkpoints.forEach(cp => (cp.passed = false));
   myCheckpointsThisLap = 0;
   currentLapTime = 0; // Reset lap time
 
@@ -311,13 +352,6 @@ function _disqualify() {
   setTimeout(() => _showResults(), 2000);
 }
 
-function formatTime(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  const ms = Math.floor((seconds % 1) * 1000);
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
-}
-
 function _showResults() {
   const pl = Network.players;
   const sorted = Object.entries(pl)
@@ -334,13 +368,18 @@ function _showResults() {
     const li = document.createElement('li');
     const dot = document.createElement('span');
     dot.className = 'player-color-dot';
-    dot.style.background = '#' + (Graphics.PLAYER_COLORS[p.colorIndex % 6] || 0xffffff).toString(16).padStart(6, '0');
+    dot.style.background =
+      '#' + (Graphics.PLAYER_COLORS[p.colorIndex % 6] || 0xffffff).toString(16).padStart(6, '0');
     li.appendChild(dot);
-    
+
     const totalTimeStr = p.finishTime ? formatTime(p.finishTime) : 'N/A';
     const bestLapStr = p.bestLap && p.bestLap < Infinity ? formatTime(p.bestLap) : 'N/A';
-    
-    li.appendChild(document.createTextNode(`${i + 1}. ${p.name || id.slice(0, 6)} - Time: ${totalTimeStr} | Best Lap: ${bestLapStr}${p.disqualified ? ' (DSQ)' : ''}`));
+
+    li.appendChild(
+      document.createTextNode(
+        `${i + 1}. ${p.name || id.slice(0, 6)} - Time: ${totalTimeStr} | Best Lap: ${bestLapStr}${p.disqualified ? ' (DSQ)' : ''}`
+      )
+    );
     list.appendChild(li);
   });
 

@@ -16,8 +16,8 @@ let cameraYaw = 0;
 let cameraZoom = 35;
 let cameraTarget = new THREE.Vector3();
 
-const vehicleMeshes = {};   // peerId → { group, wheels[] }
-const crateMeshes = {};   // crateIndex → mesh
+const vehicleMeshes = {}; // peerId → { group, wheels[] }
+const crateMeshes = {}; // crateIndex → mesh
 let checkpointMeshes = [];
 let finishLineMesh = null;
 let finishBannerTime = 0;
@@ -25,7 +25,10 @@ const explosionParticles = [];
 const rocketLightPool = [];
 const ROCKET_LIGHT_COUNT = 8;
 
-let minimapCtx, minimapSpline, minimapCratePositions = [], minimapPlayerPos = new THREE.Vector2();
+let minimapCtx,
+  minimapSpline,
+  minimapCratePositions = [],
+  minimapPlayerPos = new THREE.Vector2();
 let raceGroup = new THREE.Group();
 
 let previewRenderer, previewScene, previewCamera;
@@ -58,7 +61,7 @@ export function initGraphics(canvas) {
       topColor: { value: new THREE.Color(0x0077ff) },
       bottomColor: { value: new THREE.Color(0x88ccff) },
       offset: { value: 0 },
-      exponent: { value: 0.6 }
+      exponent: { value: 0.6 },
     },
     vertexShader: `
       varying vec3 vWorldPosition;
@@ -79,7 +82,7 @@ export function initGraphics(canvas) {
         gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
       }
     `,
-    side: THREE.BackSide
+    side: THREE.BackSide,
   });
   scene.add(new THREE.Mesh(skyGeo, skyMat));
 
@@ -88,7 +91,9 @@ export function initGraphics(canvas) {
   const starPos = [];
   for (let i = 0; i < 2000; i++) {
     const p = new THREE.Vector3().setFromSphericalCoords(
-      850, Math.random() * Math.PI, Math.random() * Math.PI * 2
+      850,
+      Math.random() * Math.PI,
+      Math.random() * Math.PI * 2
     );
     starPos.push(p.x, p.y, p.z);
   }
@@ -168,8 +173,18 @@ function _buildCheckpointArches(checkpoints, spline) {
   checkpointMeshes = [];
   checkpoints.forEach((cp, idx) => {
     const grp = new THREE.Group();
-    const mat = new THREE.MeshLambertMaterial({ color: 0xff6600, emissive: 0xff2200, emissiveIntensity: 0.4, flatShading: true });
-    const matW = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0xaaaaaa, emissiveIntensity: 0.2, flatShading: true });
+    const mat = new THREE.MeshLambertMaterial({
+      color: 0xff6600,
+      emissive: 0xff2200,
+      emissiveIntensity: 0.4,
+      flatShading: true,
+    });
+    const matW = new THREE.MeshLambertMaterial({
+      color: 0xffffff,
+      emissive: 0xaaaaaa,
+      emissiveIntensity: 0.2,
+      flatShading: true,
+    });
 
     // Two posts + crossbar (alternating orange/white stripes via separate meshes)
     const postGeo = new THREE.BoxGeometry(0.5, 5, 0.5);
@@ -186,7 +201,8 @@ function _buildCheckpointArches(checkpoints, spline) {
 
     // Floating label sprite
     const labelCanvas = document.createElement('canvas');
-    labelCanvas.width = 256; labelCanvas.height = 64;
+    labelCanvas.width = 256;
+    labelCanvas.height = 64;
     const lc = labelCanvas.getContext('2d');
     lc.fillStyle = idx === 3 ? '#ffee22' : '#ffffff';
     lc.font = 'bold 28px monospace';
@@ -214,10 +230,13 @@ function _buildFinishLine(pos, tan) {
 
   // Checker banner canvas
   const bc = document.createElement('canvas');
-  bc.width = 512; bc.height = 128;
+  bc.width = 512;
+  bc.height = 128;
   const bctx = bc.getContext('2d');
-  const cols = 16, rows = 4;
-  const cw = bc.width / cols, ch = bc.height / rows;
+  const cols = 16,
+    rows = 4;
+  const cw = bc.width / cols,
+    ch = bc.height / rows;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       bctx.fillStyle = (r + c) % 2 === 0 ? '#000000' : '#ffffff';
@@ -247,7 +266,8 @@ function _buildFinishLine(pos, tan) {
 
   // Ground checker stripe
   const gc = document.createElement('canvas');
-  gc.width = 128; gc.height = 512;
+  gc.width = 128;
+  gc.height = 512;
   const gctx = gc.getContext('2d');
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 2; c++) {
@@ -290,7 +310,6 @@ function _buildWeaponCrateMeshes(crates) {
   });
 }
 
-
 export function updateCrateMesh(idx, active) {
   if (crateMeshes[idx]) crateMeshes[idx].visible = active;
 }
@@ -303,7 +322,9 @@ export function flashCheckpoint(cpIndex) {
     if (child.material) {
       const orig = child.material.emissiveIntensity || 0;
       child.material.emissiveIntensity = 2.0;
-      setTimeout(() => { child.material.emissiveIntensity = orig; }, 400);
+      setTimeout(() => {
+        child.material.emissiveIntensity = orig;
+      }, 400);
     }
   });
 }
@@ -350,7 +371,9 @@ export async function setPreviewCar(modelName) {
       previewWrapper.position.y += 0.45;
       previewCarGroup.add(previewWrapper);
     }
-  } catch (e) { console.error("Preview load failed", e); }
+  } catch (e) {
+    console.error('Preview load failed', e);
+  }
 }
 
 function loadCarModelGltf(modelName) {
@@ -360,36 +383,41 @@ function loadCarModelGltf(modelName) {
   }
 
   return new Promise((resolve, reject) => {
-    gltfLoader.load(`objects/${modelName}.glb`, gltf => {
-      const innerMesh = gltf.scene;
+    gltfLoader.load(
+      `objects/${modelName}.glb`,
+      gltf => {
+        const innerMesh = gltf.scene;
 
-      // Fix models exported with incorrect forward axes
-      if (modelName === 'dacia_duster_low_poly') {
-        innerMesh.rotation.y = -Math.PI / 2; // Flip back 180
-      } else {
-        // Flip back 180
-        innerMesh.rotation.y = 0;
-      }
+        // Fix models exported with incorrect forward axes
+        if (modelName === 'dacia_duster_low_poly') {
+          innerMesh.rotation.y = -Math.PI / 2; // Flip back 180
+        } else {
+          // Flip back 180
+          innerMesh.rotation.y = 0;
+        }
 
-      const object = new THREE.Group();
-      object.add(innerMesh);
-      object.updateMatrixWorld(true);
+        const object = new THREE.Group();
+        object.add(innerMesh);
+        object.updateMatrixWorld(true);
 
-      const box = new THREE.Box3().setFromObject(object);
-      const size = box.getSize(new THREE.Vector3());
-      const scale = 3.6 / size.z; // Scale so length is ~3.6m
-      object.scale.set(scale, scale, scale);
+        const box = new THREE.Box3().setFromObject(object);
+        const size = box.getSize(new THREE.Vector3());
+        const scale = 3.6 / size.z; // Scale so length is ~3.6m
+        object.scale.set(scale, scale, scale);
 
-      const center = box.getCenter(new THREE.Vector3());
-      const bottomY = box.min.y;
-      object.position.set(-center.x * scale, -bottomY * scale - 0.42, -center.z * scale);
+        const center = box.getCenter(new THREE.Vector3());
+        const bottomY = box.min.y;
+        object.position.set(-center.x * scale, -bottomY * scale - 0.42, -center.z * scale);
 
-      const dims = { width: size.x * scale, length: size.z * scale };
-      const wrapper = new THREE.Group();
-      wrapper.add(object);
-      loadedModelsCache[modelName] = { mesh: wrapper, dims };
-      resolve({ mesh: wrapper.clone(), dims });
-    }, undefined, reject);
+        const dims = { width: size.x * scale, length: size.z * scale };
+        const wrapper = new THREE.Group();
+        wrapper.add(object);
+        loadedModelsCache[modelName] = { mesh: wrapper, dims };
+        resolve({ mesh: wrapper.clone(), dims });
+      },
+      undefined,
+      reject
+    );
   });
 }
 
@@ -411,7 +439,7 @@ export async function loadVehicle(peerId, colorIndex, modelName) {
       }
     });
   } catch (e) {
-    console.error("Failed to load vehicle", modelName, e);
+    console.error('Failed to load vehicle', modelName, e);
     const color = PLAYER_COLORS[colorIndex % PLAYER_COLORS.length];
     group = _buildFallbackCar(color);
   }
@@ -444,7 +472,12 @@ function _buildFallbackCar(color) {
   const wheelMat = new THREE.MeshLambertMaterial({ color: 0x111111, flatShading: true });
   const wheelGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.3, 10);
   // Wheels at bottom (-0.45 relative to center)
-  [[-0.9, -0.45, 1.4], [0.9, -0.45, 1.4], [-0.9, -0.45, -1.4], [0.9, -0.45, -1.4]].forEach(([x, y, z]) => {
+  [
+    [-0.9, -0.45, 1.4],
+    [0.9, -0.45, 1.4],
+    [-0.9, -0.45, -1.4],
+    [0.9, -0.45, -1.4],
+  ].forEach(([x, y, z]) => {
     const w = new THREE.Mesh(wheelGeo, wheelMat);
     w.rotation.z = Math.PI / 2;
     w.position.set(x, 0.38, z);
@@ -484,7 +517,7 @@ const rocketBodyMat = new THREE.MeshStandardMaterial({
   color: 0xff0000,
   emissive: 0xff0000,
   emissiveIntensity: 1.5,
-  flatShading: true
+  flatShading: true,
 });
 
 const rocketNoseGeo = new THREE.ConeGeometry(0.25, 0.5, 8);
@@ -494,7 +527,7 @@ const rocketNoseMat = new THREE.MeshStandardMaterial({
   color: 0xffffff,
   emissive: 0xffffff,
   emissiveIntensity: 1.5,
-  flatShading: true
+  flatShading: true,
 });
 
 const rocketFinGeo = new THREE.BoxGeometry(0.06, 0.4, 0.4);
@@ -549,7 +582,11 @@ export function updateRocketMesh(mesh, pos, vel, dt) {
 const _smokeGeo = new THREE.SphereGeometry(0.2, 4, 4);
 const _smokeMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.6 });
 const _tireSmokeGeo = new THREE.SphereGeometry(0.15, 4, 4);
-const _tireSmokeMat = new THREE.MeshBasicMaterial({ color: 0xdddddd, transparent: true, opacity: 0.4 });
+const _tireSmokeMat = new THREE.MeshBasicMaterial({
+  color: 0xdddddd,
+  transparent: true,
+  opacity: 0.4,
+});
 
 function _spawnSmoke(pos) {
   const mesh = new THREE.Mesh(_smokeGeo, _smokeMat); // Shared material, no .clone()
@@ -583,7 +620,11 @@ export function removeMesh(mesh) {
 }
 
 // ── Explosion effect ────────────────────────────────────────────────────────
-const explosionMat = new THREE.MeshBasicMaterial({ color: 0xff6600, transparent: true, depthTest: false });
+const explosionMat = new THREE.MeshBasicMaterial({
+  color: 0xff6600,
+  transparent: true,
+  depthTest: false,
+});
 let explosionTemplateGeo = null;
 
 // Pre-generate the merged explosion geometry once when module loads
@@ -651,14 +692,10 @@ export function updateIntroCamera(targetPos, progress) {
 
   // Aerial view: starts high and orbits slowly towards the car
   const angle = progress * Math.PI * 0.25; // 45 degree slow orbit
-  const radius = 80 - (progress * 40);      // Zoom in from 80 to 40
-  const height = 100 - (progress * 80);     // Drop from 100 to 20
+  const radius = 80 - progress * 40; // Zoom in from 80 to 40
+  const height = 100 - progress * 80; // Drop from 100 to 20
 
-  const offset = new THREE.Vector3(
-    Math.cos(angle) * radius,
-    height,
-    Math.sin(angle) * radius
-  );
+  const offset = new THREE.Vector3(Math.cos(angle) * radius, height, Math.sin(angle) * radius);
 
   camera.position.copy(targetPos).add(offset);
   camera.lookAt(cameraTarget);
@@ -679,23 +716,32 @@ export function snapCamera(targetPos, carQuat) {
 // ── Minimap ────────────────────────────────────────────────────────────────
 export function updateMinimap(playerPos, crates, allPlayers) {
   if (!minimapCtx || !minimapSpline) return;
-  const ctx = minimapCtx, W = 160, H = 160;
+  const ctx = minimapCtx,
+    W = 160,
+    H = 160;
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = 'rgba(0,0,0,0.7)';
   ctx.fillRect(0, 0, W, H);
 
   // Spline
   const pts = minimapSpline.getPoints(120);
-  const xs = pts.map(p => p.x), zs = pts.map(p => p.z);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minZ = Math.min(...zs), maxZ = Math.max(...zs);
+  const xs = pts.map(p => p.x),
+    zs = pts.map(p => p.z);
+  const minX = Math.min(...xs),
+    maxX = Math.max(...xs);
+  const minZ = Math.min(...zs),
+    maxZ = Math.max(...zs);
   const toMX = x => ((x - minX) / (maxX - minX)) * (W - 16) + 8;
   const toMZ = z => ((z - minZ) / (maxZ - minZ)) * (H - 16) + 8;
 
-  ctx.strokeStyle = '#555'; ctx.lineWidth = 4;
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 4;
   ctx.beginPath();
-  pts.forEach((p, i) => i === 0 ? ctx.moveTo(toMX(p.x), toMZ(p.z)) : ctx.lineTo(toMX(p.x), toMZ(p.z)));
-  ctx.closePath(); ctx.stroke();
+  pts.forEach((p, i) =>
+    i === 0 ? ctx.moveTo(toMX(p.x), toMZ(p.z)) : ctx.lineTo(toMX(p.x), toMZ(p.z))
+  );
+  ctx.closePath();
+  ctx.stroke();
 
   // Crates
   crates.forEach(c => {
@@ -707,7 +753,8 @@ export function updateMinimap(playerPos, crates, allPlayers) {
   // Other players
   Object.entries(allPlayers).forEach(([id, p]) => {
     if (!p.position) return;
-    ctx.fillStyle = '#' + PLAYER_COLORS[p.colorIndex % PLAYER_COLORS.length].toString(16).padStart(6, '0');
+    ctx.fillStyle =
+      '#' + PLAYER_COLORS[p.colorIndex % PLAYER_COLORS.length].toString(16).padStart(6, '0');
     ctx.beginPath();
     ctx.arc(toMX(p.position.x), toMZ(p.position.z), 4, 0, Math.PI * 2);
     ctx.fill();
@@ -723,11 +770,15 @@ export function updateMinimap(playerPos, crates, allPlayers) {
 // ── Finish burst ────────────────────────────────────────────────────────────
 export function spawnFinishBurst(position) {
   for (let i = 0; i < 3; i++) {
-    setTimeout(() => spawnExplosion({
-      x: position.x + (Math.random() - 0.5) * 6,
-      y: position.y + 1,
-      z: position.z + (Math.random() - 0.5) * 6,
-    }), i * 250);
+    setTimeout(
+      () =>
+        spawnExplosion({
+          x: position.x + (Math.random() - 0.5) * 6,
+          y: position.y + 1,
+          z: position.z + (Math.random() - 0.5) * 6,
+        }),
+      i * 250
+    );
   }
 }
 
@@ -749,8 +800,9 @@ export function renderScene(dt) {
     if (mesh.visible) {
       mesh.rotation.y += dt * 1.5;
       mesh.position.y = mesh.userData.baseY || mesh.position.y;
-      mesh.position.y = (mesh.userData.baseY = mesh.userData.baseY || mesh.position.y)
-        + Math.sin(finishBannerTime * 2 + mesh.position.x) * 0.12;
+      mesh.position.y =
+        (mesh.userData.baseY = mesh.userData.baseY || mesh.position.y) +
+        Math.sin(finishBannerTime * 2 + mesh.position.x) * 0.12;
     }
   });
 
@@ -766,7 +818,7 @@ export function renderScene(dt) {
     const ratio = ep.life / ep.maxLife;
     const baseScale = ep.mesh.userData.baseScale || 1.0;
 
-    // For smoke/particles, we shrink them to zero. 
+    // For smoke/particles, we shrink them to zero.
     // For large explosions, we might expand then shrink, but let's keep it simple for now.
     ep.mesh.scale.setScalar(baseScale * ratio);
   }
@@ -774,19 +826,25 @@ export function renderScene(dt) {
   renderer.render(scene, camera);
 }
 
-export function getCamera() { return camera; }
-export function getScene() { return scene; }
+export function getCamera() {
+  return camera;
+}
+export function getScene() {
+  return scene;
+}
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function _stripesMat(colA, colB, count) {
   const canvas = document.createElement('canvas');
-  canvas.width = 32; canvas.height = 256;
+  canvas.width = 32;
+  canvas.height = 256;
   const ctx = canvas.getContext('2d');
   const h = canvas.height / count;
   for (let i = 0; i < count; i++) {
-    ctx.fillStyle = i % 2 === 0
-      ? '#' + colA.toString(16).padStart(6, '0')
-      : '#' + colB.toString(16).padStart(6, '0');
+    ctx.fillStyle =
+      i % 2 === 0
+        ? '#' + colA.toString(16).padStart(6, '0')
+        : '#' + colB.toString(16).padStart(6, '0');
     ctx.fillRect(0, i * h, 32, h);
   }
   const tex = new THREE.CanvasTexture(canvas);
@@ -801,6 +859,6 @@ export function getScreenPosition(pos3d) {
   return {
     x: (v.x * 0.5 + 0.5) * window.innerWidth,
     y: (-(v.y * 0.5) + 0.5) * window.innerHeight,
-    z: v.z
+    z: v.z,
   };
 }

@@ -2,13 +2,14 @@
  * main.js – Entry point and game loop for Nitro Seed
  * Glues: Physics, Map, Graphics, Network, Game
  */
-import * as THREE    from 'three';
-import * as CANNON   from 'cannon-es';
-import * as Physics  from './physics.js';
+import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
+import * as Physics from './physics.js';
 import * as Graphics from './graphics.js';
-import * as Network  from './network.js';
-import * as Game     from './game.js';
-import * as Audio    from './audio.js';
+import * as Network from './network.js';
+import * as Game from './game.js';
+import * as Audio from './audio.js';
+import { formatTime } from './utils.js';
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 const canvas = document.getElementById('game-canvas');
@@ -32,19 +33,32 @@ const _camTarget = new THREE.Vector3();
 let _crosshairTimer = 0;
 
 // ── Car Selection ──────────────────────────────────────────────────────────
-const AVAILABLE_CARS = ['dacia_duster_low_poly', 'police_car', 'retro_anime_suzuki_alto', 'volkswagen_golf_gti_1976', 'volvo_240'];
+const AVAILABLE_CARS = [
+  'dacia_duster_low_poly',
+  'police_car',
+  'retro_anime_suzuki_alto',
+  'volkswagen_golf_gti_1976',
+  'volvo_240',
+];
 
 function _resetToLastCheckpoint() {
-  const mapData = Game.getMapData();
+  const mapData = Game.getRaceMapData();
   if (!mapData) return;
 
-  // Find last passed checkpoint
-  let target = mapData.startGrid[Network.getSelfIndex()] || mapData.startGrid[0];
-  const passed = Game.checkpoints.filter(cp => cp.passed).sort((a, b) => b.index - a.index);
-  
+  // Default to own start grid position
+  const myId = Network.getMyPeerId();
+  const playerIds = Object.keys(Network.players).sort();
+  const myIdx = Math.max(0, playerIds.indexOf(myId));
+  let target = mapData.startGrid[myIdx % mapData.startGrid.length] || mapData.startGrid[0];
+
+  // Find the last passed checkpoint and respawn there instead
+  const passed = mapData.checkpoints.filter(cp => cp.passed).sort((a, b) => b.index - a.index);
   if (passed.length > 0) {
     const cp = passed[0];
-    target = { pos: cp.position, quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), cp.tangent) };
+    target = {
+      pos: cp.position,
+      quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), cp.tangent),
+    };
   }
 
   const respawnPos = target.pos.clone();
@@ -60,19 +74,19 @@ function updateCarPreview() {
   const displayName = carName.replace(/_/g, ' ').toUpperCase();
   document.getElementById('car-name-display').textContent = displayName;
   Graphics.setPreviewCar(carName);
-  
+
   if (Game.getState() === Game.STATE.LOBBY && Network.getMyPeerId()) {
     Network.sendCarUpdate(carName);
   }
 }
 
-document.getElementById('btn-car-prev').addEventListener('click', (e) => {
+document.getElementById('btn-car-prev').addEventListener('click', e => {
   e.target.blur();
   currentCarIndex = (currentCarIndex - 1 + AVAILABLE_CARS.length) % AVAILABLE_CARS.length;
   updateCarPreview();
 });
 
-document.getElementById('btn-car-next').addEventListener('click', (e) => {
+document.getElementById('btn-car-next').addEventListener('click', e => {
   e.target.blur();
   currentCarIndex = (currentCarIndex + 1) % AVAILABLE_CARS.length;
   updateCarPreview();
@@ -84,26 +98,27 @@ updateCarPreview();
 async function setupNetwork() {
   const statusEl = document.getElementById('menu-status');
   statusEl.textContent = 'CONNECTING TO NETWORK...';
-  statusEl.className   = 'status-msg';
+  statusEl.className = 'status-msg';
   try {
     const myId = await Network.initNetwork({
-      onPlayerJoin:  _onPlayerJoin,
+      onPlayerJoin: _onPlayerJoin,
       onPlayerLeave: _onPlayerLeave,
-      onGameInit:    _onGameInit,
+      onGameInit: _onGameInit,
       onStateUpdate: _onStateUpdate,
       onCratePickup: _onCratePickup,
-      onRocketFire:  _onRemoteRocketFire,
-      onOilDrop:     _onRemoteOilDrop,
+      onRocketFire: _onRemoteRocketFire,
+      onOilDrop: _onRemoteOilDrop,
       onReturnLobby: _onReturnLobby,
-      onCarUpdate:   _onCarUpdate,
+      onCarUpdate: _onCarUpdate,
+      onKicked: _onKicked,
     });
     document.getElementById('peer-id-display').textContent = myId;
     statusEl.textContent = 'CONNECTED ✓';
-    statusEl.className   = 'status-msg ok';
+    statusEl.className = 'status-msg ok';
     return myId;
   } catch (e) {
     statusEl.textContent = 'NETWORK ERROR: ' + e.message;
-    statusEl.className   = 'status-msg error';
+    statusEl.className = 'status-msg error';
     throw e;
   }
 }
@@ -114,7 +129,9 @@ document.getElementById('btn-host').addEventListener('click', async () => {
     if (!Network.getMyPeerId()) await setupNetwork();
     Network.hostGame(myName(), 0, AVAILABLE_CARS[currentCarIndex]);
     _enterLobby(true);
-  } catch (_) {}
+  } catch (_) {
+    /* connection failure handled by setupNetwork */
+  }
 });
 
 document.getElementById('btn-join').addEventListener('click', () => {
@@ -122,11 +139,11 @@ document.getElementById('btn-join').addEventListener('click', () => {
 });
 
 document.getElementById('btn-connect').addEventListener('click', async () => {
-  const hostId   = document.getElementById('join-peer-id').value.trim();
+  const hostId = document.getElementById('join-peer-id').value.trim();
   if (!hostId) return;
   const statusEl = document.getElementById('menu-status');
   statusEl.textContent = 'CONNECTING...';
-  statusEl.className   = 'status-msg';
+  statusEl.className = 'status-msg';
   try {
     if (!Network.getMyPeerId()) await setupNetwork();
     await Network.joinGame(hostId, myName(), AVAILABLE_CARS[currentCarIndex]);
@@ -134,7 +151,7 @@ document.getElementById('btn-connect').addEventListener('click', async () => {
     statusEl.textContent = '';
   } catch (e) {
     statusEl.textContent = 'FAILED: ' + e.message;
-    statusEl.className   = 'status-msg error';
+    statusEl.className = 'status-msg error';
   }
 });
 
@@ -155,26 +172,28 @@ function _enterLobby(asHost) {
 }
 
 function _refreshPlayerList() {
-  const list   = document.getElementById('player-list');
+  const list = document.getElementById('player-list');
   list.innerHTML = '';
   const isHost = Network.getIsHost();
 
   Object.entries(Network.players).forEach(([id, p]) => {
-    const li    = document.createElement('li');
-    const dot   = document.createElement('span');
-    dot.className   = 'player-color-dot';
-    dot.style.background = '#' + (Graphics.PLAYER_COLORS[p.colorIndex % 6] >>> 0).toString(16).padStart(6, '0');
+    const li = document.createElement('li');
+    const dot = document.createElement('span');
+    dot.className = 'player-color-dot';
+    dot.style.background =
+      '#' + (Graphics.PLAYER_COLORS[p.colorIndex % 6] >>> 0).toString(16).padStart(6, '0');
 
     const nameSpan = document.createElement('span');
-    nameSpan.style.flex  = '1';
-    nameSpan.textContent = (p.name || id.slice(0, 8)) + ` [${p.carModel || 'SUV'}]` + (p.isLocal ? ' (YOU)' : '');
+    nameSpan.style.flex = '1';
+    nameSpan.textContent =
+      (p.name || id.slice(0, 8)) + ` [${p.carModel || 'SUV'}]` + (p.isLocal ? ' (YOU)' : '');
 
     li.appendChild(dot);
     li.appendChild(nameSpan);
 
     if (isHost && !p.isLocal) {
-      const kickBtn       = document.createElement('button');
-      kickBtn.className   = 'btn-kick';
+      const kickBtn = document.createElement('button');
+      kickBtn.className = 'btn-kick';
       kickBtn.textContent = 'KICK';
       kickBtn.addEventListener('click', () => Network.kickPlayer(id));
       li.appendChild(kickBtn);
@@ -189,20 +208,25 @@ document.getElementById('btn-copy-id').addEventListener('click', () => {
     const btn = document.getElementById('btn-copy-id');
     const orig = btn.textContent;
     btn.textContent = '✓ COPIED';
-    setTimeout(() => { btn.textContent = orig; }, 2000);
+    setTimeout(() => {
+      btn.textContent = orig;
+    }, 2000);
   });
 });
 
-document.getElementById('btn-start').addEventListener('click', (e) => {
+document.getElementById('btn-start').addEventListener('click', e => {
   e.target.blur();
-  const seed      = parseInt(document.getElementById('seed-input').value) || 42069;
-  const lapCount  = Math.max(1, Math.min(10, parseInt(document.getElementById('lap-input').value) || 3));
+  const seed = parseInt(document.getElementById('seed-input').value) || 42069;
+  const lapCount = Math.max(
+    1,
+    Math.min(10, parseInt(document.getElementById('lap-input').value) || 3)
+  );
   const driveMode = document.getElementById('drive-input').value;
   Network.startRace(seed, lapCount, driveMode);
   _startRace(seed, lapCount, driveMode);
 });
 
-document.getElementById('btn-return-lobby').addEventListener('click', (e) => {
+document.getElementById('btn-return-lobby').addEventListener('click', e => {
   e.target.blur();
   if (Network.getIsHost()) {
     Network.returnToLobby();
@@ -210,7 +234,7 @@ document.getElementById('btn-return-lobby').addEventListener('click', (e) => {
   _onReturnLobby();
 });
 
-document.getElementById('btn-lobby').addEventListener('click', (e) => {
+document.getElementById('btn-lobby').addEventListener('click', e => {
   e.target.blur();
   Network.returnToLobby();
 });
@@ -222,7 +246,7 @@ function _onPlayerJoin(id, player) {
     Physics.createRemoteVehicle(id);
   }
   _refreshPlayerList();
-  document.getElementById('lobby-status').textContent = `${player.name || id.slice(0,6)} joined!`;
+  document.getElementById('lobby-status').textContent = `${player.name || id.slice(0, 6)} joined!`;
 }
 
 function _onCarUpdate(id, carModel) {
@@ -247,6 +271,29 @@ function _onReturnLobby() {
   _enterLobby(Network.getIsHost());
 }
 
+function _onKicked() {
+  // Show a non-blocking kicked overlay instead of alert()
+  const overlay = document.createElement('div');
+  overlay.id = 'kicked-overlay';
+  overlay.innerHTML = `
+    <div class="kicked-box">
+      <p class="kicked-title">KICKED</p>
+      <p class="kicked-sub">You were removed by the host.</p>
+      <p class="kicked-timer">Returning to menu in <span id="kick-countdown">3</span>s...</p>
+    </div>`;
+  document.body.appendChild(overlay);
+  let t = 3;
+  const iv = setInterval(() => {
+    t--;
+    const el = document.getElementById('kick-countdown');
+    if (el) el.textContent = t;
+    if (t <= 0) {
+      clearInterval(iv);
+      location.reload();
+    }
+  }, 1000);
+}
+
 function _onStateUpdate(id, pos, quat) {
   if (Game.getState() !== Game.STATE.RACING) return;
   Graphics.updateVehicleMesh(id, pos, quat);
@@ -255,11 +302,14 @@ function _onStateUpdate(id, pos, quat) {
 function _onCratePickup(id, crateIdx) {
   const mapData = Game.getRaceMapData();
   if (!mapData) return;
+  // Bounds-check before trusting remote index
+  if (typeof crateIdx !== 'number' || crateIdx < 0 || crateIdx >= mapData.weaponCrateSpawns.length)
+    return;
   const crate = mapData.weaponCrateSpawns[crateIdx];
   if (crate) {
-    crate.active       = false;
+    crate.active = false;
     crate.respawnTimer = 20;
-    Graphics.updateCrateMesh(crateIdx, false);
+    crate._dirty = true;
     Audio.playCollect();
   }
 }
@@ -274,15 +324,20 @@ function _spawnAndFireRocket(id, pos, quat) {
 
   const ownerBody = Physics.getVehicleBody(id);
   Audio.playRocketLaunch();
-  const rocket = Physics.fireRocket(startPos, startQuat, (impactPos, r) => {
-    Graphics.spawnExplosion(impactPos);
-    Audio.playExplosion();
-    const m = activeRocketVisuals.get(r);
-    if (m) {
-      Graphics.removeMesh(m);
-      activeRocketVisuals.delete(r);
-    }
-  }, ownerBody);
+  const rocket = Physics.fireRocket(
+    startPos,
+    startQuat,
+    (impactPos, r) => {
+      Graphics.spawnExplosion(impactPos);
+      Audio.playExplosion();
+      const m = activeRocketVisuals.get(r);
+      if (m) {
+        Graphics.removeMesh(m);
+        activeRocketVisuals.delete(r);
+      }
+    },
+    ownerBody
+  );
   if (rocket) {
     rocket.onCleanup = (impactPos, r) => {
       const m = activeRocketVisuals.get(r);
@@ -321,15 +376,15 @@ async function _startRace(seed, lapCount, driveMode) {
   // TESTER Cheat Code: Force Seed 0 if player name is TESTER
   const myId = Network.getMyPeerId();
   if (Network.players[myId] && Network.players[myId].name === 'TESTER') {
-    console.log("TESTER detected: Forcing Proving Ground mode.");
+    console.log('TESTER detected: Forcing Proving Ground mode.');
     seed = 0;
   }
 
   Game.setState(Game.STATE.RACING);
 
   const world = Physics.getWorld();
-  const gMat  = Physics.groundMat;
-  const wMat  = Physics.wallMat;
+  const gMat = Physics.groundMat;
+  const wMat = Physics.wallMat;
 
   Physics.setDriveMode(driveMode || '4WD'); // Apply drive mode setting
 
@@ -346,11 +401,11 @@ async function _startRace(seed, lapCount, driveMode) {
   // Local vehicle
   const myColorIdx = Network.players[myId]?.colorIndex || 0;
   const myCarModel = Network.players[myId]?.carModel || AVAILABLE_CARS[0];
-  
+
   // Find my index in players list to assign grid spot
   const playerIds = Object.keys(Network.players).sort();
   const myIdx = playerIds.indexOf(myId) >= 0 ? playerIds.indexOf(myId) : 0;
-  
+
   const gridSpot = mapData.startGrid[myIdx % mapData.startGrid.length];
   Physics.createPlayerVehicle(gridSpot.pos, gridSpot.quat);
   await Graphics.loadVehicle('__local__', myColorIdx, myCarModel);
@@ -366,10 +421,10 @@ async function _startRace(seed, lapCount, driveMode) {
     rb.quaternion.copy(rSpot.quat);
   }
 
-  // Test Driver NPC
+  // NPC Test Driver – mass 0 (kinematic) so all clients have identical static obstacle
   const testId = '__test_driver__';
   const testPos = mapData.spline.getPointAt(0.05);
-  const testBody = Physics.createRemoteVehicle(testId, 500); // 500kg mass to make it hittable
+  const testBody = Physics.createRemoteVehicle(testId, 0);
   testBody.position.set(testPos.x, testPos.y + 1, testPos.z);
   const testTan = mapData.spline.getTangentAt(0.05).normalize();
   testBody.quaternion.setFromEuler(0, Math.atan2(testTan.x, testTan.z), 0);
@@ -386,13 +441,6 @@ async function _startRace(seed, lapCount, driveMode) {
 // ── Game loop ──────────────────────────────────────────────────────────────
 let lastTime = performance.now();
 let lastRacePhase = null;
-
-function formatTime(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  const ms = Math.floor((seconds % 1) * 1000);
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
-}
 
 function gameLoop(now) {
   requestAnimationFrame(gameLoop);
@@ -417,12 +465,18 @@ function gameLoop(now) {
   // 1. Race UI (Countdown & Time) & Input
   const lightsEl = document.getElementById('start-lights');
   const timeEl = document.getElementById('hud-time');
-  
+
   if (Game.racePhase === 'INTRO') {
     lightsEl.classList.add('hidden');
-    timeEl.textContent = "WARMING UP...";
+    timeEl.textContent = 'WARMING UP...';
     Audio.updateEngine(0, false);
-    Physics.setVehicleInput({ forward: false, backward: false, left: false, right: false, fire: false });
+    Physics.setVehicleInput({
+      forward: false,
+      backward: false,
+      left: false,
+      right: false,
+      fire: false,
+    });
   } else if (Game.racePhase === 'COUNTDOWN') {
     lightsEl.classList.remove('hidden');
     const c = Game.raceCountdown;
@@ -430,16 +484,16 @@ function gameLoop(now) {
     document.getElementById('light-2').classList.toggle('on', c <= 3.0);
     document.getElementById('light-3').classList.toggle('on', c <= 2.0);
     document.getElementById('light-4').classList.toggle('on', c <= 1.0);
-    
+
     // Ensure they are yellow
     for (let i = 1; i <= 4; i++) {
       const el = document.getElementById(`light-${i}`);
       el.classList.remove('light-green');
       el.classList.add('light-yellow');
     }
-    
-    timeEl.textContent = "00:00.000";
-    
+
+    timeEl.textContent = '00:00.000';
+
     // Allow input so the user can potentially jump-start
     Physics.setVehicleInput(Game.input);
     Audio.updateEngine(chassis ? chassis.velocity.length() : 0, Game.input.forward);
@@ -448,9 +502,12 @@ function gameLoop(now) {
     if (Game.racePhase === 'ACTIVE' && lastRacePhase === 'COUNTDOWN') {
       Audio.playBeep();
     }
-    
+
     if (Game.racePhase === 'ACTIVE') {
-      if (Game.currentRaceTime < 1.0 || (Game.currentRaceTime >= 5.0 && Game.currentRaceTime < 6.0)) { 
+      if (
+        Game.currentRaceTime < 1.0 ||
+        (Game.currentRaceTime >= 5.0 && Game.currentRaceTime < 6.0)
+      ) {
         // 5.0 is the jump start penalty time base. We show the green lights for 1 second after 'GO'.
         for (let i = 1; i <= 4; i++) {
           const el = document.getElementById(`light-${i}`);
@@ -467,11 +524,17 @@ function gameLoop(now) {
       // FINISHED
       lightsEl.classList.add('hidden');
       timeEl.textContent = formatTime(Game.currentRaceTime);
-      Physics.setVehicleInput({ forward: false, backward: false, left: false, right: false, fire: false });
+      Physics.setVehicleInput({
+        forward: false,
+        backward: false,
+        left: false,
+        right: false,
+        fire: false,
+      });
       Audio.updateEngine(chassis ? chassis.velocity.length() : 0, false);
     }
   }
-  
+
   lastRacePhase = Game.racePhase;
 
   // 2. Physics step (fixed 1/60 internal, dt for accumulation)
@@ -503,9 +566,12 @@ function gameLoop(now) {
       // Relaxed threshold: dot < 0.98 means > 11 degrees slip
       if (slipDot < 0.98 || (isTurning && speed > 28)) {
         Audio.setScreech(true);
-        const q = chassis.quaternion, p = chassis.position;
-        const rl = new CANNON.Vec3(-0.7, -0.4, -1.4), rr = new CANNON.Vec3(0.7, -0.4, -1.4);
-        q.vmult(rl, rl); q.vmult(rr, rr);
+        const q = chassis.quaternion,
+          p = chassis.position;
+        const rl = new CANNON.Vec3(-0.7, -0.4, -1.4),
+          rr = new CANNON.Vec3(0.7, -0.4, -1.4);
+        q.vmult(rl, rl);
+        q.vmult(rr, rr);
         Graphics.spawnTireSmoke(p.vadd(rl));
         Graphics.spawnTireSmoke(p.vadd(rr));
       } else {
@@ -561,12 +627,12 @@ function gameLoop(now) {
 
   // 9. Camera spring arm
   if (chassis) {
-    const pos  = chassis.interpolatedPosition || chassis.position;
+    const pos = chassis.interpolatedPosition || chassis.position;
     const quat = chassis.interpolatedQuaternion || chassis.quaternion;
     _camTarget.set(pos.x, pos.y + 0.5, pos.z);
-    
+
     if (Game.racePhase === 'INTRO') {
-      const progress = 1.0 - (Game.raceCountdown / 5.0); // 5s intro
+      const progress = 1.0 - Game.raceCountdown / 5.0; // 5s intro
       Graphics.updateIntroCamera(_camTarget, progress);
     } else {
       Graphics.updateCamera(_camTarget, quat, dt);

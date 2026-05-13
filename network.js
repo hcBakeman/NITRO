@@ -6,44 +6,52 @@
 import Peer from 'peerjs';
 
 // ── State ──────────────────────────────────────────────────────────────────
-let peer       = null;
-let isHost     = false;
-let hostConn   = null;          // client→host connection
-const peers    = {};            // host: peerId → DataConnection
-export const players = {};      // peerId → { name, colorIndex, position, quaternion, velocity, inputState, conn }
+let peer = null;
+let isHost = false;
+let hostConn = null; // client→host connection
+const peers = {}; // host: peerId → DataConnection
+export const players = {}; // peerId → { name, colorIndex, position, quaternion, velocity, inputState, conn }
 
-let _onPlayerJoin    = null;
-let _onPlayerLeave   = null;
-let _onGameInit      = null;
-let _onStateUpdate   = null;
-let _onCratePickup   = null;
-let _onRocketFire    = null;
-let _onOilDrop       = null;
-let _onReturnLobby   = null;
-let _onCarUpdate     = null;
-let _myPeerId        = null;
+let _onPlayerJoin = null;
+let _onPlayerLeave = null;
+let _onGameInit = null;
+let _onStateUpdate = null;
+let _onCratePickup = null;
+let _onRocketFire = null;
+let _onOilDrop = null;
+let _onReturnLobby = null;
+let _onCarUpdate = null;
+let _onKicked = null;
+let _myPeerId = null;
+
+const PLAYER_COLOR_COUNT = 6; // must match Graphics.PLAYER_COLORS length
 
 // ── Ammo mapping ──────────────────────────────────────────────────────────
 const WEAPON_AMMO = { ROCKET: 2, OIL_SLICK: 2, BOOST: 1 };
 
 // ── Init ──────────────────────────────────────────────────────────────────
 export function initNetwork(callbacks = {}) {
-  _onPlayerJoin   = callbacks.onPlayerJoin   || (() => {});
-  _onPlayerLeave  = callbacks.onPlayerLeave  || (() => {});
-  _onGameInit     = callbacks.onGameInit     || (() => {});
-  _onStateUpdate  = callbacks.onStateUpdate  || (() => {});
-  _onCratePickup  = callbacks.onCratePickup  || (() => {});
-  _onRocketFire   = callbacks.onRocketFire   || (() => {});
-  _onOilDrop      = callbacks.onOilDrop      || (() => {});
-  _onReturnLobby  = callbacks.onReturnLobby  || (() => {});
-  _onCarUpdate    = callbacks.onCarUpdate    || (() => {});
+  _onPlayerJoin = callbacks.onPlayerJoin || (() => {});
+  _onPlayerLeave = callbacks.onPlayerLeave || (() => {});
+  _onGameInit = callbacks.onGameInit || (() => {});
+  _onStateUpdate = callbacks.onStateUpdate || (() => {});
+  _onCratePickup = callbacks.onCratePickup || (() => {});
+  _onRocketFire = callbacks.onRocketFire || (() => {});
+  _onOilDrop = callbacks.onOilDrop || (() => {});
+  _onReturnLobby = callbacks.onReturnLobby || (() => {});
+  _onCarUpdate = callbacks.onCarUpdate || (() => {});
+  _onKicked =
+    callbacks.onKicked ||
+    (() => {
+      location.reload();
+    });
 
   return new Promise((resolve, reject) => {
     peer = new Peer(undefined, {
-      host:   '0.peerjs.com',
-      port:   443,
+      host: '0.peerjs.com',
+      port: 443,
       secure: true,
-      debug:  0,
+      debug: 0,
     });
 
     peer.on('open', id => {
@@ -57,18 +65,28 @@ export function initNetwork(callbacks = {}) {
   });
 }
 
-export function getMyPeerId() { return _myPeerId; }
-export function getIsHost()   { return isHost; }
+export function getMyPeerId() {
+  return _myPeerId;
+}
+export function getIsHost() {
+  return isHost;
+}
 
 // ── Host ───────────────────────────────────────────────────────────────────
 export function hostGame(playerName, colorIndex, carModel = 'SUV') {
   isHost = true;
   players[_myPeerId] = {
-    name: playerName, colorIndex, carModel, isLocal: true,
+    name: playerName,
+    colorIndex,
+    carModel,
+    isLocal: true,
     position: { x: 0, y: 0, z: 0 },
     quaternion: { x: 0, y: 0, z: 0, w: 1 },
-    velocity:   { x: 0, y: 0, z: 0 },
-    lap: 0, checkpointsReached: 0, finished: false, disqualified: false,
+    velocity: { x: 0, y: 0, z: 0 },
+    lap: 0,
+    checkpointsReached: 0,
+    finished: false,
+    disqualified: false,
   };
 
   peer.on('connection', conn => {
@@ -86,19 +104,29 @@ function _setupHostConnHandlers(conn) {
   const pid = conn.peer;
 
   conn.on('data', data => {
+    if (!data || typeof data.type !== 'string') return; // Reject garbage
     switch (data.type) {
       case 'JOIN':
         players[pid] = {
           name: data.name,
-          colorIndex: Object.keys(players).length % 6,
+          colorIndex: Object.keys(players).length % PLAYER_COLOR_COUNT,
           carModel: data.carModel || 'SUV',
           position: { x: 0, y: 0, z: 0 },
           quaternion: { x: 0, y: 0, z: 0, w: 1 },
-          velocity:   { x: 0, y: 0, z: 0 },
-          lap: 0, checkpointsReached: 0, finished: false, disqualified: false,
+          velocity: { x: 0, y: 0, z: 0 },
+          lap: 0,
+          checkpointsReached: 0,
+          finished: false,
+          disqualified: false,
           conn,
         };
-        _broadcastExcept(pid, { type: 'PLAYER_JOINED', id: pid, name: data.name, colorIndex: players[pid].colorIndex, carModel: players[pid].carModel });
+        _broadcastExcept(pid, {
+          type: 'PLAYER_JOINED',
+          id: pid,
+          name: data.name,
+          colorIndex: players[pid].colorIndex,
+          carModel: players[pid].carModel,
+        });
         conn.send({ type: 'JOIN_OK', colorIndex: players[pid].colorIndex });
         _onPlayerJoin(pid, players[pid]);
         break;
@@ -113,16 +141,27 @@ function _setupHostConnHandlers(conn) {
 
       case 'STATE':
         if (players[pid]) {
-          players[pid]._lerp      = { pos: data.pos, quat: data.quat };
-          players[pid].velocity   = data.vel;
+          players[pid]._lerp = { pos: data.pos, quat: data.quat };
+          players[pid].velocity = data.vel;
           players[pid].inputState = data.input;
         }
         // Relay to all other peers
-        _broadcastExcept(pid, { type: 'PEER_STATE', id: pid, pos: data.pos, quat: data.quat, vel: data.vel });
+        _broadcastExcept(pid, {
+          type: 'PEER_STATE',
+          id: pid,
+          pos: data.pos,
+          quat: data.quat,
+          vel: data.vel,
+        });
         break;
 
       case 'CRATE_PICKUP':
-        _broadcastExcept(pid, { type: 'CRATE_PICKUP', id: pid, crateIdx: data.crateIdx, weaponType: data.weaponType });
+        _broadcastExcept(pid, {
+          type: 'CRATE_PICKUP',
+          id: pid,
+          crateIdx: data.crateIdx,
+          weaponType: data.weaponType,
+        });
         _onCratePickup(pid, data.crateIdx, data.weaponType);
         break;
 
@@ -147,7 +186,12 @@ function _setupHostConnHandlers(conn) {
           players[pid].finishTime = data.time;
           players[pid].bestLap = data.bestLap;
         }
-        _broadcastToAll({ type: 'PLAYER_FINISHED', id: pid, time: data.time, bestLap: data.bestLap });
+        _broadcastToAll({
+          type: 'PLAYER_FINISHED',
+          id: pid,
+          time: data.time,
+          bestLap: data.bestLap,
+        });
         break;
 
       case 'RETURN_LOBBY':
@@ -174,7 +218,9 @@ export function startRace(seed, lapCount, driveMode) {
 export function kickPlayer(peerId) {
   if (!isHost || !peers[peerId]) return;
   peers[peerId].send({ type: 'KICKED' });
-  setTimeout(() => { peers[peerId]?.close(); }, 200);
+  setTimeout(() => {
+    peers[peerId]?.close();
+  }, 200);
   delete peers[peerId];
   delete players[peerId];
   _broadcastToAll({ type: 'PLAYER_LEFT', id: peerId });
@@ -183,7 +229,7 @@ export function kickPlayer(peerId) {
 
 // ── Client ─────────────────────────────────────────────────────────────────
 export function joinGame(hostPeerId, playerName, carModel = 'SUV') {
-  isHost  = false;
+  isHost = false;
   hostConn = peer.connect(hostPeerId, { reliable: false });
 
   return new Promise((resolve, reject) => {
@@ -202,7 +248,7 @@ export function joinGame(hostPeerId, playerName, carModel = 'SUV') {
                 position: { x: 0, y: 0, z: 0 },
                 quaternion: { x: 0, y: 0, z: 0, w: 1 },
                 velocity: { x: 0, y: 0, z: 0 },
-                _lerp: { pos: null, quat: null }
+                _lerp: { pos: null, quat: null },
               };
             }
           });
@@ -210,11 +256,17 @@ export function joinGame(hostPeerId, playerName, carModel = 'SUV') {
 
         case 'JOIN_OK':
           players[_myPeerId] = {
-            name: playerName, colorIndex: data.colorIndex, carModel, isLocal: true,
+            name: playerName,
+            colorIndex: data.colorIndex,
+            carModel,
+            isLocal: true,
             position: { x: 0, y: 0, z: 0 },
             quaternion: { x: 0, y: 0, z: 0, w: 1 },
             velocity: { x: 0, y: 0, z: 0 },
-            lap: 0, checkpointsReached: 0, finished: false, disqualified: false,
+            lap: 0,
+            checkpointsReached: 0,
+            finished: false,
+            disqualified: false,
           };
           resolve(data.colorIndex);
           break;
@@ -225,7 +277,9 @@ export function joinGame(hostPeerId, playerName, carModel = 'SUV') {
 
         case 'PLAYER_JOINED':
           players[data.id] = {
-            name: data.name, colorIndex: data.colorIndex, carModel: data.carModel || 'SUV',
+            name: data.name,
+            colorIndex: data.colorIndex,
+            carModel: data.carModel || 'SUV',
             position: { x: 0, y: 0, z: 0 },
             quaternion: { x: 0, y: 0, z: 0, w: 1 },
             velocity: { x: 0, y: 0, z: 0 },
@@ -283,9 +337,8 @@ export function joinGame(hostPeerId, playerName, carModel = 'SUV') {
           break;
 
         case 'KICKED':
-          alert('You were kicked by the host.');
           hostConn.close();
-          location.reload();
+          _onKicked();
           break;
       }
     });
@@ -324,18 +377,20 @@ export function sendLocalState(chassis, inputState, dt) {
   _sendTimer = 0;
 
   if (!chassis) return;
-  const p = chassis.position, q = chassis.quaternion, v = chassis.velocity;
+  const p = chassis.position,
+    q = chassis.quaternion,
+    v = chassis.velocity;
   const packet = {
-    type:  'STATE',
-    pos:   { x: p.x, y: p.y, z: p.z },
-    quat:  { x: q.x, y: q.y, z: q.z, w: q.w },
-    vel:   { x: v.x, y: v.y, z: v.z },
+    type: 'STATE',
+    pos: { x: p.x, y: p.y, z: p.z },
+    quat: { x: q.x, y: q.y, z: q.z, w: q.w },
+    vel: { x: v.x, y: v.y, z: v.z },
     input: inputState,
   };
 
   if (isHost) {
     if (players[_myPeerId]) {
-      players[_myPeerId].position   = packet.pos;
+      players[_myPeerId].position = packet.pos;
       players[_myPeerId].quaternion = packet.quat;
     }
     _broadcastToAll({ ...packet, type: 'PEER_STATE', id: _myPeerId });
@@ -369,7 +424,12 @@ export function sendOilDrop(pos, quat) {
 
 export function sendLapComplete(lap) {
   const msg = { type: 'LAP_COMPLETE', lap };
-  isHost ? (players[_myPeerId].lap = lap) : hostConn?.send(msg);
+  if (isHost) {
+    players[_myPeerId].lap = lap;
+    _broadcastToAll({ type: 'PLAYER_LAP', id: _myPeerId, lap });
+  } else {
+    hostConn?.send(msg);
+  }
 }
 
 export function sendFinished(time, bestLap) {
@@ -378,6 +438,7 @@ export function sendFinished(time, bestLap) {
     players[_myPeerId].finished = true;
     players[_myPeerId].finishTime = time;
     players[_myPeerId].bestLap = bestLap;
+    _broadcastToAll({ type: 'PLAYER_FINISHED', id: _myPeerId, time, bestLap });
   } else {
     hostConn?.send(msg);
   }
@@ -408,7 +469,9 @@ function _broadcastToAll(msg) {
   Object.values(peers).forEach(conn => conn.send(msg));
 }
 function _broadcastExcept(excludeId, msg) {
-  Object.entries(peers).forEach(([id, conn]) => { if (id !== excludeId) conn.send(msg); });
+  Object.entries(peers).forEach(([id, conn]) => {
+    if (id !== excludeId) conn.send(msg);
+  });
 }
 function _sanitizePlayers() {
   const out = {};
@@ -417,4 +480,6 @@ function _sanitizePlayers() {
   });
   return out;
 }
-function _lerp(a, b, t) { return a + (b - a) * t; }
+function _lerp(a, b, t) {
+  return a + (b - a) * t;
+}

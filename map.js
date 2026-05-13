@@ -10,23 +10,24 @@ import * as CANNON from 'cannon-es';
 // ── PRNG ──────────────────────────────────────────────────────────────────
 export function mulberry32(seed) {
   return function () {
-    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
-    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 
 // ── Track generation ──────────────────────────────────────────────────────
-const NUM_POINTS    = 18;
-const RING_RADIUS   = 150;
-const OFFSET_MAX    = 35;
-const ROAD_HALF     = 5.5;
-const WALL_H        = 2.5; 
-const WALL_T        = 0.5;   // wall half-thickness
+const NUM_POINTS = 18;
+const RING_RADIUS = 150;
+const OFFSET_MAX = 35;
+const ROAD_HALF = 5.5;
+const WALL_H = 2.5;
+const WALL_T = 0.5; // wall half-thickness
 
 export function generateMap(seed, world, groundMat, wallMat) {
-  const isTest = (Number(seed) === 0);
+  const isTest = Number(seed) === 0;
   let rng = mulberry32(seed);
   let spline, length;
 
@@ -35,11 +36,11 @@ export function generateMap(seed, world, groundMat, wallMat) {
     rng = mulberry32(seed + attempt);
     const pts = [];
     for (let i = 0; i < NUM_POINTS; i++) {
-      const angle  = (i / NUM_POINTS) * Math.PI * 2;
-      const r      = RING_RADIUS + (isTest ? 0 : (rng() - 0.5) * 2 * OFFSET_MAX);
-      const ox     = isTest ? 0 : (rng() - 0.5) * OFFSET_MAX * 0.6;
-      const oz     = isTest ? 0 : (rng() - 0.5) * OFFSET_MAX * 0.6;
-      
+      const angle = (i / NUM_POINTS) * Math.PI * 2;
+      const r = RING_RADIUS + (isTest ? 0 : (rng() - 0.5) * 2 * OFFSET_MAX);
+      const ox = isTest ? 0 : (rng() - 0.5) * OFFSET_MAX * 0.6;
+      const oz = isTest ? 0 : (rng() - 0.5) * OFFSET_MAX * 0.6;
+
       // Procedural height: Flat by default, but with test obstacles for Seed 0
       const t = i / NUM_POINTS;
       let y = 0;
@@ -48,9 +49,9 @@ export function generateMap(seed, world, groundMat, wallMat) {
         y = 0; // Totally flat ground for testing modular ramps
       } else {
         // Regular procedural hills for other seeds
-        y = Math.max(0, Math.sin(angle * 3.0) * 6.5); 
+        y = Math.max(0, Math.sin(angle * 3.0) * 6.5);
       }
-      
+
       pts.push(new THREE.Vector3(Math.cos(angle) * r + ox, y, Math.sin(angle) * r + oz));
     }
     spline = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', 0.2);
@@ -59,7 +60,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
   }
 
   const samples = Math.ceil(length / 3.0); // Larger triangles are more stable
-  const jumpZones = []; 
+  const jumpZones = [];
 
   // ── Road geometry (3-point cross section for stability) ──────────────
   const roadGeo = new THREE.BufferGeometry();
@@ -75,10 +76,10 @@ export function generateMap(seed, world, groundMat, wallMat) {
 
     // Three vertices per segment: Left, Center, Right
     vertices.push(pt.x - right.x, pt.y, pt.z - right.z); // Left
-    vertices.push(pt.x,           pt.y, pt.z);           // Center
+    vertices.push(pt.x, pt.y, pt.z); // Center
     vertices.push(pt.x + right.x, pt.y, pt.z + right.z); // Right
 
-    const uvY = t * length / 10;
+    const uvY = (t * length) / 10;
     uvs.push(0, uvY, 0.5, uvY, 1, uvY);
   }
 
@@ -100,7 +101,9 @@ export function generateMap(seed, world, groundMat, wallMat) {
   roadGeo.setIndex(indices);
   roadGeo.computeVertexNormals();
 
-  const roadMat = isTest ? new THREE.MeshLambertMaterial({ color: 0x2244ff }) : _buildRoadMaterial();
+  const roadMat = isTest
+    ? new THREE.MeshLambertMaterial({ color: 0x2244ff })
+    : _buildRoadMaterial();
   const trackMesh = new THREE.Mesh(roadGeo, roadMat);
   trackMesh.receiveShadow = true;
 
@@ -111,19 +114,21 @@ export function generateMap(seed, world, groundMat, wallMat) {
   world.addBody(roadBody);
 
   // ── Wall physics and visual meshes ──────────────────────────────────────
-  const wallMeshes  = [];
+  const wallMeshes = [];
   const wallMatVisual = _buildWallMaterial();
-  
+
   // Left wall
   const leftGeo = _buildContinuousWallGeo(spline, length, samples, -1, jumpZones);
   const leftMesh = new THREE.Mesh(leftGeo, wallMatVisual);
-  leftMesh.castShadow = true; leftMesh.receiveShadow = true;
+  leftMesh.castShadow = true;
+  leftMesh.receiveShadow = true;
   wallMeshes.push(leftMesh);
 
   // Right wall
   const rightGeo = _buildContinuousWallGeo(spline, length, samples, 1, jumpZones);
   const rightMesh = new THREE.Mesh(rightGeo, wallMatVisual);
-  rightMesh.castShadow = true; rightMesh.receiveShadow = true;
+  rightMesh.castShadow = true;
+  rightMesh.receiveShadow = true;
   wallMeshes.push(rightMesh);
 
   // Wall Physics (Static Boxes, skipping gaps)
@@ -134,7 +139,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
     const isInGap = jumpZones.some(z => t >= z.startT && t <= z.endT);
     if (isInGap) continue;
 
-    const pt  = spline.getPointAt(t);
+    const pt = spline.getPointAt(t);
     const tan = spline.getTangentAt(t).normalize();
     const perp = new THREE.Vector3(-tan.z, 0, tan.x);
     [-1, 1].forEach(side => {
@@ -151,17 +156,17 @@ export function generateMap(seed, world, groundMat, wallMat) {
   // ── Modular Ramps (Seed 0000 only) ───────────────────────────────────────
   if (isTest) {
     const rampStyles = [
-      { t: 0.15, type: 'WEDGE', size: [11, 2, 10] },   // Long & Smooth
-      { t: 0.35, type: 'KICKER', size: [11, 4, 6] },    // Short & Steep
+      { t: 0.15, type: 'WEDGE', size: [11, 2, 10] }, // Long & Smooth
+      { t: 0.35, type: 'KICKER', size: [11, 4, 6] }, // Short & Steep
       { t: 0.55, type: 'ROLLER', size: [11, 2.5, 8] }, // Rounded
-      { t: 0.75, type: 'KICKER', size: [11, 6, 8] },   // The Big One
+      { t: 0.75, type: 'KICKER', size: [11, 6, 8] }, // The Big One
     ];
 
     rampStyles.forEach(style => {
       const pt = spline.getPointAt(style.t);
       const tan = spline.getTangentAt(style.t).normalize();
       const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan);
-      
+
       const pos = pt.clone();
       // Offset forward so base starts at t
       pos.add(tan.clone().multiplyScalar(style.size[2] / 2));
@@ -184,12 +189,15 @@ export function generateMap(seed, world, groundMat, wallMat) {
         mesh.quaternion.copy(quat);
       } else {
         // Roller (Rounded pipe)
-        mesh = new THREE.Mesh(new THREE.CylinderGeometry(style.size[1], style.size[1], style.size[0], 32), new THREE.MeshLambertMaterial({ color: 0xffaa00 }));
+        mesh = new THREE.Mesh(
+          new THREE.CylinderGeometry(style.size[1], style.size[1], style.size[0], 32),
+          new THREE.MeshLambertMaterial({ color: 0xffaa00 })
+        );
         mesh.position.copy(pos);
         mesh.quaternion.copy(quat);
         mesh.rotateZ(Math.PI / 2);
         // Sink it so only the top curve is visible
-        mesh.position.y -= style.size[1] * 0.8; 
+        mesh.position.y -= style.size[1] * 0.8;
       }
 
       trackMesh.add(mesh);
@@ -199,25 +207,33 @@ export function generateMap(seed, world, groundMat, wallMat) {
       if (style.type === 'ROLLER') {
         shape = new CANNON.Cylinder(style.size[1], style.size[1], style.size[0], 20);
       } else {
-        shape = new CANNON.Trimesh(mesh.geometry.attributes.position.array, mesh.geometry.index.array);
+        shape = new CANNON.Trimesh(
+          mesh.geometry.attributes.position.array,
+          mesh.geometry.index.array
+        );
       }
-      
+
       const body = new CANNON.Body({ mass: 0, material: wallMat });
       body.addShape(shape);
       body.position.set(mesh.position.x, mesh.position.y, mesh.position.z);
-      body.quaternion.set(mesh.quaternion.x, mesh.quaternion.y, mesh.quaternion.z, mesh.quaternion.w);
+      body.quaternion.set(
+        mesh.quaternion.x,
+        mesh.quaternion.y,
+        mesh.quaternion.z,
+        mesh.quaternion.w
+      );
       world.addBody(body);
     });
   }
 
   // ── Checkpoints & Finish ────────────────────────────────────────────────
   const checkpoints = [0.25, 0.5, 0.75, 1.0].map((t, idx) => {
-    const pt  = spline.getPointAt(t % 1 || 0.999);
+    const pt = spline.getPointAt(t % 1 || 0.999);
     const tan = spline.getTangentAt(t % 1 || 0.999);
     return { t, index: idx, position: pt.clone(), tangent: tan.clone(), passed: false };
   });
 
-  const finishLinePt  = spline.getPointAt(0.001);
+  const finishLinePt = spline.getPointAt(0.001);
   const finishTangent = spline.getTangentAt(0.001);
 
   // ── Start Grid ──────────────────────────────────────────────────────────
@@ -227,25 +243,28 @@ export function generateMap(seed, world, groundMat, wallMat) {
 
   for (let i = 0; i < 8; i++) {
     // F1 staggered grid: 6m back for row 1, then 8m increments
-    const distBack = 6 + Math.floor(i / 2) * 8; 
-    let t = 1.0 - (distBack * dtPerMeter);
+    const distBack = 6 + Math.floor(i / 2) * 8;
+    let t = 1.0 - distBack * dtPerMeter;
     if (t < 0) t += 1.0;
-    
+
     const pt = spline.getPointAt(t % 1);
     const tan = spline.getTangentAt(t % 1).normalize();
-    const side = (i % 2 === 0) ? -1 : 1; 
+    const side = i % 2 === 0 ? -1 : 1;
     const right = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
-    
+
     // Position car 3m to the side, and 1.5m ABOVE the road to ensure it drops onto the mesh
     const spawnPos = pt.clone().addScaledVector(right, side * 3);
-    spawnPos.y += 1.5; 
-    
+    spawnPos.y += 1.5;
+
     const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan);
     startGrid.push({ pos: spawnPos, quat: quat.clone() });
 
     // Visual grid spot
-    const spot = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 0.5), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    spot.position.copy(spawnPos); 
+    const spot = new THREE.Mesh(
+      new THREE.BoxGeometry(3, 0.1, 0.5),
+      new THREE.MeshBasicMaterial({ color: 0xffffff })
+    );
+    spot.position.copy(spawnPos);
     spot.position.y = pt.y + 0.05;
     spot.quaternion.copy(quat);
     spot.receiveShadow = true;
@@ -254,8 +273,8 @@ export function generateMap(seed, world, groundMat, wallMat) {
   startGridMeshes.forEach(m => trackMesh.add(m));
 
   // ── Weapon crate spawns ────────────────────────────────────────────────
-  const CRATE_TYPES  = ['ROCKET', 'OIL_SLICK', 'BOOST'];
-  const crateCount   = 8 + Math.floor(rng() * 5);
+  const CRATE_TYPES = ['ROCKET', 'OIL_SLICK', 'BOOST'];
+  const crateCount = 8 + Math.floor(rng() * 5);
   const weaponCrateSpawns = [];
   const usedTs = new Set();
 
@@ -271,27 +290,31 @@ export function generateMap(seed, world, groundMat, wallMat) {
       type: 'BOOST',
       active: true,
       respawnTimer: 0,
+      _dirty: false,
     });
   });
 
   for (let i = 0; i < crateCount; i++) {
     let ct;
-    do { ct = 0.05 + rng() * 0.9; } while ([...usedTs].some(u => Math.abs(u - ct) < 0.06));
+    do {
+      ct = 0.05 + rng() * 0.9;
+    } while ([...usedTs].some(u => Math.abs(u - ct) < 0.06));
     usedTs.add(ct);
-    const cratePos  = spline.getPointAt(ct);
-    cratePos.y      += 0.8; // Floating above hills
-    const typeIdx   = Math.floor(rng() * CRATE_TYPES.length);
+    const cratePos = spline.getPointAt(ct);
+    cratePos.y += 0.8; // Floating above hills
+    const typeIdx = Math.floor(rng() * CRATE_TYPES.length);
     weaponCrateSpawns.push({
       t: ct,
       position: cratePos.clone(),
       type: CRATE_TYPES[typeIdx],
       active: true,
       respawnTimer: 0,
+      _dirty: false,
     });
   }
 
   // ── Ground plane (visual only) ─────────────────────────────────────────
-  const groundGeo  = new THREE.PlaneGeometry(2000, 2000, 4, 4);
+  const groundGeo = new THREE.PlaneGeometry(2000, 2000, 4, 4);
   const groundMesh = new THREE.Mesh(groundGeo, _buildGrassMaterial());
   groundMesh.rotation.x = -Math.PI / 2;
   groundMesh.position.y = -1.0; // Lowered further to avoid clipping with low road parts
@@ -313,7 +336,9 @@ export function generateMap(seed, world, groundMat, wallMat) {
 
 // ── Materials ─────────────────────────────────────────────────────────────
 function _buildRoadMaterial() {
-  const tex = new THREE.TextureLoader().load('textures/textures/worn_mossy_plasterwall_diff_1k.jpg');
+  const tex = new THREE.TextureLoader().load(
+    'textures/textures/worn_mossy_plasterwall_diff_1k.jpg'
+  );
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(1, Math.ceil(8));
   return new THREE.MeshLambertMaterial({ map: tex, flatShading: false });
@@ -349,11 +374,11 @@ function _buildContinuousWallGeo(spline, length, samples, side, jumpZones) {
     vertices.push(outerV.x, pt.y + WALL_H, outerV.z);
     vertices.push(outerV.x, pt.y, outerV.z);
 
-    const uLen = t * length / 4; 
+    const uLen = (t * length) / 4;
     uvs.push(0, uLen);
     uvs.push(WALL_H / 4, uLen);
-    uvs.push((WALL_H + WALL_T*2) / 4, uLen);
-    uvs.push((WALL_H*2 + WALL_T*2) / 4, uLen);
+    uvs.push((WALL_H + WALL_T * 2) / 4, uLen);
+    uvs.push((WALL_H * 2 + WALL_T * 2) / 4, uLen);
   }
 
   for (let i = 0; i < samples; i++) {
@@ -428,6 +453,7 @@ export function updateCrateRespawns(crates, dt) {
       crate.respawnTimer -= dt;
       if (crate.respawnTimer <= 0) {
         crate.active = true;
+        crate._dirty = true; // Signal mesh should be shown again
       }
     }
   }

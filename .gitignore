@@ -42,3 +42,4 @@ pnpm-debug.log*
 * - Copy.js
 *.bak
 *.tmp
+*.md
