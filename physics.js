@@ -463,7 +463,7 @@ export function raycastForward(body) {
 
 // ── Physics Step ──────────────────────────────────────────────────────────
 export function stepPhysics(dt) {
-  world.step(1 / 60, dt, 3);
+  world.step(1 / 120, dt, 10);
   for (let i = activeRockets.length - 1; i >= 0; i--) {
     const r = activeRockets[i];
     r.life -= dt;

@@ -54,25 +54,29 @@ export function generateMap(seed, world, groundMat, wallMat) {
 
       pts.push(new THREE.Vector3(Math.cos(angle) * r + ox, y, Math.sin(angle) * r + oz));
     }
-    spline = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', 0.2);
+    spline = new THREE.CatmullRomCurve3(pts, true, 'centripetal');
     length = spline.getLength();
     if (length >= 600 && length <= 1000) break;
   }
 
-  const samples = Math.ceil(length / 3.0); // Larger triangles are more stable
+  const samples = Math.ceil(length / 2.0); // Higher resolution for smoother physics
   const jumpZones = [];
 
   // ── Road geometry (3-point cross section for stability) ──────────────
   const roadGeo = new THREE.BufferGeometry();
   const vertices = [];
   const uvs = [];
-  const indices = [];
+  const visualIndices = [];
+  const physIndices = [];
+
+  // Compute stable Frenet frames for smooth, twist-free banking
+  const frames = spline.computeFrenetFrames(samples, true);
 
   for (let i = 0; i <= samples; i++) {
     const t = i / samples;
     const pt = spline.getPointAt(t);
-    const tan = spline.getTangentAt(t % 1 || 0.999).normalize();
-    const right = new THREE.Vector3(-tan.z, 0, tan.x).normalize().multiplyScalar(ROAD_HALF);
+    // Use the precomputed binormal (wrapping around for the last vertex)
+    const right = frames.binormals[i % samples].clone().normalize().multiplyScalar(ROAD_HALF);
 
     // Three vertices per segment: Left, Center, Right
     vertices.push(pt.x - right.x, pt.y, pt.z - right.z); // Left
@@ -85,20 +89,25 @@ export function generateMap(seed, world, groundMat, wallMat) {
 
   for (let i = 0; i < samples; i++) {
     const v = i * 3;
-    const nv = (i + 1) * 3;
+    const nvVisual = (i + 1) * 3;
+    const nvPhys = ((i + 1) % samples) * 3; // Weld the seam for physics
 
-    // Left Quad
-    indices.push(v, v + 1, nv);
-    indices.push(v + 1, nv + 1, nv);
+    // Visual Indices (Uses duplicate end-vertices for correct UVs)
+    visualIndices.push(v, v + 1, nvVisual);
+    visualIndices.push(v + 1, nvVisual + 1, nvVisual);
+    visualIndices.push(v + 1, v + 2, nvVisual + 1);
+    visualIndices.push(v + 2, nvVisual + 2, nvVisual + 1);
 
-    // Right Quad
-    indices.push(v + 1, v + 2, nv + 1);
-    indices.push(v + 2, nv + 2, nv + 1);
+    // Physics Indices (Perfectly loops back to index 0 to eliminate snagging edges)
+    physIndices.push(v, v + 1, nvPhys);
+    physIndices.push(v + 1, nvPhys + 1, nvPhys);
+    physIndices.push(v + 1, v + 2, nvPhys + 1);
+    physIndices.push(v + 2, nvPhys + 2, nvPhys + 1);
   }
 
   roadGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
   roadGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  roadGeo.setIndex(indices);
+  roadGeo.setIndex(visualIndices);
   roadGeo.computeVertexNormals();
 
   const roadMat = isTest
@@ -108,7 +117,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
   trackMesh.receiveShadow = true;
 
   // --- Physics Trimesh ---
-  const roadShape = new CANNON.Trimesh(roadGeo.attributes.position.array, roadGeo.index.array);
+  const roadShape = new CANNON.Trimesh(vertices, physIndices);
   const roadBody = new CANNON.Body({ mass: 0, material: groundMat });
   roadBody.addShape(roadShape);
   world.addBody(roadBody);
@@ -118,14 +127,14 @@ export function generateMap(seed, world, groundMat, wallMat) {
   const wallMatVisual = _buildWallMaterial();
 
   // Left wall
-  const leftGeo = _buildContinuousWallGeo(spline, length, samples, -1, jumpZones);
+  const leftGeo = _buildContinuousWallGeo(spline, length, samples, -1, jumpZones, frames);
   const leftMesh = new THREE.Mesh(leftGeo, wallMatVisual);
   leftMesh.castShadow = true;
   leftMesh.receiveShadow = true;
   wallMeshes.push(leftMesh);
 
   // Right wall
-  const rightGeo = _buildContinuousWallGeo(spline, length, samples, 1, jumpZones);
+  const rightGeo = _buildContinuousWallGeo(spline, length, samples, 1, jumpZones, frames);
   const rightMesh = new THREE.Mesh(rightGeo, wallMatVisual);
   rightMesh.castShadow = true;
   rightMesh.receiveShadow = true;
@@ -351,7 +360,7 @@ function _buildWallMaterial() {
   return new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide });
 }
 
-function _buildContinuousWallGeo(spline, length, samples, side, jumpZones) {
+function _buildContinuousWallGeo(spline, length, samples, side, jumpZones, frames) {
   const geo = new THREE.BufferGeometry();
   const vertices = [];
   const uvs = [];
@@ -360,8 +369,8 @@ function _buildContinuousWallGeo(spline, length, samples, side, jumpZones) {
   for (let i = 0; i <= samples; i++) {
     const t = i / samples;
     const pt = spline.getPointAt(t);
-    const tan = spline.getTangentAt(t % 1 || 0.999).normalize();
-    const rightDir = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+    // Use the frenet binormal just like the road
+    const rightDir = frames.binormals[i % samples].clone().normalize();
     const outDir = rightDir.clone().multiplyScalar(side);
 
     const center = pt.clone().addScaledVector(outDir, ROAD_HALF + WALL_T);
