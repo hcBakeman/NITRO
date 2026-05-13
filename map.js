@@ -41,15 +41,15 @@ export function generateMap(seed, world, groundMat, wallMat) {
       const ox = isTest ? 0 : (rng() - 0.5) * OFFSET_MAX * 0.6;
       const oz = isTest ? 0 : (rng() - 0.5) * OFFSET_MAX * 0.6;
 
-      // Procedural height: Flat by default, but with test obstacles for Seed 0
+      // Procedural height: Flat track to prevent geometry collision overlap bugs
       const t = i / NUM_POINTS;
       let y = 0;
 
       if (isTest) {
         y = 0; // Totally flat ground for testing modular ramps
       } else {
-        // Regular procedural hills for other seeds
-        y = Math.max(0, Math.sin(angle * 3.0) * 6.5);
+        // Flat track for all seeds to fix hitboxes
+        y = 0;
       }
 
       pts.push(new THREE.Vector3(Math.cos(angle) * r + ox, y, Math.sin(angle) * r + oz));
@@ -98,11 +98,18 @@ export function generateMap(seed, world, groundMat, wallMat) {
     visualIndices.push(v + 1, v + 2, nvVisual + 1);
     visualIndices.push(v + 2, nvVisual + 2, nvVisual + 1);
 
-    // Physics Indices (Perfectly loops back to index 0 to eliminate snagging edges)
+    // Physics Indices (Double-sided to guarantee RaycastVehicle collision from above and below)
+    // Front faces
     physIndices.push(v, v + 1, nvPhys);
     physIndices.push(v + 1, nvPhys + 1, nvPhys);
     physIndices.push(v + 1, v + 2, nvPhys + 1);
     physIndices.push(v + 2, nvPhys + 2, nvPhys + 1);
+    
+    // Back faces
+    physIndices.push(v, nvPhys, v + 1);
+    physIndices.push(v + 1, nvPhys, nvPhys + 1);
+    physIndices.push(v + 1, nvPhys + 1, v + 2);
+    physIndices.push(v + 2, nvPhys + 1, nvPhys + 2);
   }
 
   roadGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
@@ -345,12 +352,10 @@ export function generateMap(seed, world, groundMat, wallMat) {
 
 // ── Materials ─────────────────────────────────────────────────────────────
 function _buildRoadMaterial() {
-  const tex = new THREE.TextureLoader().load(
-    'textures/textures/worn_mossy_plasterwall_diff_1k.jpg'
-  );
+  const tex = new THREE.TextureLoader().load('textures/textures/muddy_tracks_diff_1k.jpg');
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(1, Math.ceil(8));
-  return new THREE.MeshLambertMaterial({ map: tex, flatShading: false });
+  tex.repeat.set(1, 1); // uvY already handles track length scaling
+  return new THREE.MeshLambertMaterial({ map: tex, flatShading: false, side: THREE.DoubleSide });
 }
 
 function _buildWallMaterial() {

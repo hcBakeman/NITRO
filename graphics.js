@@ -667,7 +667,8 @@ export function createOilSlickMesh(position, quaternion) {
 
 // ── Camera (Spring Arm) ────────────────────────────────────────────────────
 export function updateCamera(targetPos, carQuat, dt) {
-  cameraTarget.lerp(targetPos, Math.min(1, 8 * dt));
+  const alphaTarget = 1 - Math.exp(-8 * dt);
+  cameraTarget.lerp(targetPos, alphaTarget);
 
   // Dynamically lower the camera height at low zoom levels to see more horizon
   const hFactor = 0.35 + (cameraZoom / 60) * 0.5; // 0.85 at max zoom, ~0.45 at min zoom
@@ -682,7 +683,8 @@ export function updateCamera(targetPos, carQuat, dt) {
   }
 
   const tgt = cameraTarget.clone().add(offset);
-  camera.position.lerp(tgt, Math.min(1, 5 * dt));
+  const alphaPos = 1 - Math.exp(-5 * dt);
+  camera.position.lerp(tgt, alphaPos);
   camera.lookAt(cameraTarget);
 }
 

@@ -243,7 +243,7 @@ document.getElementById('btn-lobby').addEventListener('click', e => {
 function _onPlayerJoin(id, player) {
   if (Game.getState() === Game.STATE.RACING) {
     Graphics.loadVehicle(id, player.colorIndex, player.carModel);
-    Physics.createRemoteVehicle(id);
+    Physics.createRemoteVehicle(id, 0, player.carModel);
   }
   _refreshPlayerList();
   document.getElementById('lobby-status').textContent = `${player.name || id.slice(0, 6)} joined!`;
@@ -407,7 +407,7 @@ async function _startRace(seed, lapCount, driveMode) {
   const myIdx = playerIds.indexOf(myId) >= 0 ? playerIds.indexOf(myId) : 0;
 
   const gridSpot = mapData.startGrid[myIdx % mapData.startGrid.length];
-  Physics.createPlayerVehicle(gridSpot.pos, gridSpot.quat);
+  Physics.createPlayerVehicle(gridSpot.pos, gridSpot.quat, myCarModel);
   await Graphics.loadVehicle('__local__', myColorIdx, myCarModel);
 
   // Remote vehicles
@@ -416,7 +416,7 @@ async function _startRace(seed, lapCount, driveMode) {
     const pIdx = playerIds.indexOf(id);
     const rSpot = mapData.startGrid[pIdx % mapData.startGrid.length];
     await Graphics.loadVehicle(id, p.colorIndex, p.carModel);
-    const rb = Physics.createRemoteVehicle(id);
+    const rb = Physics.createRemoteVehicle(id, 0, p.carModel);
     rb.position.set(rSpot.pos.x, rSpot.pos.y + 1.8, rSpot.pos.z);
     rb.quaternion.copy(rSpot.quat);
   }
@@ -424,7 +424,7 @@ async function _startRace(seed, lapCount, driveMode) {
   // NPC Test Driver – mass 0 (kinematic) so all clients have identical static obstacle
   const testId = '__test_driver__';
   const testPos = mapData.spline.getPointAt(0.05);
-  const testBody = Physics.createRemoteVehicle(testId, 0);
+  const testBody = Physics.createRemoteVehicle(testId, 0, 'police_car');
   testBody.position.set(testPos.x, testPos.y + 1, testPos.z);
   const testTan = mapData.spline.getTangentAt(0.05).normalize();
   testBody.quaternion.setFromEuler(0, Math.atan2(testTan.x, testTan.z), 0);

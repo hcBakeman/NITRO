@@ -38,6 +38,7 @@ export function initPhysics() {
 
   // Physical Safety Floor (Ground Level)
   const floorBody = new CANNON.Body({ mass: 0, material: groundMat });
+  floorBody.isFloorBody = true;
   floorBody.addShape(new CANNON.Plane());
   floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
   floorBody.position.y = 0.0; // Solid ground at y=0
@@ -51,12 +52,61 @@ export function getWorld() {
 }
 
 // ── Vehicle Tuning ────────────────────────────────────────────────────────
-const MAX_ENGINE = 5000; // N, peak engine force
+export const VEHICLE_CLASSES = {
+  'dacia_duster_low_poly': {
+    mass: 1400,
+    engineForce: 4500,
+    maxSpeed: 30, // m/s (108 km/h)
+    frontFric: 5.5,
+    rearFric: 4.5,
+    suspensionStiffness: 25,
+    suspensionRestLength: 0.4,
+    rollInfluence: 0.1,
+  },
+  'police_car': {
+    mass: 1800,
+    engineForce: 6000,
+    maxSpeed: 38, // 136 km/h
+    frontFric: 6.0,
+    rearFric: 5.0,
+    suspensionStiffness: 35,
+    suspensionRestLength: 0.3,
+    rollInfluence: 0.05,
+  },
+  'retro_anime_suzuki_alto': {
+    mass: 700,
+    engineForce: 3000,
+    maxSpeed: 32, // 115 km/h
+    frontFric: 4.0,
+    rearFric: 3.0,
+    suspensionStiffness: 20,
+    suspensionRestLength: 0.25,
+    rollInfluence: 0.15,
+  },
+  'volkswagen_golf_gti_1976': {
+    mass: 900,
+    engineForce: 4500,
+    maxSpeed: 35, // 126 km/h
+    frontFric: 5.0,
+    rearFric: 4.5,
+    suspensionStiffness: 30,
+    suspensionRestLength: 0.2,
+    rollInfluence: 0.08,
+  },
+  'volvo_240': {
+    mass: 1300,
+    engineForce: 4800,
+    maxSpeed: 34, // 122 km/h
+    frontFric: 5.0,
+    rearFric: 4.0,
+    suspensionStiffness: 28,
+    suspensionRestLength: 0.3,
+    rollInfluence: 0.12,
+  }
+};
+
 const MAX_BRAKE = 120; // N, peak brake force
 const MAX_STEER = 0.5; // rad, max steering angle
-const MAX_SPEED = 33.33; // m/s ≈ 120 km/h
-const BASE_FRICTION = 4.5; // wheel frictionSlip at grip
-const DRIFT_MIN_FRIC = 3.5; // minimum frictionSlip during slide
 const COUNTER_FRIC = 5.5; // frictionSlip bonus when counter-steering
 const BOOST_IMPULSE = 3500; // N·s, boost weapon impulse
 const EXPL_RADIUS = 8; // m, rocket explosion blast radius
@@ -68,6 +118,7 @@ const OIL_FRICTION = 0.1; // frictionSlip while oiled
 // ── Player Vehicle ────────────────────────────────────────────────────────
 export let playerVehicle = null;
 export let playerChassis = null;
+export let playerCarSpecs = null;
 export let driveMode = '4WD'; // 'FWD', 'RWD', '4WD'
 
 export function setDriveMode(mode) {
@@ -97,8 +148,9 @@ function _addVanShapes(body) {
   body.addShape(cabinShape, new CANNON.Vec3(0, 0.8, 0));
 }
 
-export function createPlayerVehicle(startPos, startQuat) {
-  playerChassis = new CANNON.Body({ mass: 1000, material: vehicleMat }); // 1000 kg
+export function createPlayerVehicle(startPos, startQuat, carModel) {
+  playerCarSpecs = VEHICLE_CLASSES[carModel] || VEHICLE_CLASSES['dacia_duster_low_poly'];
+  playerChassis = new CANNON.Body({ mass: playerCarSpecs.mass, material: vehicleMat }); 
   playerChassis.isOiled = false;
   _addVanShapes(playerChassis);
 
@@ -120,14 +172,14 @@ export function createPlayerVehicle(startPos, startQuat) {
     radius: 0.38,
     directionLocal: new CANNON.Vec3(0, -1, 0),
     axleLocal: new CANNON.Vec3(-1, 0, 0),
-    suspensionStiffness: 40,
-    suspensionRestLength: 0.15,
+    suspensionStiffness: playerCarSpecs.suspensionStiffness,
+    suspensionRestLength: playerCarSpecs.suspensionRestLength,
     frictionSlip: 1.8,
-    dampingRelaxation: 2.3,
-    dampingCompression: 4.4,
+    dampingRelaxation: 2.0,
+    dampingCompression: 4.5,
     maxSuspensionForce: 100000,
     rollInfluence: 0.01,
-    maxSuspensionTravel: 0.3,
+    maxSuspensionTravel: 0.6,
     customSlidingRotationalSpeed: -30,
     useCustomSlidingRotationalSpeed: true,
   };
@@ -149,9 +201,10 @@ export function createPlayerVehicle(startPos, startQuat) {
   return { vehicle: playerVehicle, chassis: playerChassis };
 }
 
-export function createRemoteVehicle(peerId, mass = 0) {
+export function createRemoteVehicle(peerId, mass = 0, carModel) {
+  const specs = VEHICLE_CLASSES[carModel] || VEHICLE_CLASSES['dacia_duster_low_poly'];
   const body = new CANNON.Body({
-    mass: mass || 1,
+    mass: mass > 0 ? specs.mass : 1,
     material: vehicleMat,
     type: mass > 0 ? CANNON.Body.DYNAMIC : CANNON.Body.KINEMATIC,
   });
@@ -224,7 +277,7 @@ export function setVehicleInput(input) {
     gearLimit = 60;
   }
 
-  const speedRatio = Math.min(speed / MAX_SPEED, 1.0);
+  const speedRatio = Math.min(speed / playerCarSpecs.maxSpeed, 1.0);
   const fScale = 1.0 - speedRatio * speedRatio * 0.5; // Steeper drop-off near top speed
   const steerAmt = MAX_STEER * Math.max(0.3, 1.0 - speedRatio * 0.45);
 
@@ -232,7 +285,7 @@ export function setVehicleInput(input) {
     brakeForce = 0;
 
   if (input.forward) {
-    engineForce = -MAX_ENGINE * fScale; // Flipped: forward is -Z
+    engineForce = -playerCarSpecs.engineForce * fScale; // Flipped: forward is -Z
 
     // Only cut engine if NOT sliding. This allows recovery power
     if (kmh >= gearLimit && !isSliding) {
@@ -247,7 +300,7 @@ export function setVehicleInput(input) {
     if (playerChassis.velocity.dot(_tmpFwd) > 0.5) {
       brakeForce = Math.min((MAX_BRAKE * (speed * speed)) / 50, MAX_BRAKE);
     } else {
-      engineForce = MAX_ENGINE * 0.5;
+      engineForce = playerCarSpecs.engineForce * 0.5;
     }
   } else {
     brakeForce = 8;
@@ -258,31 +311,17 @@ export function setVehicleInput(input) {
   const steer = input.left ? steerAmt : input.right ? -steerAmt : 0;
 
   // ── Drift & Steering Recovery Logic ──
+  const BASE_FRONT_FRIC = playerCarSpecs.frontFric;
+  const BASE_REAR_FRIC = playerCarSpecs.rearFric;
+
   if (!playerChassis.isOiled) {
-    // Front wheels always have base grip (unless counter-steering)
-    const steeringDir = input.left ? 1 : input.right ? -1 : 0;
-    const slidingDir = lateralVel > 0 ? 1 : -1;
-    const isCounterSteering = steeringDir !== 0 && steeringDir === slidingDir;
-
-    if (isSliding) {
-      // Only reduce friction slightly when sliding
-      const driftFactor = Math.max(0, (speed - 20) / 40);
-      const targetRearFric = BASE_FRICTION - driftFactor * 0.4 - (isTurning ? 0.3 : 0);
-      playerVehicle.wheelInfos[2].frictionSlip = Math.max(DRIFT_MIN_FRIC, targetRearFric);
-      playerVehicle.wheelInfos[3].frictionSlip = Math.max(DRIFT_MIN_FRIC, targetRearFric);
-    } else {
-      // Full grip when driving straight or slow
-      playerVehicle.wheelInfos[2].frictionSlip = BASE_FRICTION;
-      playerVehicle.wheelInfos[3].frictionSlip = BASE_FRICTION;
-    }
-
-    // Front wheels get EXTRA grip if counter-steering
-    const frontFric = isCounterSteering ? COUNTER_FRIC : BASE_FRICTION;
-    playerVehicle.wheelInfos[0].frictionSlip = frontFric;
-    playerVehicle.wheelInfos[1].frictionSlip = frontFric;
+    playerVehicle.wheelInfos[0].frictionSlip = BASE_FRONT_FRIC;
+    playerVehicle.wheelInfos[1].frictionSlip = BASE_FRONT_FRIC;
+    playerVehicle.wheelInfos[2].frictionSlip = BASE_REAR_FRIC;
+    playerVehicle.wheelInfos[3].frictionSlip = BASE_REAR_FRIC;
   }
 
-  const currentRoll = 0.01 + speedRatio * 0.04;
+  const currentRoll = playerCarSpecs.rollInfluence + speedRatio * 0.05; 
   playerVehicle.wheelInfos.forEach(w => (w.rollInfluence = currentRoll));
 
   playerVehicle.setSteeringValue(steer, 0);
@@ -302,18 +341,18 @@ export function setVehicleInput(input) {
     playerVehicle.applyEngineForce(engineForce, 0);
     playerVehicle.applyEngineForce(engineForce, 1);
   } else {
-    // 4WD (All-Wheel Drive): 100% Rear, 60% Front pull for recovery
+    // Rally AWD Bias: 100% Rear, 40% Front to kick the tail out
     playerVehicle.applyEngineForce(engineForce, 2);
     playerVehicle.applyEngineForce(engineForce, 3);
-    playerVehicle.applyEngineForce(engineForce * 0.6, 0);
-    playerVehicle.applyEngineForce(engineForce * 0.6, 1);
+    playerVehicle.applyEngineForce(engineForce * 0.4, 0);
+    playerVehicle.applyEngineForce(engineForce * 0.4, 1);
   }
 
-  // 70/30 Brake Bias: More front brake prevents the "handbrake" spin effect
-  playerVehicle.setBrake(brakeForce, 0);
-  playerVehicle.setBrake(brakeForce, 1);
-  playerVehicle.setBrake(brakeForce * 0.3, 2);
-  playerVehicle.setBrake(brakeForce * 0.3, 3);
+  // 50/50 Brake Bias: Even distribution prevents front wheels from locking and pitching the car over
+  playerVehicle.setBrake(brakeForce * 0.6, 0);
+  playerVehicle.setBrake(brakeForce * 0.6, 1);
+  playerVehicle.setBrake(brakeForce * 0.6, 2);
+  playerVehicle.setBrake(brakeForce * 0.6, 3);
 }
 
 // ── Flip Recovery ─────────────────────────────────────────────────────────
@@ -438,7 +477,7 @@ export function deployOilSlick(position, quaternion) {
     v.wheelInfos.forEach(w => (w.frictionSlip = OIL_FRICTION));
     setTimeout(() => {
       hit.isOiled = false;
-      v.wheelInfos.forEach(w => (w.frictionSlip = BASE_FRICTION));
+      v.wheelInfos.forEach(w => (w.frictionSlip = playerCarSpecs ? playerCarSpecs.frontFric : 5.0));
       slick.hits.delete(hit);
     }, OIL_DURATION);
   });
@@ -463,7 +502,7 @@ export function raycastForward(body) {
 
 // ── Physics Step ──────────────────────────────────────────────────────────
 export function stepPhysics(dt) {
-  world.step(1 / 120, dt, 10);
+  world.step(1 / 60, dt, 10);
   for (let i = activeRockets.length - 1; i >= 0; i--) {
     const r = activeRockets[i];
     r.life -= dt;
@@ -482,7 +521,8 @@ export function stepPhysics(dt) {
 }
 
 export function clearPhysicsWorld() {
-  while (world.bodies.length > 0) world.removeBody(world.bodies[0]);
+  const bodiesToRemove = world.bodies.filter(b => !b.isFloorBody);
+  bodiesToRemove.forEach(b => world.removeBody(b));
   activeRockets.length = 0;
   activeOilSlicks.length = 0;
   allVehicleBodies.length = 0;
