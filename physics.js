@@ -216,13 +216,23 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
       // DEBUG: console.log(`Collision with ${other.peerId}, impactVel: ${impactVel.toFixed(2)}`);
 
       if (impactVel > 1.5) {
-        const impulseMag = impactVel * playerChassis.mass * 1.2; // Increased from 0.4 for punchier hits
-        const point = { x: contact.bj.position.x + contact.rj.x, y: contact.bj.position.y + contact.rj.y, z: contact.bj.position.z + contact.rj.z };
-        // Add a slight upward pop (0.1) to make the car tumble more realistically
+        const impulseMag = impactVel * playerChassis.mass * 1.5; 
+        
+        // Cannon.js normal (ni) points from bi to bj.
+        // If other is bj, normal is the correct push direction.
+        // If other is bi, we must negate the normal.
+        const sign = (contact.bj === other) ? 1 : -1;
+        
+        const point = { 
+          x: other.position.x + (contact.bj === other ? contact.rj.x : contact.ri.x), 
+          y: other.position.y + (contact.bj === other ? contact.rj.y : contact.ri.y), 
+          z: other.position.z + (contact.bj === other ? contact.rj.z : contact.ri.z) 
+        };
+        
         const impulse = { 
-          x: contact.ni.x * impulseMag, 
-          y: contact.ni.y * impulseMag + (impulseMag * 0.1), 
-          z: contact.ni.z * impulseMag 
+          x: contact.ni.x * impulseMag * sign, 
+          y: contact.ni.y * impulseMag * sign + (impulseMag * 0.15), 
+          z: contact.ni.z * impulseMag * sign 
         };
         if (onVehicleImpact) onVehicleImpact(other.peerId, impulse, point);
       }
@@ -274,9 +284,12 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
   );
   
   // Spring stiffness & damping
-  // Increased stiffness to prevent cars from "ghosting" into each other during collisions
-  const kP = body.mass * 600; 
-  const kD = body.mass * 30;
+  // Relaxed stiffness to allow cars to be pushed during collisions
+  if (posError.length() < 0.2) {
+    posError.set(0, 0, 0); // Deadzone: don't fight small physical movements
+  }
+  const kP = body.mass * 180; 
+  const kD = body.mass * 25;
 
   const springForce = new CANNON.Vec3();
   posError.scale(kP, springForce);
@@ -320,15 +333,25 @@ export function checkStrictCollisions() {
     const bj = contact.bj;
     if (bi.peerId && bj.peerId) {
       const impactVel = contact.getImpactVelocityAlongNormal();
-      if (impactVel > 4) {
-        const impulseMag = impactVel * bi.mass * 1.2; // Increased from 0.4
+      if (impactVel > 3) {
+        const impulseMag = impactVel * bi.mass * 1.5;
+        // Broadcast the hit to the victim (bj)
         const point = { x: bj.position.x + contact.rj.x, y: bj.position.y + contact.rj.y, z: bj.position.z + contact.rj.z };
         const impulse = { 
           x: contact.ni.x * impulseMag, 
-          y: contact.ni.y * impulseMag + (impulseMag * 0.1), 
+          y: contact.ni.y * impulseMag + (impulseMag * 0.15), 
           z: contact.ni.z * impulseMag 
         };
         if (onVehicleImpact) onVehicleImpact(bj.peerId, impulse, point);
+        
+        // Also broadcast the counter-hit to the attacker (bi)
+        const pointI = { x: bi.position.x + contact.ri.x, y: bi.position.y + contact.ri.y, z: bi.position.z + contact.ri.z };
+        const impulseI = { 
+          x: -contact.ni.x * impulseMag, 
+          y: -contact.ni.y * impulseMag + (impulseMag * 0.15), 
+          z: -contact.ni.z * impulseMag 
+        };
+        if (onVehicleImpact) onVehicleImpact(bi.peerId, impulseI, pointI);
       }
     }
   }
