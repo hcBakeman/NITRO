@@ -21,6 +21,7 @@ let checkpointMeshes = [];
 let finishLineMesh = null;
 let finishBannerTime = 0;
 const explosionParticles = [];
+const rocketLightPool = [];
 const ROCKET_LIGHT_COUNT = 8;
 let cameraShake = 0;
 
