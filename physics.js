@@ -211,16 +211,12 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
     const other = e.body;
     if (other.peerId && other.peerId !== '__local__') {
       const contact = e.contact;
-      const impactVel = contact.getImpactVelocityAlongNormal();
+      const impactVel = Math.min(contact.getImpactVelocityAlongNormal(), 30); // Cap impact vel to 30m/s
       
-      // DEBUG: console.log(`Collision with ${other.peerId}, impactVel: ${impactVel.toFixed(2)}`);
-
       if (impactVel > 1.5) {
-        const impulseMag = impactVel * playerChassis.mass * 1.5; 
+        let impulseMag = impactVel * playerChassis.mass * 0.8; 
+        impulseMag = Math.min(impulseMag, 45000); // Hard cap on impulse magnitude
         
-        // Cannon.js normal (ni) points from bi to bj.
-        // If other is bj, normal is the correct push direction.
-        // If other is bi, we must negate the normal.
         const sign = (contact.bj === other) ? 1 : -1;
         
         const point = { 
@@ -231,7 +227,7 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
         
         const impulse = { 
           x: contact.ni.x * impulseMag * sign, 
-          y: contact.ni.y * impulseMag * sign + (impulseMag * 0.1), 
+          y: Math.min(contact.ni.y * impulseMag * sign + (impulseMag * 0.1), 5000), // Cap vertical pop
           z: contact.ni.z * impulseMag * sign 
         };
         // Use a separate callback for local-only detection to avoid double-hits in Strict mode
@@ -334,19 +330,16 @@ export function checkStrictCollisions() {
     const bi = contact.bi;
     const bj = contact.bj;
     if (bi.peerId && bj.peerId) {
-      const impactVel = contact.getImpactVelocityAlongNormal();
+      const impactVel = Math.min(contact.getImpactVelocityAlongNormal(), 30);
       if (impactVel > 3) {
-        const impulseMag = impactVel * bi.mass * 0.8;
-        
-        // Determine who hit whom based on velocity along normal
-        const vRelI = bi.velocity.dot(contact.ni);
-        const vRelJ = bj.velocity.dot(contact.ni);
-        
+        let impulseMag = impactVel * bi.mass * 0.8;
+        impulseMag = Math.min(impulseMag, 45000);
+
         // Broadcast the hit to the victim (bj) from attacker (bi)
         const point = { x: bj.position.x + contact.rj.x, y: bj.position.y + contact.rj.y, z: bj.position.z + contact.rj.z };
         const impulse = { 
           x: contact.ni.x * impulseMag, 
-          y: contact.ni.y * impulseMag + (impulseMag * 0.1), 
+          y: Math.min(contact.ni.y * impulseMag + (impulseMag * 0.1), 5000), 
           z: contact.ni.z * impulseMag 
         };
         if (onVehicleImpact) onVehicleImpact(bj.peerId, impulse, point, bi.peerId);
@@ -355,7 +348,7 @@ export function checkStrictCollisions() {
         const pointI = { x: bi.position.x + contact.ri.x, y: bi.position.y + contact.ri.y, z: bi.position.z + contact.ri.z };
         const impulseI = { 
           x: -contact.ni.x * impulseMag, 
-          y: -contact.ni.y * impulseMag + (impulseMag * 0.1), 
+          y: Math.min(-contact.ni.y * impulseMag + (impulseMag * 0.1), 5000), 
           z: -contact.ni.z * impulseMag 
         };
         if (onVehicleImpact) onVehicleImpact(bi.peerId, impulseI, pointI, bj.peerId);
