@@ -156,9 +156,20 @@ async function setupNetwork() {
       onReturnLobby: _onReturnLobby,
       onCarUpdate: _onCarUpdate,
       onKicked: _onKicked,
+      onVehicleHit: _onVehicleHit,
     });
     document.getElementById('peer-id-display').textContent = myId;
     statusEl.textContent = 'CONNECTED ✓';
+
+    Physics.onVehicleImpact = (victimId, impulse, point) => {
+      // In FAST mode, the attacker sends the hit.
+      // In STRICT mode, ONLY the Host sends the hit.
+      if (_collisionMode === 'fast') {
+        Network.sendVehicleHit(victimId, impulse, point);
+      } else if (_collisionMode === 'strict' && Network.getIsHost()) {
+        Network.sendVehicleHit(victimId, impulse, point);
+      }
+    };
     statusEl.className = 'status-msg ok';
     return myId;
   } catch (e) {
@@ -280,6 +291,7 @@ document.getElementById('btn-start').addEventListener('click', e => {
     Math.min(10, parseInt(document.getElementById('lap-input').value) || 3)
   );
   const driveMode = document.getElementById('drive-input').value;
+  const collisionMode = document.getElementById('collision-input').value || 'fast';
 
   // Randomize grid assignments for all players
   const playerIds = Object.keys(Network.players);
@@ -293,8 +305,8 @@ document.getElementById('btn-start').addEventListener('click', e => {
     gridAssignments[pid] = idx;
   });
 
-  Network.startRace(seed, lapCount, driveMode, gridAssignments);
-  _startRace(seed, lapCount, driveMode, gridAssignments);
+  Network.startRace(seed, lapCount, driveMode, gridAssignments, collisionMode);
+  _startRace(seed, lapCount, driveMode, gridAssignments, collisionMode);
 });
 
 document.getElementById('btn-return-lobby').addEventListener('click', e => {
@@ -330,8 +342,40 @@ function _onPlayerLeave(id) {
   _refreshPlayerList();
 }
 
-function _onGameInit(seed, lapCount, driveMode, gridAssignments) {
-  _startRace(seed, lapCount, driveMode, gridAssignments);
+let _collisionMode = 'fast';
+
+function _onGameInit(seed, lapCount, driveMode, gridAssignments, collisionMode) {
+  _collisionMode = collisionMode || 'fast';
+  _startRace(seed, lapCount, driveMode, gridAssignments, _collisionMode);
+}
+
+function _onVehicleHit(attackerId, impulse, point) {
+  // Sanity Checks
+  const myId = Network.getMyPeerId();
+  if (attackerId === myId) return; // Don't hit yourself
+
+  // Distance check (approximate as network position might be slightly behind)
+  const attacker = Network.players[attackerId];
+  const me = Network.players[myId];
+  if (attacker && me) {
+    const dx = attacker.position.x - me.position.x;
+    const dy = attacker.position.y - me.position.y;
+    const dz = attacker.position.z - me.position.z;
+    const distSq = dx * dx + dy * dy + dz * dz;
+    if (distSq > 15 * 15) return; // Too far to have hit (15m buffer)
+  }
+
+  // Impulse Magnitude Check
+  const mag = Math.sqrt(impulse.x * impulse.x + impulse.y * impulse.y + impulse.z * impulse.z);
+  if (mag > 50000) return; // Maliciously high force
+
+  Physics.applyImpactImpulse(impulse, point);
+  
+  // Camera Shake
+  if (mag > 5000) {
+    Graphics.setCameraShake(mag / 10000);
+    Audio.playCollision(); // We should ensure this exists
+  }
 }
 
 function _onReturnLobby() {
@@ -444,7 +488,9 @@ function _onRemoteOilDrop(id, pos, quat) {
 }
 
 // ── Start race ─────────────────────────────────────────────────────────────
-async function _startRace(seed, lapCount, driveMode, gridAssignments) {
+async function _startRace(seed, lapCount, driveMode, gridAssignments, collisionMode) {
+  _collisionMode = collisionMode || 'fast';
+  // ...
   // TESTER Cheat Code: Force Seed 0 if player name is TESTER
   const myId = Network.getMyPeerId();
   if (Network.players[myId] && Network.players[myId].name === 'TESTER') {
@@ -609,6 +655,11 @@ function gameLoop(now) {
 
   // 2. Physics step (fixed 1/60 internal, dt for accumulation)
   Physics.stepPhysics(dt);
+
+  // Host-authoritative collisions in STRICT mode
+  if (Network.getIsHost() && _collisionMode === 'strict') {
+    Physics.checkStrictCollisions();
+  }
 
   // 3. Flip recovery
   const flip = Physics.checkFlip(dt);

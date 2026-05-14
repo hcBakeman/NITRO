@@ -231,3 +231,9 @@ export function stopAll() {
   }
   lastGearIdx = 0;
 }
+
+export function playCollision() {
+  if (!audioCtx) return;
+  // Crunch/Crash noise
+  zzfx(...[1.8, , 240, .01, .1, .4, 4, 1.3, , , , , , .4, , .5, .1, .4, .02]);
+}

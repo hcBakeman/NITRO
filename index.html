@@ -97,6 +97,27 @@
               <option value="FWD">FRONT DRIVE (FWD)</option>
             </select>
           </div>
+          <div class="field-group full-width" style="margin-bottom: 15px">
+            <label
+              for="collision-input"
+              style="display: block; margin-bottom: 5px; color: #aaa; font-size: 10px"
+              >COLLISION MODE</label
+            >
+            <select
+              id="collision-input"
+              style="
+                width: 100%;
+                padding: 10px;
+                background: #222;
+                color: #fff;
+                border: 1px solid #444;
+                font-family: inherit;
+              "
+            >
+              <option value="fast" selected>FAST (CLIENT-SIDE SYNC)</option>
+              <option value="strict">STRICT (HOST-AUTHORITATIVE)</option>
+            </select>
+          </div>
         </div>
 
         <div class="car-selection-wrap" style="margin-bottom: 20px">

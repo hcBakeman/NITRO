@@ -21,8 +21,8 @@ let checkpointMeshes = [];
 let finishLineMesh = null;
 let finishBannerTime = 0;
 const explosionParticles = [];
-const rocketLightPool = [];
 const ROCKET_LIGHT_COUNT = 8;
+let cameraShake = 0;
 
 let minimapCtx,
   minimapSpline,
@@ -667,6 +667,10 @@ export function createOilSlickMesh(position, quaternion) {
 }
 
 // ── Camera (Spring Arm) ────────────────────────────────────────────────────
+export function setCameraShake(amount) {
+  cameraShake = Math.max(cameraShake, amount);
+}
+
 export function updateCamera(targetPos, carQuat, dt) {
   const alphaTarget = 1 - Math.exp(-8 * dt);
   cameraTarget.lerp(targetPos, alphaTarget);
@@ -686,6 +690,16 @@ export function updateCamera(targetPos, carQuat, dt) {
   const tgt = cameraTarget.clone().add(offset);
   const alphaPos = 1 - Math.exp(-5 * dt);
   camera.position.lerp(tgt, alphaPos);
+
+  if (cameraShake > 0.01) {
+    camera.position.x += (Math.random() - 0.5) * cameraShake;
+    camera.position.y += (Math.random() - 0.5) * cameraShake;
+    camera.position.z += (Math.random() - 0.5) * cameraShake;
+    cameraShake *= Math.exp(-4 * dt);
+  } else {
+    cameraShake = 0;
+  }
+
   camera.lookAt(cameraTarget);
 }
 

@@ -22,6 +22,7 @@ let _onOilDrop = null;
 let _onReturnLobby = null;
 let _onCarUpdate = null;
 let _onKicked = null;
+let _onVehicleHit = null;
 let _myPeerId = null;
 
 const PLAYER_COLOR_COUNT = 6; // must match Graphics.PLAYER_COLORS length
@@ -45,6 +46,7 @@ export function initNetwork(callbacks = {}) {
     (() => {
       location.reload();
     });
+  _onVehicleHit = callbacks.onVehicleHit || (() => {});
 
   return new Promise((resolve, reject) => {
     peer = new Peer(undefined, {
@@ -175,6 +177,18 @@ function _setupHostConnHandlers(conn) {
         _onOilDrop(pid, data.pos, data.quat);
         break;
 
+      case 'VEHICLE_HIT':
+        // Host relays the hit to the target victim
+        if (peers[data.targetId]) {
+          peers[data.targetId].send({
+            type: 'VEHICLE_HIT',
+            attackerId: pid,
+            impulse: data.impulse,
+            point: data.point,
+          });
+        }
+        break;
+
       case 'LAP_COMPLETE':
         if (players[pid]) players[pid].lap = data.lap;
         _broadcastToAll({ type: 'PLAYER_LAP', id: pid, lap: data.lap });
@@ -211,8 +225,25 @@ function _setupHostConnHandlers(conn) {
   });
 }
 
-export function startRace(seed, lapCount, driveMode, gridAssignments) {
-  _broadcastToAll({ type: 'GAME_INIT', seed, lapCount, driveMode, gridAssignments });
+export function startRace(seed, lapCount, driveMode, gridAssignments, collisionMode) {
+  _broadcastToAll({ type: 'GAME_INIT', seed, lapCount, driveMode, gridAssignments, collisionMode });
+}
+
+export function sendVehicleHit(targetId, impulse, point) {
+  if (isHost) {
+    // If Host detects a hit, broadcast it to the victim directly
+    if (peers[targetId]) {
+      peers[targetId].send({
+        type: 'VEHICLE_HIT',
+        attackerId: _myPeerId,
+        impulse,
+        point,
+      });
+    }
+  } else {
+    // Client sends to host for relay
+    _sendToHost({ type: 'VEHICLE_HIT', targetId, impulse, point });
+  }
 }
 
 export function kickPlayer(peerId) {
@@ -272,7 +303,11 @@ export function joinGame(hostPeerId, playerName, carModel = 'SUV') {
           break;
 
         case 'GAME_INIT':
-          _onGameInit(data.seed, data.lapCount, data.driveMode, data.gridAssignments);
+          _onGameInit(data.seed, data.lapCount, data.driveMode, data.gridAssignments, data.collisionMode);
+          break;
+
+        case 'VEHICLE_HIT':
+          _onVehicleHit(data.attackerId, data.impulse, data.point);
           break;
 
         case 'PLAYER_JOINED':

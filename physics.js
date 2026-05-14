@@ -7,6 +7,7 @@ import * as CANNON from 'cannon-es';
 // ── World ─────────────────────────────────────────────────────────────────
 let world;
 export let groundMat, vehicleMat, wallMat;
+export let onVehicleImpact = null; // callback(victimId, impulse, worldPoint)
 
 export function initPhysics() {
   world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
@@ -204,6 +205,24 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
 
   playerVehicle.addToWorld(world);
   playerChassis._vehicleRef = playerVehicle;
+  playerChassis.peerId = '__local__';
+
+  playerChassis.addEventListener('collide', e => {
+    const other = e.body;
+    if (other.peerId && other.peerId !== '__local__') {
+      const contact = e.contact;
+      const impactVel = contact.getImpactVelocityAlongNormal();
+      if (impactVel > 3) { // 3 m/s threshold
+        // We only report the hit if we are the attacker (moving faster towards them)
+        // or in FAST mode where everyone reports their own offensive hits.
+        const impulseMag = impactVel * playerChassis.mass * 0.4;
+        const point = { x: contact.bj.position.x + contact.rj.x, y: contact.bj.position.y + contact.rj.y, z: contact.bj.position.z + contact.rj.z };
+        const impulse = { x: contact.ni.x * impulseMag, y: contact.ni.y * impulseMag, z: contact.ni.z * impulseMag };
+        if (onVehicleImpact) onVehicleImpact(other.peerId, impulse, point);
+      }
+    }
+  });
+
   allVehicleBodies.push(playerChassis);
   return { vehicle: playerVehicle, chassis: playerChassis };
 }
@@ -228,6 +247,7 @@ export function createRemoteVehicle(peerId, mass = 0, carModel) {
 
   _addVanShapes(body);
   world.addBody(body);
+  body.peerId = peerId;
   remoteVehicles[peerId] = body;
   allVehicleBodies.push(body);
   return body;
@@ -275,6 +295,30 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
   
   // Damp angular velocity to prevent wild spinning after physical impacts
   body.angularVelocity.scale(0.8, body.angularVelocity);
+}
+
+export function applyImpactImpulse(impulse, point) {
+  if (!playerChassis) return;
+  const i = new CANNON.Vec3(impulse.x, impulse.y, impulse.z);
+  const p = new CANNON.Vec3(point.x, point.y, point.z);
+  playerChassis.applyImpulse(i, p);
+}
+
+export function checkStrictCollisions() {
+  // Only used by Host in STRICT mode to detect hits between any two vehicles
+  for (const contact of world.contacts) {
+    const bi = contact.bi;
+    const bj = contact.bj;
+    if (bi.peerId && bj.peerId) {
+      const impactVel = contact.getImpactVelocityAlongNormal();
+      if (impactVel > 4) {
+        const impulseMag = impactVel * bi.mass * 0.4;
+        const point = { x: bj.position.x + contact.rj.x, y: bj.position.y + contact.rj.y, z: bj.position.z + contact.rj.z };
+        const impulse = { x: contact.ni.x * impulseMag, y: contact.ni.y * impulseMag, z: contact.ni.z * impulseMag };
+        if (onVehicleImpact) onVehicleImpact(bj.peerId, impulse, point);
+      }
+    }
+  }
 }
 
 export function removeRemoteVehicle(peerId) {
