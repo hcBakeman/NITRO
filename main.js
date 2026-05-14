@@ -373,8 +373,8 @@ function _onVehicleHit(attackerId, impulse, point) {
   
   // Camera Shake
   if (mag > 5000) {
-    Graphics.setCameraShake(mag / 10000);
-    Audio.playCollision(); // We should ensure this exists
+    Graphics.setCameraShake(mag / 5000); // Increased sensitivity
+    Audio.playCollision();
   }
 }
 

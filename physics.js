@@ -215,10 +215,15 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
       
       // DEBUG: console.log(`Collision with ${other.peerId}, impactVel: ${impactVel.toFixed(2)}`);
 
-      if (impactVel > 1.5) { // Lowered threshold from 3 to 1.5 for easier testing
-        const impulseMag = impactVel * playerChassis.mass * 0.4;
+      if (impactVel > 1.5) {
+        const impulseMag = impactVel * playerChassis.mass * 1.2; // Increased from 0.4 for punchier hits
         const point = { x: contact.bj.position.x + contact.rj.x, y: contact.bj.position.y + contact.rj.y, z: contact.bj.position.z + contact.rj.z };
-        const impulse = { x: contact.ni.x * impulseMag, y: contact.ni.y * impulseMag, z: contact.ni.z * impulseMag };
+        // Add a slight upward pop (0.1) to make the car tumble more realistically
+        const impulse = { 
+          x: contact.ni.x * impulseMag, 
+          y: contact.ni.y * impulseMag + (impulseMag * 0.1), 
+          z: contact.ni.z * impulseMag 
+        };
         if (onVehicleImpact) onVehicleImpact(other.peerId, impulse, point);
       }
     }
@@ -313,9 +318,13 @@ export function checkStrictCollisions() {
     if (bi.peerId && bj.peerId) {
       const impactVel = contact.getImpactVelocityAlongNormal();
       if (impactVel > 4) {
-        const impulseMag = impactVel * bi.mass * 0.4;
+        const impulseMag = impactVel * bi.mass * 1.2; // Increased from 0.4
         const point = { x: bj.position.x + contact.rj.x, y: bj.position.y + contact.rj.y, z: bj.position.z + contact.rj.z };
-        const impulse = { x: contact.ni.x * impulseMag, y: contact.ni.y * impulseMag, z: contact.ni.z * impulseMag };
+        const impulse = { 
+          x: contact.ni.x * impulseMag, 
+          y: contact.ni.y * impulseMag + (impulseMag * 0.1), 
+          z: contact.ni.z * impulseMag 
+        };
         if (onVehicleImpact) onVehicleImpact(bj.peerId, impulse, point);
       }
     }
