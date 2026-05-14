@@ -242,7 +242,7 @@ export function sendVehicleHit(targetId, impulse, point) {
     }
   } else {
     // Client sends to host for relay
-    _sendToHost({ type: 'VEHICLE_HIT', targetId, impulse, point });
+    hostConn?.send({ type: 'VEHICLE_HIT', targetId, impulse, point });
   }
 }
 

@@ -362,7 +362,7 @@ function _onVehicleHit(attackerId, impulse, point) {
     const dy = attacker.position.y - me.position.y;
     const dz = attacker.position.z - me.position.z;
     const distSq = dx * dx + dy * dy + dz * dz;
-    if (distSq > 15 * 15) return; // Too far to have hit (15m buffer)
+    if (distSq > 30 * 30) return; // Increased buffer to 30m for network lag
   }
 
   // Impulse Magnitude Check

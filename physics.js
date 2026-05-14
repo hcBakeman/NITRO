@@ -212,9 +212,10 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
     if (other.peerId && other.peerId !== '__local__') {
       const contact = e.contact;
       const impactVel = contact.getImpactVelocityAlongNormal();
-      if (impactVel > 3) { // 3 m/s threshold
-        // We only report the hit if we are the attacker (moving faster towards them)
-        // or in FAST mode where everyone reports their own offensive hits.
+      
+      // DEBUG: console.log(`Collision with ${other.peerId}, impactVel: ${impactVel.toFixed(2)}`);
+
+      if (impactVel > 1.5) { // Lowered threshold from 3 to 1.5 for easier testing
         const impulseMag = impactVel * playerChassis.mass * 0.4;
         const point = { x: contact.bj.position.x + contact.rj.x, y: contact.bj.position.y + contact.rj.y, z: contact.bj.position.z + contact.rj.z };
         const impulse = { x: contact.ni.x * impulseMag, y: contact.ni.y * impulseMag, z: contact.ni.z * impulseMag };
