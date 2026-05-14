@@ -245,8 +245,9 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
   );
   
   // Spring stiffness & damping
-  const kP = body.mass * 400; 
-  const kD = body.mass * 20;
+  // Increased stiffness to prevent cars from "ghosting" into each other during collisions
+  const kP = body.mass * 600; 
+  const kD = body.mass * 30;
 
   const springForce = new CANNON.Vec3();
   posError.scale(kP, springForce);
@@ -301,8 +302,8 @@ export function setVehicleHitbox(id, width, height, length) {
   const shapes = [...body.shapes];
   shapes.forEach(s => body.removeShape(s));
 
-  // Add new chassis shape (slightly inset width for better "rubbing" physics)
-  const chassisShape = new CANNON.Box(new CANNON.Vec3(width * 0.46, 0.45, length * 0.48));
+  // Add new chassis shape (tightened for better visual-physical alignment)
+  const chassisShape = new CANNON.Box(new CANNON.Vec3(width * 0.49, 0.45, length * 0.49));
   body.addShape(chassisShape, new CANNON.Vec3(0, 0, 0));
 
   // Add new cabin shape
