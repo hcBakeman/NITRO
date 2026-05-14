@@ -70,25 +70,44 @@ const AVAILABLE_CARS = [
 function _resetToLastCheckpoint() {
   const mapData = Game.getRaceMapData();
   if (!mapData) return;
+  const chassis = Physics.playerChassis;
 
-  // Default to own start grid position
-  const myId = Network.getMyPeerId();
-  const playerIds = Object.keys(Network.players).sort();
-  const myIdx = Math.max(0, playerIds.indexOf(myId));
-  let target = mapData.startGrid[myIdx % mapData.startGrid.length] || mapData.startGrid[0];
+  let target;
 
-  // Find the last passed checkpoint and respawn there instead
-  const passed = mapData.checkpoints.filter(cp => cp.passed).sort((a, b) => b.index - a.index);
-  if (passed.length > 0) {
-    const cp = passed[0];
+  // Use current track progress for a more localized respawn
+  if (chassis && chassis._closestT !== undefined) {
+    const spline = mapData.spline;
+    const length = spline.getLength();
+    // Respawn ~15m behind current point
+    const offsetT = 15.0 / length;
+    let t = (chassis._closestT - offsetT + 1.0) % 1.0;
+
+    const pt = spline.getPointAt(t);
+    const tan = spline.getTangentAt(t).normalize();
     target = {
-      pos: cp.position,
-      quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), cp.tangent),
+      pos: pt,
+      quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan),
     };
+  } else {
+    // Fallback to last passed checkpoint
+    const passed = mapData.checkpoints.filter(cp => cp.passed).sort((a, b) => b.index - a.index);
+    if (passed.length > 0) {
+      const cp = passed[0];
+      target = {
+        pos: cp.position,
+        quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), cp.tangent),
+      };
+    } else {
+      // Default to start grid
+      const myId = Network.getMyPeerId();
+      const playerIds = Object.keys(Network.players).sort();
+      const myIdx = Math.max(0, playerIds.indexOf(myId));
+      target = mapData.startGrid[myIdx % mapData.startGrid.length] || mapData.startGrid[0];
+    }
   }
 
   const respawnPos = target.pos.clone();
-  respawnPos.y += 2.0;
+  respawnPos.y += 2.0; // Drop from air
   Physics.resetVehicle(respawnPos, target.quat);
 }
 let currentCarIndex = 0; // Default to first car
