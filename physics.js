@@ -36,6 +36,13 @@ export function initPhysics() {
     })
   );
 
+  world.addContactMaterial(
+    new CANNON.ContactMaterial(vehicleMat, vehicleMat, {
+      friction: 0.1,
+      restitution: 0.3,
+    })
+  );
+
   // Physical Safety Floor (Ground Level)
   const floorBody = new CANNON.Body({ mass: 0, material: groundMat });
   floorBody.isFloorBody = true;
@@ -209,11 +216,64 @@ export function createRemoteVehicle(peerId, mass = 0, carModel) {
     type: mass > 0 ? CANNON.Body.DYNAMIC : CANNON.Body.KINEMATIC,
   });
   body.isOiled = false;
+
+  if (mass > 0) {
+    // Disable native gravity to avoid vertical sagging against the network spring
+    body.preStep = () => {
+      body.force.y -= body.mass * world.gravity.y;
+    };
+    body.linearDamping = 0.4;
+    body.angularDamping = 0.6;
+  }
+
   _addVanShapes(body);
   world.addBody(body);
   remoteVehicles[peerId] = body;
   allVehicleBodies.push(body);
   return body;
+}
+
+export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
+  const body = remoteVehicles[id];
+  if (!body || body.type === CANNON.Body.KINEMATIC) return;
+
+  // 1. Position Spring-Damper (PD Controller)
+  const posError = new CANNON.Vec3(
+    targetPos.x - body.position.x,
+    targetPos.y - body.position.y,
+    targetPos.z - body.position.z
+  );
+  
+  // Spring stiffness & damping
+  const kP = body.mass * 400; 
+  const kD = body.mass * 20;
+
+  const springForce = new CANNON.Vec3();
+  posError.scale(kP, springForce);
+  
+  // Damping relative to target velocity to reduce "dragging" feel
+  const currentVel = body.velocity;
+  const velError = new CANNON.Vec3(
+    (targetVel ? targetVel.x : 0) - currentVel.x,
+    (targetVel ? targetVel.y : 0) - currentVel.y,
+    (targetVel ? targetVel.z : 0) - currentVel.z
+  );
+  
+  const dampingForce = new CANNON.Vec3();
+  velError.scale(kD, dampingForce);
+  
+  const totalForce = new CANNON.Vec3();
+  // F = kP * posError + kD * velError
+  springForce.vadd(dampingForce, totalForce);
+  
+  body.applyForce(totalForce, new CANNON.Vec3(0, 0, 0));
+
+  // 2. Rotation Sync (Slerp)
+  const tQuat = new CANNON.Quaternion(targetQuat.x, targetQuat.y, targetQuat.z, targetQuat.w);
+  body.quaternion.slerp(tQuat, 0.3, body.quaternion);
+  
+  // Damp angular velocity to prevent wild spinning after physical impacts
+  body.angularVelocity.scale(0.8, body.angularVelocity);
 }
 
 export function removeRemoteVehicle(peerId) {

@@ -456,7 +456,7 @@ async function _startRace(seed, lapCount, driveMode) {
     const pIdx = playerIds.indexOf(id);
     const rSpot = mapData.startGrid[pIdx % mapData.startGrid.length];
     await Graphics.loadVehicle(id, p.colorIndex, p.carModel);
-    const rb = Physics.createRemoteVehicle(id, 0, p.carModel);
+    const rb = Physics.createRemoteVehicle(id, 1, p.carModel);
     rb.position.set(rSpot.pos.x, rSpot.pos.y + 1.8, rSpot.pos.z);
     rb.quaternion.copy(rSpot.quat);
   }
@@ -656,7 +656,17 @@ function gameLoop(now) {
   Network.lerpRemotePlayers(dt);
   for (const [id, p] of Object.entries(Network.players)) {
     if (p.isLocal) continue;
-    Graphics.updateVehicleMesh(id, p.position, p.quaternion);
+    
+    // Sync the dynamic physics body to the network position
+    Physics.syncRemoteBody(id, p.position, p.quaternion, p.velocity, dt);
+    
+    // Read the visual mesh position from the actual physics body so local collisions look correct
+    const rb = Physics.getVehicleBody(id);
+    if (rb) {
+      Graphics.updateVehicleMesh(id, rb.position, rb.quaternion);
+    } else {
+      Graphics.updateVehicleMesh(id, p.position, p.quaternion);
+    }
   }
 
   // 7. Send local network state
