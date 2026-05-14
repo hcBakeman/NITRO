@@ -261,8 +261,21 @@ document.getElementById('btn-start').addEventListener('click', e => {
     Math.min(10, parseInt(document.getElementById('lap-input').value) || 3)
   );
   const driveMode = document.getElementById('drive-input').value;
-  Network.startRace(seed, lapCount, driveMode);
-  _startRace(seed, lapCount, driveMode);
+
+  // Randomize grid assignments for all players
+  const playerIds = Object.keys(Network.players);
+  // Fisher-Yates shuffle
+  for (let i = playerIds.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [playerIds[i], playerIds[j]] = [playerIds[j], playerIds[i]];
+  }
+  const gridAssignments = {};
+  playerIds.forEach((pid, idx) => {
+    gridAssignments[pid] = idx;
+  });
+
+  Network.startRace(seed, lapCount, driveMode, gridAssignments);
+  _startRace(seed, lapCount, driveMode, gridAssignments);
 });
 
 document.getElementById('btn-return-lobby').addEventListener('click', e => {
@@ -298,8 +311,8 @@ function _onPlayerLeave(id) {
   _refreshPlayerList();
 }
 
-function _onGameInit(seed, lapCount, driveMode) {
-  _startRace(seed, lapCount, driveMode);
+function _onGameInit(seed, lapCount, driveMode, gridAssignments) {
+  _startRace(seed, lapCount, driveMode, gridAssignments);
 }
 
 function _onReturnLobby() {
@@ -412,7 +425,7 @@ function _onRemoteOilDrop(id, pos, quat) {
 }
 
 // ── Start race ─────────────────────────────────────────────────────────────
-async function _startRace(seed, lapCount, driveMode) {
+async function _startRace(seed, lapCount, driveMode, gridAssignments) {
   // TESTER Cheat Code: Force Seed 0 if player name is TESTER
   const myId = Network.getMyPeerId();
   if (Network.players[myId] && Network.players[myId].name === 'TESTER') {
@@ -442,10 +455,8 @@ async function _startRace(seed, lapCount, driveMode) {
   const myColorIdx = Network.players[myId]?.colorIndex || 0;
   const myCarModel = Network.players[myId]?.carModel || AVAILABLE_CARS[0];
 
-  // Find my index in players list to assign grid spot
-  const playerIds = Object.keys(Network.players).sort();
-  const myIdx = playerIds.indexOf(myId) >= 0 ? playerIds.indexOf(myId) : 0;
-
+  // Grid spot assignment
+  const myIdx = gridAssignments ? gridAssignments[myId] : 0;
   const gridSpot = mapData.startGrid[myIdx % mapData.startGrid.length];
   Physics.createPlayerVehicle(gridSpot.pos, gridSpot.quat, myCarModel);
   await Graphics.loadVehicle('__local__', myColorIdx, myCarModel);
@@ -453,7 +464,7 @@ async function _startRace(seed, lapCount, driveMode) {
   // Remote vehicles
   for (const [id, p] of Object.entries(Network.players)) {
     if (id === myId) continue;
-    const pIdx = playerIds.indexOf(id);
+    const pIdx = gridAssignments ? gridAssignments[id] : 0;
     const rSpot = mapData.startGrid[pIdx % mapData.startGrid.length];
     await Graphics.loadVehicle(id, p.colorIndex, p.carModel);
     const rb = Physics.createRemoteVehicle(id, 1, p.carModel);

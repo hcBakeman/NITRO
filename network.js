@@ -211,8 +211,8 @@ function _setupHostConnHandlers(conn) {
   });
 }
 
-export function startRace(seed, lapCount, driveMode) {
-  _broadcastToAll({ type: 'GAME_INIT', seed, lapCount, driveMode });
+export function startRace(seed, lapCount, driveMode, gridAssignments) {
+  _broadcastToAll({ type: 'GAME_INIT', seed, lapCount, driveMode, gridAssignments });
 }
 
 export function kickPlayer(peerId) {
@@ -272,7 +272,7 @@ export function joinGame(hostPeerId, playerName, carModel = 'SUV') {
           break;
 
         case 'GAME_INIT':
-          _onGameInit(data.seed, data.lapCount, data.driveMode);
+          _onGameInit(data.seed, data.lapCount, data.driveMode, data.gridAssignments);
           break;
 
         case 'PLAYER_JOINED':
