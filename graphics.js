@@ -6,8 +6,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-
-// ── Player color palette ──────────────────────────────────────────────────
+import { ROAD_HALF } from './map.js';
 export const PLAYER_COLORS = [0xff2222, 0x22aaff, 0x22ff44, 0xffee22, 0xff8800, 0xcc22ff];
 
 // ── Module state ──────────────────────────────────────────────────────────
@@ -186,14 +185,15 @@ function _buildCheckpointArches(checkpoints, spline) {
       flatShading: true,
     });
 
-    // Two posts + crossbar (alternating orange/white stripes via separate meshes)
+    // Two posts + crossbar (scaled to road width + 0.75m buffer)
+    const archHalfWidth = ROAD_HALF + 0.75;
     const postGeo = new THREE.BoxGeometry(0.5, 5, 0.5);
-    const barGeo = new THREE.BoxGeometry(12.5, 0.5, 0.5);
+    const barGeo = new THREE.BoxGeometry(archHalfWidth * 2, 0.5, 0.5);
 
     const postL = new THREE.Mesh(postGeo, idx % 2 === 0 ? mat : matW);
-    postL.position.set(-6.25, 2.5, 0);
+    postL.position.set(-archHalfWidth, 2.5, 0);
     const postR = new THREE.Mesh(postGeo, idx % 2 === 0 ? matW : mat);
-    postR.position.set(6.25, 2.5, 0);
+    postR.position.set(archHalfWidth, 2.5, 0);
     const bar = new THREE.Mesh(barGeo, mat);
     bar.position.set(0, 5, 0);
 
@@ -211,7 +211,7 @@ function _buildCheckpointArches(checkpoints, spline) {
     const labelTex = new THREE.CanvasTexture(labelCanvas);
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex, depthTest: false }));
     sprite.position.set(0, 8, 0);
-    sprite.scale.set(12, 3, 1);
+    sprite.scale.set(archHalfWidth * 2, 3, 1);
     grp.add(sprite);
 
     // Position arch along spline
@@ -247,7 +247,8 @@ function _buildFinishLine(pos, tan) {
   bannerTex.magFilter = THREE.NearestFilter;
 
   // Animated banner (sine wave via vertex shader)
-  const bannerGeo = new THREE.PlaneGeometry(13, 2.5, 32, 1);
+  const finishHalfWidth = ROAD_HALF + 1.0;
+  const bannerGeo = new THREE.PlaneGeometry(finishHalfWidth * 2, 2.5, 32, 1);
   const bannerMat = new THREE.MeshBasicMaterial({ map: bannerTex, side: THREE.DoubleSide });
   const banner = new THREE.Mesh(bannerGeo, bannerMat);
   banner.position.set(0, 9, 0);
@@ -257,7 +258,7 @@ function _buildFinishLine(pos, tan) {
   // Poles
   const poleGeo = new THREE.CylinderGeometry(0.18, 0.18, 10, 8);
   const poleMat = _stripesMat(0xff0000, 0xffffff, 8);
-  [-6.5, 6.5].forEach(x => {
+  [-finishHalfWidth, finishHalfWidth].forEach(x => {
     const pole = new THREE.Mesh(poleGeo, poleMat);
     pole.position.set(x, 5, 0); // Spaced along X axis (across track)
     pole.castShadow = true;
@@ -278,7 +279,7 @@ function _buildFinishLine(pos, tan) {
   const gTex = new THREE.CanvasTexture(gc);
   gTex.magFilter = THREE.NearestFilter;
   const groundStripe = new THREE.Mesh(
-    new THREE.PlaneGeometry(13, 3),
+    new THREE.PlaneGeometry(finishHalfWidth * 2, 3),
     new THREE.MeshLambertMaterial({ map: gTex })
   );
   groundStripe.rotation.x = -Math.PI / 2;

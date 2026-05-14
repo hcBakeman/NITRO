@@ -220,33 +220,70 @@ export function updateRace(dt, chassis) {
   if (chassis && mapData.spline && chassis.velocity.lengthSquared() > 10) {
     if (!chassis._lastWwCheck || performance.now() - chassis._lastWwCheck > 500) {
       chassis._lastWwCheck = performance.now();
-      // Search only around the cached closest t (±0.12) for better perf
-      const prevT = chassis._closestT ?? 0.5;
-      const searchMin = Math.max(0, prevT - 0.12);
-      const searchMax = Math.min(1, prevT + 0.12);
-      const STEPS = 12;
-      let closestT = prevT;
-      let minDist = Infinity;
-      for (let i = 0; i <= STEPS; i++) {
-        const t = searchMin + (searchMax - searchMin) * (i / STEPS);
-        const pt = mapData.spline.getPointAt(t);
-        const dist = pt.distanceToSquared(pos);
-        if (dist < minDist) {
-          minDist = dist;
-          closestT = t;
+      
+      let closestT = chassis._closestT;
+      let minDistSq = Infinity;
+
+      // 1. Find Closest Point on Spline
+      if (closestT === undefined) {
+        // First time or after reset: Global search
+        const GLOBAL_STEPS = 50;
+        for (let i = 0; i <= GLOBAL_STEPS; i++) {
+          const t = i / GLOBAL_STEPS;
+          const pt = mapData.spline.getPointAt(t);
+          const dSq = pt.distanceToSquared(pos);
+          if (dSq < minDistSq) {
+            minDistSq = dSq;
+            closestT = t;
+          }
+        }
+      } else {
+        // Incremental search around previous t (handling wrap-around)
+        const STEPS = 14;
+        const range = 0.12;
+        for (let i = 0; i <= STEPS; i++) {
+          let t = (closestT - range + (i / STEPS) * 2 * range + 1) % 1;
+          const pt = mapData.spline.getPointAt(t);
+          const dSq = pt.distanceToSquared(pos);
+          if (dSq < minDistSq) {
+            minDistSq = dSq;
+            closestT = t;
+          }
+        }
+        
+        // If the closest point found is way too far, do a recovery global search
+        if (minDistSq > 100 * 100) {
+           const GLOBAL_STEPS = 30;
+           for (let i = 0; i <= GLOBAL_STEPS; i++) {
+             const t = i / GLOBAL_STEPS;
+             const pt = mapData.spline.getPointAt(t);
+             const dSq = pt.distanceToSquared(pos);
+             if (dSq < minDistSq) {
+               minDistSq = dSq;
+               closestT = t;
+             }
+           }
         }
       }
       chassis._closestT = closestT;
+
+      // 2. Heading Check
+      // Use 2D projection (XZ) to ignore vehicle pitch/roll influence
       const tan = mapData.spline.getTangentAt(closestT).normalize();
       const fwd = new CANNON.Vec3(0, 0, 1);
       chassis.quaternion.vmult(fwd, fwd);
-
-      const dot = fwd.x * tan.x + fwd.z * tan.z;
+      
+      const tan2D = new THREE.Vector2(tan.x, tan.z).normalize();
+      const fwd2D = new THREE.Vector2(fwd.x, fwd.z).normalize();
+      const dot = tan2D.dot(fwd2D);
+      
       const msgEl = document.getElementById('wrong-way-msg');
-      if (dot < -0.3) {
-        msgEl.classList.remove('hidden');
+      // Threshold: -0.3 is very generous (>107 deg). 
+      // Also ensure player is actually near the road (within 35m) to avoid confusion during air-time or out-of-bounds.
+      if (dot < -0.3 && minDistSq < 35 * 35) {
+        msgEl?.classList.remove('hidden');
       } else {
-        msgEl.classList.add('hidden');
+        msgEl?.classList.add('hidden');
       }
     }
   } else {

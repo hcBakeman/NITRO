@@ -75,7 +75,7 @@ export const VEHICLE_CLASSES = {
   },
   'retro_anime_suzuki_alto': {
     mass: 700,
-    engineForce: 3000,
+    engineForce: 3500,
     maxSpeed: 32, // 115 km/h
     frontFric: 4.0,
     rearFric: 3.0,
@@ -150,7 +150,7 @@ function _addVanShapes(body) {
 
 export function createPlayerVehicle(startPos, startQuat, carModel) {
   playerCarSpecs = VEHICLE_CLASSES[carModel] || VEHICLE_CLASSES['dacia_duster_low_poly'];
-  playerChassis = new CANNON.Body({ mass: playerCarSpecs.mass, material: vehicleMat }); 
+  playerChassis = new CANNON.Body({ mass: playerCarSpecs.mass, material: vehicleMat });
   playerChassis.isOiled = false;
   _addVanShapes(playerChassis);
 
@@ -321,7 +321,7 @@ export function setVehicleInput(input) {
     playerVehicle.wheelInfos[3].frictionSlip = BASE_REAR_FRIC;
   }
 
-  const currentRoll = playerCarSpecs.rollInfluence + speedRatio * 0.05; 
+  const currentRoll = playerCarSpecs.rollInfluence + speedRatio * 0.05;
   playerVehicle.wheelInfos.forEach(w => (w.rollInfluence = currentRoll));
 
   playerVehicle.setSteeringValue(steer, 0);
@@ -548,4 +548,5 @@ export function resetVehicle(pos, quat) {
   playerChassis.quaternion.set(quat.x, quat.y, quat.z, quat.w);
   playerChassis.velocity.set(0, 0, 0);
   playerChassis.angularVelocity.set(0, 0, 0);
+  playerChassis._closestT = undefined; // Reset wrong-way detection cache
 }

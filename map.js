@@ -22,7 +22,7 @@ export function mulberry32(seed) {
 const NUM_POINTS = 18;
 const RING_RADIUS = 150;
 const OFFSET_MAX = 35;
-const ROAD_HALF = 5.5;
+export const ROAD_HALF = 6;
 const WALL_H = 2.5;
 const WALL_T = 0.5; // wall half-thickness
 
@@ -104,7 +104,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
     physIndices.push(v + 1, nvPhys + 1, nvPhys);
     physIndices.push(v + 1, v + 2, nvPhys + 1);
     physIndices.push(v + 2, nvPhys + 2, nvPhys + 1);
-    
+
     // Back faces
     physIndices.push(v, nvPhys, v + 1);
     physIndices.push(v + 1, nvPhys, nvPhys + 1);
