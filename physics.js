@@ -243,10 +243,13 @@ export function createRemoteVehicle(peerId, mass = 0, carModel) {
   body.isOiled = false;
 
   if (mass > 0) {
-    // Disable native gravity to avoid vertical sagging against the network spring
-    body.preStep = () => {
-      body.force.y -= body.mass * world.gravity.y;
-    };
+    // Disable native gravity ONLY for networked players to avoid vertical sagging against the network spring.
+    // NPC/Test vehicles should keep gravity for realistic physics.
+    if (peerId !== '__test_driver__') {
+      body.preStep = () => {
+        body.force.y -= body.mass * world.gravity.y;
+      };
+    }
     body.linearDamping = 0.4;
     body.angularDamping = 0.6;
   }

@@ -537,10 +537,10 @@ async function _startRace(seed, lapCount, driveMode, gridAssignments, collisionM
     rb.quaternion.copy(rSpot.quat);
   }
 
-  // NPC Test Driver – mass 0 (kinematic) so all clients have identical static obstacle
+  // NPC Test Driver – mass 1 (dynamic) so players can test collisions
   const testId = '__test_driver__';
   const testPos = mapData.spline.getPointAt(0.05);
-  const testBody = Physics.createRemoteVehicle(testId, 0, 'police_car');
+  const testBody = Physics.createRemoteVehicle(testId, 1, 'police_car');
   testBody.position.set(testPos.x, testPos.y + 1, testPos.z);
   const testTan = mapData.spline.getTangentAt(0.05).normalize();
   testBody.quaternion.setFromEuler(0, Math.atan2(testTan.x, testTan.z), 0);
