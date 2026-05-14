@@ -231,9 +231,10 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
         
         const impulse = { 
           x: contact.ni.x * impulseMag * sign, 
-          y: contact.ni.y * impulseMag * sign + (impulseMag * 0.15), 
+          y: contact.ni.y * impulseMag * sign + (impulseMag * 0.1), 
           z: contact.ni.z * impulseMag * sign 
         };
+        // Use a separate callback for local-only detection to avoid double-hits in Strict mode
         if (onVehicleImpact) onVehicleImpact(other.peerId, impulse, point, '__local__');
       }
     }
@@ -250,6 +251,7 @@ export function createRemoteVehicle(peerId, mass = 0, carModel) {
     material: vehicleMat,
     type: mass > 0 ? CANNON.Body.DYNAMIC : CANNON.Body.KINEMATIC,
   });
+  body.peerId = peerId;
   body.isOiled = false;
 
   if (mass > 0) {
@@ -334,7 +336,7 @@ export function checkStrictCollisions() {
     if (bi.peerId && bj.peerId) {
       const impactVel = contact.getImpactVelocityAlongNormal();
       if (impactVel > 3) {
-        const impulseMag = impactVel * bi.mass * 1.5;
+        const impulseMag = impactVel * bi.mass * 0.8;
         
         // Determine who hit whom based on velocity along normal
         const vRelI = bi.velocity.dot(contact.ni);
@@ -344,7 +346,7 @@ export function checkStrictCollisions() {
         const point = { x: bj.position.x + contact.rj.x, y: bj.position.y + contact.rj.y, z: bj.position.z + contact.rj.z };
         const impulse = { 
           x: contact.ni.x * impulseMag, 
-          y: contact.ni.y * impulseMag + (impulseMag * 0.15), 
+          y: contact.ni.y * impulseMag + (impulseMag * 0.1), 
           z: contact.ni.z * impulseMag 
         };
         if (onVehicleImpact) onVehicleImpact(bj.peerId, impulse, point, bi.peerId);
@@ -353,7 +355,7 @@ export function checkStrictCollisions() {
         const pointI = { x: bi.position.x + contact.ri.x, y: bi.position.y + contact.ri.y, z: bi.position.z + contact.ri.z };
         const impulseI = { 
           x: -contact.ni.x * impulseMag, 
-          y: -contact.ni.y * impulseMag + (impulseMag * 0.15), 
+          y: -contact.ni.y * impulseMag + (impulseMag * 0.1), 
           z: -contact.ni.z * impulseMag 
         };
         if (onVehicleImpact) onVehicleImpact(bi.peerId, impulseI, pointI, bj.peerId);
