@@ -28,6 +28,32 @@ Graphics.initGraphics(canvas);
 Game.initInput();
 Game.setState(Game.STATE.MENU);
 
+// ── Auto-join from URL ─────────────────────────────────────────────────────
+window.addEventListener('load', async () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const joinId = urlParams.get('lobby');
+  if (joinId) {
+    console.log('Lobby auto-join detected:', joinId);
+    document.getElementById('join-peer-id').value = joinId;
+    document.getElementById('join-panel').classList.remove('hidden');
+    
+    // Auto-trigger connection after a short delay to ensure DOM and logic are ready
+    setTimeout(async () => {
+      const statusEl = document.getElementById('menu-status');
+      statusEl.textContent = 'AUTO-JOINING LOBBY...';
+      try {
+        if (!Network.getMyPeerId()) await setupNetwork();
+        await Network.joinGame(joinId, myName(), AVAILABLE_CARS[currentCarIndex]);
+        _enterLobby(false);
+        statusEl.textContent = '';
+      } catch (e) {
+        statusEl.textContent = 'AUTO-JOIN FAILED: ' + e.message;
+        statusEl.className = 'status-msg error';
+      }
+    }, 500);
+  }
+});
+
 // Reusable camera target
 const _camTarget = new THREE.Vector3();
 let _crosshairTimer = 0;
@@ -207,9 +233,22 @@ document.getElementById('btn-copy-id').addEventListener('click', () => {
   navigator.clipboard.writeText(id).then(() => {
     const btn = document.getElementById('btn-copy-id');
     const orig = btn.textContent;
-    btn.textContent = '✓ COPIED';
+    btn.textContent = '✓';
     setTimeout(() => {
-      btn.textContent = orig;
+      btn.textContent = '📋 ID';
+    }, 2000);
+  });
+});
+
+document.getElementById('btn-share-link').addEventListener('click', () => {
+  const id = document.getElementById('peer-id-display').textContent;
+  const url = `${window.location.origin}${window.location.pathname}?lobby=${id}`;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('btn-share-link');
+    const orig = btn.textContent;
+    btn.textContent = '✓';
+    setTimeout(() => {
+      btn.textContent = '🔗 LINK';
     }, 2000);
   });
 });
@@ -267,6 +306,7 @@ function _onReturnLobby() {
   Game.setState(Game.STATE.LOBBY);
   Graphics.clearRaceScene();
   Physics.clearPhysicsWorld();
+  Audio.stopAll();
   document.getElementById('btn-return-lobby').classList.add('hidden');
   _enterLobby(Network.getIsHost());
 }

@@ -222,3 +222,12 @@ export function updateEngine(speed, isAccelerating) {
   lastGearIdx = gearIdx;
   lastAccel = isAccelerating;
 }
+
+export function stopAll() {
+  if (!audioCtx) return;
+  if (engineGain) {
+    // Smoothly fade out engine sound
+    engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+  }
+  lastGearIdx = 0;
+}
