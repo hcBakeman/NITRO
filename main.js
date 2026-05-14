@@ -161,13 +161,13 @@ async function setupNetwork() {
     document.getElementById('peer-id-display').textContent = myId;
     statusEl.textContent = 'CONNECTED ✓';
 
-    Physics.onVehicleImpact = (victimId, impulse, point) => {
+    Physics.onVehicleImpact = (victimId, impulse, point, attackerId) => {
       // In FAST mode, the attacker sends the hit.
       // In STRICT mode, ONLY the Host sends the hit.
       if (_collisionMode === 'fast') {
-        Network.sendVehicleHit(victimId, impulse, point);
+        Network.sendVehicleHit(victimId, impulse, point, attackerId);
       } else if (_collisionMode === 'strict' && Network.getIsHost()) {
-        Network.sendVehicleHit(victimId, impulse, point);
+        Network.sendVehicleHit(victimId, impulse, point, attackerId);
       }
     };
     statusEl.className = 'status-msg ok';
@@ -352,9 +352,11 @@ function _onGameInit(seed, lapCount, driveMode, gridAssignments, collisionMode) 
 function _onVehicleHit(attackerId, impulse, point) {
   // Sanity Checks
   const myId = Network.getMyPeerId();
-  if (attackerId === myId) return; // Don't hit yourself
+  if (attackerId === myId) return; 
 
-  // Distance check (approximate as network position might be slightly behind)
+  // console.log(`[Collision] Incoming hit from ${attackerId}, impulse:`, impulse);
+
+  // Distance check
   const attacker = Network.players[attackerId];
   const me = Network.players[myId];
   if (attacker && me) {
@@ -362,18 +364,21 @@ function _onVehicleHit(attackerId, impulse, point) {
     const dy = attacker.position.y - me.position.y;
     const dz = attacker.position.z - me.position.z;
     const distSq = dx * dx + dy * dy + dz * dz;
-    if (distSq > 30 * 30) return; // Increased buffer to 30m for network lag
+    // Massive buffer for network latency (50m)
+    if (distSq > 50 * 50) {
+      // console.warn(`[Collision] Rejected hit from ${attackerId}: too far (${Math.sqrt(distSq).toFixed(1)}m)`);
+      return; 
+    }
   }
 
-  // Impulse Magnitude Check
   const mag = Math.sqrt(impulse.x * impulse.x + impulse.y * impulse.y + impulse.z * impulse.z);
-  if (mag > 50000) return; // Maliciously high force
+  if (mag > 100000) return; // Maliciously high force cap (increased)
 
   Physics.applyImpactImpulse(impulse, point);
   
   // Camera Shake
   if (mag > 5000) {
-    Graphics.setCameraShake(mag / 5000); // Increased sensitivity
+    Graphics.setCameraShake(mag / 5000); 
     Audio.playCollision();
   }
 }

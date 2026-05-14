@@ -229,13 +229,13 @@ export function startRace(seed, lapCount, driveMode, gridAssignments, collisionM
   _broadcastToAll({ type: 'GAME_INIT', seed, lapCount, driveMode, gridAssignments, collisionMode });
 }
 
-export function sendVehicleHit(targetId, impulse, point) {
+export function sendVehicleHit(targetId, impulse, point, attackerId) {
   if (isHost) {
     // If Host detects a hit, broadcast it to the victim directly
     if (peers[targetId]) {
       peers[targetId].send({
         type: 'VEHICLE_HIT',
-        attackerId: _myPeerId,
+        attackerId: attackerId || _myPeerId,
         impulse,
         point,
       });

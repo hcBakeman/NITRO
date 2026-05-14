@@ -7,7 +7,7 @@ import * as CANNON from 'cannon-es';
 // ── World ─────────────────────────────────────────────────────────────────
 let world;
 export let groundMat, vehicleMat, wallMat;
-export let onVehicleImpact = null; // callback(victimId, impulse, worldPoint)
+export let onVehicleImpact = null; // callback(victimId, impulse, point, attackerId)
 
 export function initPhysics() {
   world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
@@ -234,7 +234,7 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           y: contact.ni.y * impulseMag * sign + (impulseMag * 0.15), 
           z: contact.ni.z * impulseMag * sign 
         };
-        if (onVehicleImpact) onVehicleImpact(other.peerId, impulse, point);
+        if (onVehicleImpact) onVehicleImpact(other.peerId, impulse, point, '__local__');
       }
     }
   });
@@ -335,23 +335,28 @@ export function checkStrictCollisions() {
       const impactVel = contact.getImpactVelocityAlongNormal();
       if (impactVel > 3) {
         const impulseMag = impactVel * bi.mass * 1.5;
-        // Broadcast the hit to the victim (bj)
+        
+        // Determine who hit whom based on velocity along normal
+        const vRelI = bi.velocity.dot(contact.ni);
+        const vRelJ = bj.velocity.dot(contact.ni);
+        
+        // Broadcast the hit to the victim (bj) from attacker (bi)
         const point = { x: bj.position.x + contact.rj.x, y: bj.position.y + contact.rj.y, z: bj.position.z + contact.rj.z };
         const impulse = { 
           x: contact.ni.x * impulseMag, 
           y: contact.ni.y * impulseMag + (impulseMag * 0.15), 
           z: contact.ni.z * impulseMag 
         };
-        if (onVehicleImpact) onVehicleImpact(bj.peerId, impulse, point);
+        if (onVehicleImpact) onVehicleImpact(bj.peerId, impulse, point, bi.peerId);
         
-        // Also broadcast the counter-hit to the attacker (bi)
+        // Also broadcast the counter-hit to the attacker (bi) from victim (bj)
         const pointI = { x: bi.position.x + contact.ri.x, y: bi.position.y + contact.ri.y, z: bi.position.z + contact.ri.z };
         const impulseI = { 
           x: -contact.ni.x * impulseMag, 
           y: -contact.ni.y * impulseMag + (impulseMag * 0.15), 
           z: -contact.ni.z * impulseMag 
         };
-        if (onVehicleImpact) onVehicleImpact(bi.peerId, impulseI, pointI);
+        if (onVehicleImpact) onVehicleImpact(bi.peerId, impulseI, pointI, bj.peerId);
       }
     }
   }
