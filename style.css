@@ -198,7 +198,98 @@ input:focus {
 }
 .btn-small {
   font-size: 8px;
-  padding: 6px 10px;
+  padding: 6px 12px;
+}
+.full-width {
+  width: 100%;
+}
+.hidden {
+  display: none !important;
+}
+
+/* ── Loading Overlay ─────────────────────────────────── */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(8px);
+}
+.loader-box {
+  text-align: center;
+  color: var(--col-accent);
+}
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(255, 238, 34, 0.1);
+  border-left-color: var(--col-accent);
+  border-radius: 50%;
+  margin: 0 auto 15px;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* ── Car Selector ────────────────────────────────────── */
+.car-selection-wrap {
+  margin-bottom: 20px;
+}
+.car-selection-wrap label {
+  display: block;
+  margin-bottom: 5px;
+  color: #aaa;
+  font-size: 10px;
+}
+.car-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #111;
+  border: 2px solid #444;
+  border-radius: 4px;
+  padding: 10px;
+}
+.car-selector .btn-nav {
+  padding: 10px;
+  min-width: 40px;
+  background: #333;
+  color: #fff;
+  border: none;
+}
+.car-selector .btn-nav:hover {
+  background: #444;
+}
+.car-preview-container {
+  position: relative;
+  width: 200px;
+  height: 120px;
+}
+.car-preview-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.car-name-display {
+  position: absolute;
+  bottom: 5px;
+  width: 100%;
+  text-align: center;
+  color: #fff;
+  font-size: 12px;
+  text-shadow: 1px 1px 0 #000;
+}
+.btn-small {
   background: rgba(255, 238, 34, 0.1);
   color: var(--col-accent);
   border-color: var(--col-accent);

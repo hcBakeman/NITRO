@@ -31,7 +31,7 @@ const PLAYER_COLOR_COUNT = 6; // must match Graphics.PLAYER_COLORS length
 const WEAPON_AMMO = { ROCKET: 2, OIL_SLICK: 2, BOOST: 1 };
 
 // ── Init ──────────────────────────────────────────────────────────────────
-export function initNetwork(callbacks = {}) {
+export function initNetwork(callbacks = {}, customId = undefined) {
   _onPlayerJoin = callbacks.onPlayerJoin || (() => {});
   _onPlayerLeave = callbacks.onPlayerLeave || (() => {});
   _onGameInit = callbacks.onGameInit || (() => {});
@@ -48,8 +48,17 @@ export function initNetwork(callbacks = {}) {
     });
   _onVehicleHit = callbacks.onVehicleHit || (() => {});
 
+  // If we already have a peer and it's what we want, just return its ID
+  if (peer && !peer.destroyed) {
+    if (customId === undefined || peer.id === customId) {
+      return Promise.resolve(peer.id);
+    }
+    // If we need a different ID, we have to destroy the old one
+    peer.destroy();
+  }
+
   return new Promise((resolve, reject) => {
-    peer = new Peer(undefined, {
+    peer = new Peer(customId, {
       host: '0.peerjs.com',
       port: 443,
       secure: true,
@@ -60,12 +69,33 @@ export function initNetwork(callbacks = {}) {
       _myPeerId = id;
       resolve(id);
     });
+
+    peer.on('disconnected', () => {
+      console.warn('[Network] Disconnected from server. Attempting reconnect...');
+      peer.reconnect();
+    });
+
     peer.on('error', err => {
-      console.error('[Network]', err);
-      reject(err);
+      console.error('[Network Error Type]', err.type, err);
+      
+      let friendlyMsg = err.message;
+      if (err.type === 'unavailable-id') {
+        friendlyMsg = 'Lobby name already taken. Choose another.';
+      } else if (err.type === 'peer-unavailable') {
+        friendlyMsg = 'Host not found. Check the ID and try again.';
+      } else if (err.type === 'network') {
+        friendlyMsg = 'Network connection lost.';
+      } else if (err.type === 'server-error') {
+        friendlyMsg = 'PeerJS server error. Try again later.';
+      }
+
+      // If we haven't resolved yet, reject the promise
+      reject(new Error(friendlyMsg));
     });
   });
+
 }
+
 
 export function getMyPeerId() {
   return _myPeerId;

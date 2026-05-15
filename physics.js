@@ -7,7 +7,10 @@ import * as CANNON from 'cannon-es';
 // ── World ─────────────────────────────────────────────────────────────────
 let world;
 export let groundMat, vehicleMat, wallMat;
-export let onVehicleImpact = null; // callback(victimId, impulse, point, attackerId)
+let _onVehicleImpact = null;
+export function setOnVehicleImpact(cb) {
+  _onVehicleImpact = cb;
+}
 
 export function initPhysics() {
   world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
@@ -231,7 +234,7 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           z: contact.ni.z * impulseMag * sign 
         };
         // Use a separate callback for local-only detection to avoid double-hits in Strict mode
-        if (onVehicleImpact) onVehicleImpact(other.peerId, impulse, point, '__local__');
+        if (_onVehicleImpact) _onVehicleImpact(other.peerId, impulse, point, '__local__');
       }
     }
   });
@@ -342,7 +345,7 @@ export function checkStrictCollisions() {
           y: Math.min(contact.ni.y * impulseMag + (impulseMag * 0.1), 5000), 
           z: contact.ni.z * impulseMag 
         };
-        if (onVehicleImpact) onVehicleImpact(bj.peerId, impulse, point, bi.peerId);
+        if (_onVehicleImpact) _onVehicleImpact(bj.peerId, impulse, point, bi.peerId);
         
         // Also broadcast the counter-hit to the attacker (bi) from victim (bj)
         const pointI = { x: bi.position.x + contact.ri.x, y: bi.position.y + contact.ri.y, z: bi.position.z + contact.ri.z };
@@ -351,7 +354,7 @@ export function checkStrictCollisions() {
           y: Math.min(-contact.ni.y * impulseMag + (impulseMag * 0.1), 5000), 
           z: -contact.ni.z * impulseMag 
         };
-        if (onVehicleImpact) onVehicleImpact(bi.peerId, impulseI, pointI, bj.peerId);
+        if (_onVehicleImpact) _onVehicleImpact(bi.peerId, impulseI, pointI, bj.peerId);
       }
     }
   }
@@ -564,12 +567,16 @@ export function fireRocket(startPos, startQuat, onExplode, ownerBody) {
   }
 
   world.addBody(body);
-  const rocket = { body, life: 6.0, dead: false, onCleanup: null, owner: ownerBody };
+  const rocket = { body, life: 6.0, dead: false, onExplode, owner: ownerBody };
+
   body.addEventListener('collide', e => {
     if (rocket.dead || e.body.isRocket || (ownerBody && e.body === ownerBody)) return;
     rocket.dead = true;
-    _explodeRocket(body.position.clone(), onExplode, rocket);
+    _explodeRocket(body.position.clone(), rocket.onExplode, rocket);
+    // Remove callback so stepPhysics doesn't call it again
+    rocket.onExplode = null;
   });
+
   activeRockets.push(rocket);
   return rocket;
 }
@@ -648,9 +655,12 @@ export function stepPhysics(dt) {
     const r = activeRockets[i];
     r.life -= dt;
     if (r.life <= 0 || r.dead) {
+      if (r.onExplode) r.onExplode(r.body.position, r); 
       world.removeBody(r.body);
       activeRockets.splice(i, 1);
     }
+
+
   }
   for (let i = activeOilSlicks.length - 1; i >= 0; i--) {
     activeOilSlicks[i].life -= dt;

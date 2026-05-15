@@ -79,6 +79,9 @@ export function consumeFire() {
 const AMMO = { ROCKET: 2, OIL_SLICK: 2, BOOST: 1 };
 export let heldWeapon = null;
 export let heldAmmo = 0;
+export function getHeldWeapon() { return heldWeapon; }
+export function getHeldAmmo() { return heldAmmo; }
+
 
 export function pickupWeapon(type) {
   heldWeapon = type;
@@ -95,23 +98,20 @@ export function consumeWeapon() {
   return w;
 }
 
-function _updateWeaponHUD() {
-  const icons = { ROCKET: '🚀', OIL_SLICK: '🛢', BOOST: '⚡' };
-  document.getElementById('hud-weapon').textContent = heldWeapon
-    ? `${icons[heldWeapon] || '?'} ${heldWeapon}`
-    : 'NO WEAPON';
-  document.getElementById('hud-ammo').textContent = heldAmmo > 0 ? `×${heldAmmo}` : '';
-}
+function _updateWeaponHUD() {}
+
 
 // ── Race data ──────────────────────────────────────────────────────────────
 let mapData = null;
 let lapCount = 3;
 let myLap = 0;
 let myCheckpointsThisLap = 0;
-let raceStartTime = 0;
+export function getCurrentLap() { return myLap; }
+export function getLapCount() { return lapCount; }
+
 let raceFinished = false;
-let trollTimer = 0;
 let winnerFinishedAt = null;
+
 const TROLL_TIMEOUT = 15;
 let lastPos = null;
 let stuckTimer = 0;
@@ -128,8 +128,8 @@ export function initRace(seed, laps, world, groundMat, wallMat) {
   myLap = 1;
   myCheckpointsThisLap = 0;
   raceFinished = false;
-  trollTimer = 0;
   winnerFinishedAt = null;
+
   heldWeapon = null;
   heldAmmo = 0;
   lastPos = null;
@@ -143,7 +143,7 @@ export function initRace(seed, laps, world, groundMat, wallMat) {
   bestLapTime = Infinity;
 
   mapData = generateMap(seed, world, groundMat, wallMat);
-  raceStartTime = performance.now() / 1000;
+
 
   _updateLapHUD();
   _updateWeaponHUD();
@@ -430,9 +430,8 @@ function _showResults() {
 }
 
 // ── HUD helpers ────────────────────────────────────────────────────────────
-function _updateLapHUD() {
-  document.getElementById('hud-lap').textContent = `LAP ${myLap}/${lapCount}`;
-}
+function _updateLapHUD() {}
+
 
 let _flashTimeout = null;
 function _showHUDMsg(msg) {
