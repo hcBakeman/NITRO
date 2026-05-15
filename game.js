@@ -16,7 +16,8 @@ import {
 import { formatTime } from './utils.js';
 
 // ── State ──────────────────────────────────────────────────────────────────
-export const STATE = { MENU: 'MENU', LOBBY: 'LOBBY', RACING: 'RACING', FINISHED: 'FINISHED' };
+export const STATE = { MENU: 'MENU', JOIN_LOBBY: 'JOIN_LOBBY', LOBBY: 'LOBBY', RACING: 'RACING', FINISHED: 'FINISHED' };
+
 let currentState = STATE.MENU;
 
 export function getState() {
@@ -30,6 +31,11 @@ export function setState(s) {
     document.getElementById('screen-menu').classList.add('active');
     hudEl.classList.add('hidden');
   }
+  if (s === STATE.JOIN_LOBBY) {
+    document.getElementById('screen-join-lobby').classList.add('active');
+    hudEl.classList.add('hidden');
+  }
+
   if (s === STATE.LOBBY) {
     document.getElementById('screen-lobby').classList.add('active');
     hudEl.classList.add('hidden');
