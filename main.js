@@ -68,16 +68,18 @@ window.addEventListener('load', async () => {
 });
 
 // ── Handlers ───────────────────────────────────────────────────────────────
-async function handleHost(customId) {
+async function handleHost() {
   try {
-    await setupNetwork(customId);
+    await setupNetwork();
     Network.hostGame(getName(), 0, AVAILABLE_CARS[currentCarIndex]);
+    UI.refreshPlayerList(Network.players, Network.getIsHost());
     document.getElementById('screen-menu').classList.remove('active');
     document.getElementById('screen-lobby').classList.add('active');
   } catch (e) {
     UI.showMessage(e.message, 'error');
   }
 }
+
 
 function handleJoin() {
   Game.setState(Game.STATE.JOIN_LOBBY);
@@ -119,7 +121,7 @@ async function updateJoinPreview() {
 
 
 // ── Network Setup ──────────────────────────────────────────────────────────
-async function setupNetwork(customId) {
+async function setupNetwork() {
   const statusElId = Game.getState() === Game.STATE.JOIN_LOBBY ? 'join-lobby-status' : 'menu-status';
   document.getElementById(statusElId).textContent = 'CONNECTING...';
 
@@ -134,13 +136,14 @@ async function setupNetwork(customId) {
     onCarUpdate: (id, model) => { if (Game.getState() === Game.STATE.RACING) Graphics.loadVehicle(id, Network.players[id].colorIndex, model); UI.refreshPlayerList(Network.players, Network.getIsHost()); },
     onKicked: () => location.reload(),
     onVehicleHit: (vId, impulse, pt, aId) => _onVehicleHit(vId, impulse, pt, aId),
-  }, customId).then(id => {
+  }).then(id => {
     document.getElementById('peer-id-display').textContent = id;
     document.getElementById(statusElId).textContent = 'CONNECTED ✓';
     document.getElementById(statusElId).className = 'status-msg ok';
     return id;
   });
 }
+
 
 // ── Game Logic Bridges (Keep temporarily until GameEngine is fully independent) ──
 function _onGameInit(data) {

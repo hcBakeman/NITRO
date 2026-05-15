@@ -28,9 +28,9 @@ function safeAddListener(id, type, cb) {
 
 function _setupEventListeners() {
   safeAddListener('btn-host', 'click', () => {
-    const customId = document.getElementById('lobby-id-input').value.trim() || undefined;
-    if (_onHost) _onHost(customId);
+    if (_onHost) _onHost();
   });
+
 
   safeAddListener('btn-join', 'click', () => {
     if (_onJoin) _onJoin();
@@ -158,4 +158,11 @@ export function refreshPlayerList(players, isHost) {
     }
     list.appendChild(li);
   });
+
+  // Toggle host-only UI
+  const startBtn = document.getElementById('btn-start');
+  if (startBtn) startBtn.classList.toggle('hidden', !isHost);
+  const hostControls = document.getElementById('host-controls');
+  if (hostControls) hostControls.classList.toggle('hidden', !isHost);
 }
+

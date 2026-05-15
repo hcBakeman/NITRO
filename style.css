@@ -11,7 +11,8 @@
   --col-bg: #0a0a0f;
   --col-panel: rgba(10, 10, 20, 0.88);
   --col-border: #ff2222;
-  --col-accent: #ffee22;
+  --col-accent: #ff2222;
+
   --col-green: #22ff44;
   --col-blue: #22aaff;
   --col-text: #ffffff;
@@ -82,8 +83,9 @@ body {
   line-height: 1.1;
   color: var(--col-accent);
   text-shadow:
-    0 0 20px #ffee2299,
+    0 0 20px rgba(255, 34, 34, 0.6),
     4px 4px 0 #aa0000;
+
   letter-spacing: 4px;
   margin-bottom: 4px;
 }
@@ -100,20 +102,24 @@ body {
 /* ── Lobby Box ───────────────────────────────────────── */
 .lobby-box {
   background: var(--col-panel);
-  border: 3px solid var(--col-accent);
+  border: 3px solid var(--col-border);
   border-radius: var(--radius);
   padding: 28px 36px;
   width: 480px;
   max-height: 90vh;
   overflow-y: auto;
   backdrop-filter: blur(12px);
-  box-shadow: 0 0 40px rgba(255, 238, 34, 0.3);
+  box-shadow: 
+    0 0 40px rgba(255, 34, 34, 0.4),
+    inset 0 0 20px rgba(0, 0, 0, 0.5);
 }
+
 
 .panel-title {
   font-size: 18px;
   color: var(--col-accent);
-  text-shadow: 3px 3px 0 #884400;
+  text-shadow: 3px 3px 0 #880000;
+
   text-align: center;
   margin-bottom: 20px;
   letter-spacing: 4px;
@@ -422,9 +428,10 @@ input:focus {
   font-size: 28px;
   color: var(--col-accent);
   text-shadow:
-    3px 3px 0 #884400,
-    0 0 20px #ffee2288;
+    3px 3px 0 #880000,
+    0 0 20px rgba(255, 34, 34, 0.6);
 }
+
 #hud-lap {
   font-size: 10px;
   color: var(--col-text);
@@ -495,10 +502,11 @@ input:focus {
   font-size: 20px;
   color: var(--col-accent);
   text-shadow:
-    0 0 30px #ffee2299,
-    3px 3px 0 #884400;
+    0 0 30px rgba(255, 34, 34, 0.8),
+    3px 3px 0 #880000;
   animation: flashIn 0.3s ease-out;
 }
+
 
 #split-time-msg {
   top: 60%;
@@ -652,8 +660,9 @@ input:focus {
   position: absolute;
   bottom: 16px;
   right: 16px;
-  border: 2px solid rgba(255, 238, 34, 0.5);
+  border: 2px solid rgba(255, 34, 34, 0.5);
   border-radius: var(--radius);
+
   background: rgba(0, 0, 0, 0.7);
   overflow: hidden;
 }
