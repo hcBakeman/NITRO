@@ -5,8 +5,9 @@
 import * as CANNON from 'cannon-es';
 
 // ── World ─────────────────────────────────────────────────────────────────
-let world;
+export let world;
 export let groundMat, vehicleMat, wallMat;
+
 let _onVehicleImpact = null;
 export function setOnVehicleImpact(cb) {
   _onVehicleImpact = cb;
