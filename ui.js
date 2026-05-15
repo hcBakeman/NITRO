@@ -21,46 +21,53 @@ export function init(callbacks) {
   _setupEventListeners();
 }
 
+function safeAddListener(id, type, cb) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener(type, cb);
+}
+
 function _setupEventListeners() {
-  document.getElementById('btn-host').addEventListener('click', () => {
+  safeAddListener('btn-host', 'click', () => {
     const customId = document.getElementById('lobby-id-input').value.trim() || undefined;
-    _onHost(customId);
+    if (_onHost) _onHost(customId);
   });
 
-  document.getElementById('btn-join').addEventListener('click', () => {
-    _onJoin();
+  safeAddListener('btn-join', 'click', () => {
+    if (_onJoin) _onJoin();
   });
 
-  document.getElementById('btn-car-prev').addEventListener('click', (e) => {
+  safeAddListener('btn-car-prev', 'click', (e) => {
     e.target.blur();
-    _onCarPrev();
+    if (_onCarPrev) _onCarPrev();
   });
 
-  document.getElementById('btn-car-next').addEventListener('click', (e) => {
+  safeAddListener('btn-car-next', 'click', (e) => {
     e.target.blur();
-    _onCarNext();
+    if (_onCarNext) _onCarNext();
   });
 
-  document.getElementById('btn-join-car-prev').addEventListener('click', (e) => {
+  safeAddListener('btn-join-car-prev', 'click', (e) => {
     e.target.blur();
-    _onJoinCarPrev();
+    if (_onJoinCarPrev) _onJoinCarPrev();
   });
 
-  document.getElementById('btn-join-car-next').addEventListener('click', (e) => {
+  safeAddListener('btn-join-car-next', 'click', (e) => {
     e.target.blur();
-    _onJoinCarNext();
+    if (_onJoinCarNext) _onJoinCarNext();
   });
 
-  document.getElementById('btn-connect').addEventListener('click', () => {
+  const handleConnect = () => {
     const lobbyId = document.getElementById('join-lobby-id-display').value.trim();
-    _onConnect(lobbyId);
-  });
+    if (_onConnect) _onConnect(lobbyId);
+  };
+  safeAddListener('btn-connect', 'click', handleConnect);
+  safeAddListener('btn-join-lobby-connect', 'click', handleConnect);
 
-  document.getElementById('btn-start').addEventListener('click', () => {
+  safeAddListener('btn-start', 'click', () => {
     Network.startGame();
   });
 
-  document.getElementById('btn-copy-id').addEventListener('click', () => {
+  safeAddListener('btn-copy-id', 'click', () => {
     const id = document.getElementById('peer-id-display').textContent;
     navigator.clipboard.writeText(id).then(() => {
       const btn = document.getElementById('btn-copy-id');
@@ -69,7 +76,7 @@ function _setupEventListeners() {
     });
   });
 
-  document.getElementById('btn-share-link').addEventListener('click', () => {
+  safeAddListener('btn-share-link', 'click', () => {
     const id = document.getElementById('peer-id-display').textContent;
     const url = `${window.location.origin}${window.location.pathname}?lobby=${id}`;
     navigator.clipboard.writeText(url).then(() => {
@@ -79,40 +86,48 @@ function _setupEventListeners() {
     });
   });
 
-  document.getElementById('btn-lobby-back').addEventListener('click', () => {
+  safeAddListener('btn-lobby-back', 'click', () => {
     location.reload();
   });
   
-  document.getElementById('btn-quit').addEventListener('click', () => {
+  safeAddListener('btn-quit', 'click', () => {
     location.reload();
   });
 
-  document.getElementById('btn-lobby').addEventListener('click', (e) => {
+  safeAddListener('btn-lobby', 'click', (e) => {
     e.target.blur();
     Network.returnToLobby();
   });
 
   // Name sync
-  document.getElementById('player-name').addEventListener('input', (e) => {
+  safeAddListener('player-name', 'input', (e) => {
     localStorage.setItem('nitro-name', e.target.value);
   });
-  document.getElementById('join-lobby-name').addEventListener('input', (e) => {
+  safeAddListener('join-lobby-name', 'input', (e) => {
     localStorage.setItem('nitro-name', e.target.value);
   });
 }
 
+
 export function updateHUD(data) {
-  if (data.speed !== undefined) {
-    document.getElementById('hud-speed').textContent = Math.round(data.speed);
+  const speedEl = document.getElementById('hud-speed');
+  if (speedEl && data.speed !== undefined) {
+    speedEl.textContent = Math.round(data.speed);
   }
-  if (data.lap !== undefined) {
-    document.getElementById('hud-lap').textContent = data.lap;
+  const lapEl = document.getElementById('hud-lap');
+  if (lapEl && data.lap !== undefined) {
+    lapEl.textContent = data.lap;
   }
-  if (data.weapon !== undefined) {
-    document.getElementById('hud-weapon').textContent = data.weapon;
-    document.getElementById('hud-ammo').textContent = data.ammo > 0 ? data.ammo : '';
+  const weaponEl = document.getElementById('hud-weapon');
+  if (weaponEl && data.weapon !== undefined) {
+    weaponEl.textContent = data.weapon;
+  }
+  const ammoEl = document.getElementById('hud-ammo');
+  if (ammoEl && data.ammo !== undefined) {
+    ammoEl.textContent = data.ammo > 0 ? data.ammo : '';
   }
 }
+
 
 export function showMessage(msg, type = 'info') {
   const el = document.getElementById('lobby-status');

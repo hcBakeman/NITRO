@@ -103,18 +103,20 @@ async function updatePreviews() {
   const car = AVAILABLE_CARS[currentCarIndex];
   document.getElementById('car-name-display').textContent = car.replace(/_/g, ' ').toUpperCase();
   UI.setLoading(true);
-  await lobbyPreview.setCar(car);
+  if (lobbyPreview) await lobbyPreview.setCar(car);
   UI.setLoading(false);
   if (Network.getMyPeerId()) Network.sendCarUpdate(car);
 }
+
 
 async function updateJoinPreview() {
   const car = AVAILABLE_CARS[joinCarIndex];
   document.getElementById('join-car-name-display').textContent = car.replace(/_/g, ' ').toUpperCase();
   UI.setLoading(true);
-  await joinPreview.setCar(car);
+  if (joinPreview) await joinPreview.setCar(car);
   UI.setLoading(false);
 }
+
 
 // ── Network Setup ──────────────────────────────────────────────────────────
 async function setupNetwork(customId) {

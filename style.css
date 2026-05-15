@@ -138,7 +138,11 @@ body {
   font-size: 8px;
   color: var(--col-accent);
   letter-spacing: 2px;
+  min-height: 22px; /* Ensures labels align even if one wraps */
+  display: flex;
+  align-items: flex-end;
 }
+
 input[type='text'],
 input[type='number'] {
   background: rgba(255, 255, 255, 0.06);
