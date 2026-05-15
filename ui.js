@@ -8,6 +8,8 @@ let _onCarNext = null;
 let _onJoinCarPrev = null;
 let _onJoinCarNext = null;
 let _onConnect = null;
+let _onStart = null;
+
 
 export function init(callbacks) {
   _onHost = callbacks.onHost;
@@ -17,6 +19,8 @@ export function init(callbacks) {
   _onJoinCarPrev = callbacks.onJoinCarPrev;
   _onJoinCarNext = callbacks.onJoinCarNext;
   _onConnect = callbacks.onConnect;
+  _onStart = callbacks.onStart;
+
 
   _setupEventListeners();
 }
@@ -64,8 +68,9 @@ function _setupEventListeners() {
   safeAddListener('btn-join-lobby-connect', 'click', handleConnect);
 
   safeAddListener('btn-start', 'click', () => {
-    Network.startGame();
+    if (_onStart) _onStart();
   });
+
 
   safeAddListener('btn-copy-id', 'click', () => {
     const id = document.getElementById('peer-id-display').textContent;

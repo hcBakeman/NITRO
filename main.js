@@ -38,7 +38,9 @@ window.addEventListener('load', async () => {
     onJoinCarPrev: () => { joinCarIndex = (joinCarIndex - 1 + AVAILABLE_CARS.length) % AVAILABLE_CARS.length; updateJoinPreview(); },
     onJoinCarNext: () => { joinCarIndex = (joinCarIndex + 1) % AVAILABLE_CARS.length; updateJoinPreview(); },
     onConnect: handleConnect,
+    onStart: handleStart,
   });
+
 
   // Car Previews
   lobbyPreview = Graphics.createCarPreview(document.getElementById('car-preview-canvas'));
@@ -95,6 +97,19 @@ async function handleConnect(lobbyId) {
     UI.showMessage(e.message, 'error');
   }
 }
+
+function handleStart() {
+  const seed = parseInt(document.getElementById('seed-input').value) || Math.floor(Math.random() * 999999);
+  const laps = parseInt(document.getElementById('lap-input').value) || 3;
+  const driveMode = document.getElementById('drive-input').value;
+  const collisionMode = document.getElementById('collision-input').value;
+
+  // Grid assignments
+  const grid = Object.keys(Network.players).map((id, index) => ({ id, gridIndex: index }));
+  
+  Network.startRace(seed, laps, driveMode, grid, collisionMode);
+}
+
 
 function getName() {
   const id = Game.getState() === Game.STATE.JOIN_LOBBY ? 'join-lobby-name' : 'player-name';
