@@ -257,7 +257,10 @@ function _setupHostConnHandlers(conn) {
 
 export function startRace(seed, lapCount, driveMode, gridAssignments, collisionMode) {
   _broadcastToAll({ type: 'GAME_INIT', seed, lapCount, driveMode, gridAssignments, collisionMode });
+  // Host also needs to init locally!
+  _onGameInit(seed, lapCount, driveMode, gridAssignments, collisionMode);
 }
+
 
 export function sendVehicleHit(targetId, impulse, point, attackerId) {
   if (isHost) {
@@ -289,7 +292,8 @@ export function kickPlayer(peerId) {
 }
 
 // ── Client ─────────────────────────────────────────────────────────────────
-export function joinGame(hostPeerId, playerName, carModel = 'SUV') {
+export function connectToHost(hostPeerId, playerName, carModel = 'SUV') {
+
   isHost = false;
   hostConn = peer.connect(hostPeerId, { reliable: false });
 

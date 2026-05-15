@@ -92,7 +92,9 @@ async function handleConnect(lobbyId) {
   try {
     await setupNetwork();
     await Network.connectToHost(lobbyId, getName(), 0, AVAILABLE_CARS[joinCarIndex]);
+    UI.refreshPlayerList(Network.players, Network.getIsHost());
     Game.setState(Game.STATE.LOBBY);
+
   } catch (e) {
     UI.showMessage(e.message, 'error');
   }
