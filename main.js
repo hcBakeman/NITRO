@@ -145,7 +145,8 @@ async function setupNetwork() {
   return Network.initNetwork({
     onPlayerJoin: () => UI.refreshPlayerList(Network.players, Network.getIsHost()),
     onPlayerLeave: (id) => { Graphics.removeVehicleMesh(id); Physics.removeRemoteVehicle(id); UI.refreshPlayerList(Network.players, Network.getIsHost()); },
-    onGameInit: (data) => _onGameInit(data),
+    onGameInit: (seed, laps, mode, grid, coll) => _onGameInit(seed, laps, mode, grid, coll),
+
     onStateUpdate: (data) => _onStateUpdate(data),
     onCratePickup: (id, type) => _onCratePickup(id, type),
     onRocketFire: (id, pos, quat) => GameEngine.spawnRemoteRocket(pos, quat),
@@ -163,8 +164,10 @@ async function setupNetwork() {
 
 
 // ── Game Logic Bridges (Keep temporarily until GameEngine is fully independent) ──
-function _onGameInit(data) {
-  Game.startRace(data.seed);
+function _onGameInit(seed, laps, mode, grid, coll) {
+  Game.initRace(seed, laps, Physics.world, Physics.groundMat, Physics.wallMat);
+
+
   const myId = Network.getMyPeerId();
   Object.entries(Network.players).forEach(([id, p]) => {
     if (id === myId) {
