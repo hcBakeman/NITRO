@@ -282,10 +282,26 @@
         <canvas id="minimap-canvas" width="160" height="160"></canvas>
         <div class="minimap-label">MAP</div>
       </div>
-
-      <!-- Host return to lobby button (in-race) -->
-      <button id="btn-host-return-lobby" class="btn hidden" style="position:absolute;bottom:20px;right:20px;z-index:200;font-size:8px;padding:8px 14px;background:rgba(180,20,20,0.75);border:1px solid #ff4444;color:#fff;">↩ LOBBY</button>
     </div>
+
+    <!-- Host in-race return-to-lobby button (fixed, always on top) -->
+    <button
+      id="btn-host-return-lobby"
+      class="btn hidden"
+      style="
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 3000;
+        font-size: 8px;
+        padding: 8px 14px;
+        background: rgba(160, 10, 10, 0.85);
+        border: 1px solid #ff4444;
+        color: #fff;
+        cursor: pointer;
+        pointer-events: all;
+      "
+    >↩ LOBBY</button>
 
     <!-- ── FINISHED SCREEN ───────────────────────────────────── -->
     <div id="screen-finished" class="screen">
