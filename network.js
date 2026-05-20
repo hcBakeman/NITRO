@@ -109,7 +109,7 @@ export function getIsHost() {
 }
 
 // ── Host ───────────────────────────────────────────────────────────────────
-export function hostGame(playerName, colorIndex, carModel = 'SUV') {
+export function hostGame(playerName, colorIndex, carModel = 'dacia_duster_low_poly') {
   isHost = true;
   players[_myPeerId] = {
     name: playerName,
@@ -146,7 +146,7 @@ function _setupHostConnHandlers(conn) {
         players[pid] = {
           name: data.name,
           colorIndex: Object.keys(players).length % PLAYER_COLOR_COUNT,
-          carModel: data.carModel || 'SUV',
+          carModel: data.carModel || 'dacia_duster_low_poly',
           position: { x: 0, y: 0, z: 0 },
           quaternion: { x: 0, y: 0, z: 0, w: 1 },
           velocity: { x: 0, y: 0, z: 0 },
@@ -325,7 +325,7 @@ export function kickPlayer(peerId) {
 }
 
 // ── Client ─────────────────────────────────────────────────────────────────
-export function connectToHost(hostPeerId, playerName, carModel = 'SUV') {
+export function connectToHost(hostPeerId, playerName, carModel = 'dacia_duster_low_poly') {
 
   isHost = false;
   hostConn = peer.connect(hostPeerId, { reliable: false });
@@ -391,7 +391,7 @@ export function connectToHost(hostPeerId, playerName, carModel = 'SUV') {
           players[data.id] = {
             name: data.name,
             colorIndex: data.colorIndex,
-            carModel: data.carModel || 'SUV',
+            carModel: data.carModel || 'dacia_duster_low_poly',
             position: { x: 0, y: 0, z: 0 },
             quaternion: { x: 0, y: 0, z: 0, w: 1 },
             velocity: { x: 0, y: 0, z: 0 },
