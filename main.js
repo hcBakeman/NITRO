@@ -40,6 +40,7 @@ window.addEventListener('load', async () => {
     onJoinCarNext: () => { joinCarIndex = (joinCarIndex + 1) % AVAILABLE_CARS.length; updateJoinPreview(); },
     onConnect: handleConnect,
     onStart: handleStart,
+    onReturnLobby: handleReturnToLobby,
   });
 
 
@@ -108,10 +109,22 @@ function handleStart() {
   const collisionMode = document.getElementById('collision-input').value;
   const handlingMode = document.getElementById('handling-input').value;
 
-  // Grid assignments
-  const grid = Object.keys(Network.players).map((id, index) => ({ id, gridIndex: index }));
-  
+  // Randomize grid – shuffle player IDs so spawn order is random
+  const playerIds = Object.keys(Network.players);
+  for (let i = playerIds.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [playerIds[i], playerIds[j]] = [playerIds[j], playerIds[i]];
+  }
+  const grid = playerIds.map((id, index) => ({ id, gridIndex: index }));
+
   Network.startRace(seed, laps, driveMode, handlingMode, grid, collisionMode);
+}
+
+function handleReturnToLobby() {
+  // Show 3-2-1 countdown, then actually return
+  UI.showReturnLobbyCountdown(() => {
+    Network.returnToLobby();
+  });
 }
 
 
@@ -154,6 +167,7 @@ async function setupNetwork() {
     onRocketFire: (id, pos, quat) => GameEngine.spawnRemoteRocket(pos, quat),
     onOilDrop: (id, pos, quat) => GameEngine.spawnRemoteOil(pos, quat),
     onReturnLobby: () => {
+      UI.showHostReturnButton(false);
       Game.setState(Game.STATE.LOBBY);
       Graphics.clearRaceScene();
       Physics.clearPhysicsWorld();
@@ -167,6 +181,8 @@ async function setupNetwork() {
     onStartCountdown: () => {
       UI.setLoading(false);
       Game.startIntro();
+      // Show the host lobby button during race
+      if (Network.getIsHost()) UI.showHostReturnButton(true);
     }
   }).then(id => {
     document.getElementById('peer-id-display').textContent = id;

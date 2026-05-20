@@ -10,6 +10,7 @@ let _onJoinCarNext = null;
 let _onConnect = null;
 let _onStart = null;
 let _onHandlingChange = null;
+let _onReturnLobby = null;
 
 
 export function init(callbacks) {
@@ -22,6 +23,7 @@ export function init(callbacks) {
   _onConnect = callbacks.onConnect;
   _onStart = callbacks.onStart;
   _onHandlingChange = callbacks.onHandlingChange;
+  _onReturnLobby = callbacks.onReturnLobby || null;
 
 
   _setupEventListeners();
@@ -116,6 +118,11 @@ function _setupEventListeners() {
   safeAddListener('handling-input', 'change', (e) => {
     if (_onHandlingChange) _onHandlingChange(e.target.value);
   });
+
+  safeAddListener('btn-host-return-lobby', 'click', (e) => {
+    e.target.blur();
+    if (_onReturnLobby) _onReturnLobby();
+  });
 }
 
 
@@ -204,4 +211,32 @@ export function refreshPlayerList(players, isHost) {
 export function updateHandlingInput(val) {
   const el = document.getElementById('handling-input');
   if (el) el.value = val;
+}
+
+/** Show/hide the in-race host return-to-lobby button */
+export function showHostReturnButton(visible) {
+  const btn = document.getElementById('btn-host-return-lobby');
+  if (btn) btn.classList.toggle('hidden', !visible);
+}
+
+/** Show a 3-2-1 countdown overlay then call `onDone`. */
+export function showReturnLobbyCountdown(onDone) {
+  const overlay = document.getElementById('return-lobby-overlay');
+  const countdownEl = document.getElementById('return-lobby-countdown');
+  if (!overlay || !countdownEl) { onDone(); return; }
+
+  overlay.classList.remove('hidden');
+  let count = 3;
+  countdownEl.textContent = count;
+
+  const tick = setInterval(() => {
+    count--;
+    if (count <= 0) {
+      clearInterval(tick);
+      overlay.classList.add('hidden');
+      onDone();
+    } else {
+      countdownEl.textContent = count;
+    }
+  }, 1000);
 }
