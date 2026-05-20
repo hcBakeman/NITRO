@@ -225,7 +225,8 @@ export function showReturnLobbyCountdown(onDone) {
   const countdownEl = document.getElementById('return-lobby-countdown');
   if (!overlay || !countdownEl) { onDone(); return; }
 
-  overlay.classList.remove('hidden');
+  // Use style.display directly — .hidden has display:none !important which overrides flex
+  overlay.style.display = 'flex';
   let count = 3;
   countdownEl.textContent = count;
 
@@ -233,7 +234,7 @@ export function showReturnLobbyCountdown(onDone) {
     count--;
     if (count <= 0) {
       clearInterval(tick);
-      overlay.classList.add('hidden');
+      overlay.style.display = 'none';
       onDone();
     } else {
       countdownEl.textContent = count;

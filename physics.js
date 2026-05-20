@@ -249,7 +249,7 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
   return { vehicle: playerVehicle, chassis: playerChassis };
 }
 
-export function createRemoteVehicle(peerId, mass = 0, carModel) {
+export function createRemoteVehicle(peerId, mass = 0, carModel, spawnPos = null, spawnQuat = null) {
   const specs = VEHICLE_CLASSES[carModel] || VEHICLE_CLASSES['dacia_duster_low_poly'];
   const body = new CANNON.Body({
     mass: mass > 0 ? specs.mass : 1,
@@ -272,6 +272,15 @@ export function createRemoteVehicle(peerId, mass = 0, carModel) {
   }
 
   _addVanShapes(body);
+
+  // Set spawn position BEFORE adding to world to avoid origin collisions
+  if (spawnPos) {
+    body.position.set(spawnPos.x, spawnPos.y, spawnPos.z);
+  }
+  if (spawnQuat) {
+    body.quaternion.set(spawnQuat.x, spawnQuat.y, spawnQuat.z, spawnQuat.w);
+  }
+
   world.addBody(body);
   body.peerId = peerId;
   remoteVehicles[peerId] = body;

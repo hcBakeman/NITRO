@@ -121,10 +121,9 @@ function handleStart() {
 }
 
 function handleReturnToLobby() {
-  // Show 3-2-1 countdown, then actually return
-  UI.showReturnLobbyCountdown(() => {
-    Network.returnToLobby();
-  });
+  // Network.returnToLobby broadcasts LOBBY_COUNTDOWN to all, then onLobbyCountdown fires
+  // showing the 3-2-1 overlay on every player before RETURN_LOBBY is sent
+  Network.returnToLobby();
 }
 
 
@@ -183,7 +182,11 @@ async function setupNetwork() {
       Game.startIntro();
       // Show the host lobby button during race
       if (Network.getIsHost()) UI.showHostReturnButton(true);
-    }
+    },
+    onLobbyCountdown: (done) => {
+      // Show 3-2-1 overlay on ALL players (host and clients)
+      UI.showReturnLobbyCountdown(done);
+    },
   }).then(id => {
     document.getElementById('peer-id-display').textContent = id;
     document.getElementById(statusElId).textContent = 'CONNECTED ✓';
@@ -220,24 +223,26 @@ async function _onGameInit(seed, laps, mode, handlingMode, grid, coll) {
   Physics.createPlayerVehicle(gridSpot.pos, gridSpot.quat, myCarModel);
   await Graphics.loadVehicle('__local__', myColorIdx, myCarModel);
 
-  // Remote vehicles
+  // Remote vehicles — pass spawn pos/quat directly so physics body never exists at origin
   for (const [id, p] of Object.entries(Network.players)) {
     if (id === myId) continue;
     const pIdx = gridAssignments[id] !== undefined ? gridAssignments[id] : 0;
     const rSpot = mapData.startGrid[pIdx % mapData.startGrid.length];
+    const rSpawnPos = { x: rSpot.pos.x, y: rSpot.pos.y + 1.8, z: rSpot.pos.z };
+    const rSpawnQuat = { x: rSpot.quat.x, y: rSpot.quat.y, z: rSpot.quat.z, w: rSpot.quat.w };
+    Physics.createRemoteVehicle(id, 1, p.carModel, rSpawnPos, rSpawnQuat);
     await Graphics.loadVehicle(id, p.colorIndex, p.carModel);
-    const rb = Physics.createRemoteVehicle(id, 1, p.carModel);
-    rb.position.set(rSpot.pos.x, rSpot.pos.y + 1.8, rSpot.pos.z);
-    rb.quaternion.copy(rSpot.quat);
   }
 
-  // NPC Test Driver
+  // NPC Test Driver — spawn at correct position from the start
   const testId = '__test_driver__';
   const testPos = mapData.spline.getPointAt(0.05);
-  const testBody = Physics.createRemoteVehicle(testId, 1, 'police_car');
-  testBody.position.set(testPos.x, testPos.y + 1, testPos.z);
   const testTan = mapData.spline.getTangentAt(0.05).normalize();
-  testBody.quaternion.setFromEuler(0, Math.atan2(testTan.x, testTan.z), 0);
+  const testQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.atan2(testTan.x, testTan.z));
+  Physics.createRemoteVehicle(testId, 1, 'police_car',
+    { x: testPos.x, y: testPos.y + 1, z: testPos.z },
+    { x: testQuat.x, y: testQuat.y, z: testQuat.z, w: testQuat.w }
+  );
   await Graphics.loadVehicle(testId, 5, 'police_car');
 
   // Snap camera

@@ -25,6 +25,7 @@ let _onKicked = null;
 let _onVehicleHit = null;
 let _onPlayerLoaded = null;
 let _onStartCountdown = null;
+let _onLobbyCountdown = null;
 let _myPeerId = null;
 
 const PLAYER_COLOR_COUNT = 6; // must match Graphics.PLAYER_COLORS length
@@ -51,6 +52,7 @@ export function initNetwork(callbacks = {}, customId = undefined) {
   _onVehicleHit = callbacks.onVehicleHit || (() => {});
   _onPlayerLoaded = callbacks.onPlayerLoaded || (() => {});
   _onStartCountdown = callbacks.onStartCountdown || (() => {});
+  _onLobbyCountdown = callbacks.onLobbyCountdown || ((done) => done());
 
   // If we already have a peer and it's what we want, just return its ID
   if (peer && !peer.destroyed) {
@@ -448,6 +450,11 @@ export function connectToHost(hostPeerId, playerName, carModel = 'dacia_duster_l
           _onReturnLobby();
           break;
 
+        case 'LOBBY_COUNTDOWN':
+          // Show countdown overlay on all clients (host triggers via _onLobbyCountdown)
+          _onLobbyCountdown(() => {});
+          break;
+
         case 'KICKED':
           hostConn.close();
           _onKicked();
@@ -558,8 +565,13 @@ export function sendFinished(time, bestLap) {
 
 export function returnToLobby() {
   if (isHost) {
-    _broadcastToAll({ type: 'RETURN_LOBBY' });
-    _onReturnLobby();
+    // Broadcast countdown to all clients so they see the overlay too
+    _broadcastToAll({ type: 'LOBBY_COUNTDOWN' });
+    // Trigger local countdown then broadcast actual return
+    _onLobbyCountdown(() => {
+      _broadcastToAll({ type: 'RETURN_LOBBY' });
+      _onReturnLobby();
+    });
   } else {
     hostConn?.send({ type: 'RETURN_LOBBY' });
   }
