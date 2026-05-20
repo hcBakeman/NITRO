@@ -55,21 +55,31 @@ let fireQueued = false;
 
 export function initInput() {
   const down = e => {
-    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') input.forward = true;
-    if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') input.backward = true;
-    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') input.left = true;
-    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') input.right = true;
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+    
+    if (['w', 'W', 'ArrowUp'].includes(e.key)) { input.forward = true; e.preventDefault(); }
+    if (['s', 'S', 'ArrowDown'].includes(e.key)) { input.backward = true; e.preventDefault(); }
+    if (['a', 'A', 'ArrowLeft'].includes(e.key)) { input.left = true; e.preventDefault(); }
+    if (['d', 'D', 'ArrowRight'].includes(e.key)) { input.right = true; e.preventDefault(); }
+    
     if (e.key === ' ' && !input.fire) {
       input.fire = true;
       fireQueued = true;
+      e.preventDefault();
     }
   };
   const up = e => {
-    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') input.forward = false;
-    if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') input.backward = false;
-    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') input.left = false;
-    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') input.right = false;
-    if (e.key === ' ') input.fire = false;
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+
+    if (['w', 'W', 'ArrowUp'].includes(e.key)) { input.forward = false; e.preventDefault(); }
+    if (['s', 'S', 'ArrowDown'].includes(e.key)) { input.backward = false; e.preventDefault(); }
+    if (['a', 'A', 'ArrowLeft'].includes(e.key)) { input.left = false; e.preventDefault(); }
+    if (['d', 'D', 'ArrowRight'].includes(e.key)) { input.right = false; e.preventDefault(); }
+    
+    if (e.key === ' ') {
+      input.fire = false;
+      e.preventDefault();
+    }
   };
   window.addEventListener('keydown', down);
   window.addEventListener('keyup', up);
