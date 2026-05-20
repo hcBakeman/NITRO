@@ -152,10 +152,19 @@ export function buildRaceMap(mapData, sceneRef = scene) {
   }
 
   // Helper for 90's style rally arches
-  const pillarGeo = new THREE.CylinderGeometry(0.5, 0.5, 14, 8);
+  const pillarGeo = new THREE.CylinderGeometry(0.25, 0.25, 14, 8); // Thinner poles
   const pillarMat = new THREE.MeshStandardMaterial({ color: 0xcc2222, metalness: 0.3, roughness: 0.8 });
-  const cpBannerGeo = new THREE.BoxGeometry(ROAD_HALF * 2 + 4, 3, 1);
-  const cpBannerMat = new THREE.MeshStandardMaterial({ color: 0xffcc00 });
+  
+  // Wavy banner geometry
+  const cpBannerGeo = new THREE.PlaneGeometry(ROAD_HALF * 2 + 4, 3, 20, 1);
+  const pos = cpBannerGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    pos.setZ(i, Math.sin(x * 1.5) * 0.4);
+  }
+  cpBannerGeo.computeVertexNormals();
+
+  const cpBannerMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, side: THREE.DoubleSide });
 
   let checkeredTex = null;
   if (typeof document !== 'undefined') {
@@ -174,7 +183,7 @@ export function buildRaceMap(mapData, sceneRef = scene) {
     checkeredTex.repeat.set(6, 1);
     checkeredTex.magFilter = THREE.NearestFilter;
   }
-  const finishBannerMat = new THREE.MeshStandardMaterial({ map: checkeredTex, color: 0xffffff });
+  const finishBannerMat = new THREE.MeshStandardMaterial({ map: checkeredTex, color: 0xffffff, side: THREE.DoubleSide });
 
   function createArch(position, tangent, bannerMat) {
     const group = new THREE.Group();
@@ -202,10 +211,17 @@ export function buildRaceMap(mapData, sceneRef = scene) {
 
   // Checkpoints (Archways)
   checkpointMeshes = [];
-  mapData.checkpoints.forEach(cp => {
-    const arch = createArch(cp.position, cp.tangent, cpBannerMat);
-    raceGroup.add(arch);
-    checkpointMeshes.push(arch);
+  mapData.checkpoints.forEach((cp, index) => {
+    // Skip rendering the last checkpoint arch to prevent overlap with the finish line arch
+    if (index === mapData.checkpoints.length - 1) {
+      const emptyGroup = new THREE.Group();
+      raceGroup.add(emptyGroup);
+      checkpointMeshes.push(emptyGroup);
+    } else {
+      const arch = createArch(cp.position, cp.tangent, cpBannerMat);
+      raceGroup.add(arch);
+      checkpointMeshes.push(arch);
+    }
   });
 
   // Finish Line Arch
