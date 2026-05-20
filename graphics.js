@@ -139,12 +139,19 @@ export function buildRaceMap(mapData, sceneRef = scene) {
   raceGroup = new THREE.Group();
   sceneRef.add(raceGroup);
 
-  // Road
-  const roadMesh = new THREE.Mesh(mapData.geometry, mapData.material);
-  roadMesh.receiveShadow = true;
-  raceGroup.add(roadMesh);
+  // Road, walls, ground — generateMap returns actual Mesh objects
+  if (mapData.trackMesh) {
+    mapData.trackMesh.receiveShadow = true;
+    raceGroup.add(mapData.trackMesh);
+  }
+  if (mapData.wallMeshes) {
+    mapData.wallMeshes.forEach(m => raceGroup.add(m));
+  }
+  if (mapData.groundMesh) {
+    raceGroup.add(mapData.groundMesh);
+  }
 
-  // Checkpoints
+  // Checkpoints (wireframe gates)
   checkpointMeshes = [];
   mapData.checkpoints.forEach(cp => {
     const geo = new THREE.BoxGeometry(ROAD_HALF * 2, 8, 1);
@@ -161,7 +168,7 @@ export function buildRaceMap(mapData, sceneRef = scene) {
     checkpointMeshes.push(mesh);
   });
 
-  // Finish Line
+  // Finish Line banner
   const fGeo = new THREE.PlaneGeometry(ROAD_HALF * 2, 4, 20, 1);
   const fMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -175,6 +182,31 @@ export function buildRaceMap(mapData, sceneRef = scene) {
   finishLineMesh.position.y += 6;
   finishLineMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), start.tangent);
   raceGroup.add(finishLineMesh);
+
+  // Weapon crate meshes
+  if (mapData.weaponCrateSpawns) {
+    mapData.weaponCrateSpawns.forEach((crate, i) => {
+      createCrateMesh(i, crate.type, crate.position);
+    });
+  }
+
+  // Minimap
+  const minimapCanvas = document.getElementById('minimap-canvas');
+  if (minimapCanvas && mapData.spline) {
+    const pts = mapData.spline.getPoints(200);
+    const bounds = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+    pts.forEach(p => {
+      bounds.minX = Math.min(bounds.minX, p.x);
+      bounds.maxX = Math.max(bounds.maxX, p.x);
+      bounds.minZ = Math.min(bounds.minZ, p.z);
+      bounds.maxZ = Math.max(bounds.maxZ, p.z);
+    });
+    // Add padding
+    const pad = 20;
+    bounds.minX -= pad; bounds.maxX += pad;
+    bounds.minZ -= pad; bounds.maxZ += pad;
+    initMinimap(minimapCanvas, mapData.spline, bounds);
+  }
 }
 
 export function updateCheckpoints(passedCount) {
