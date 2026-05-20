@@ -275,7 +275,7 @@ export function sendLoaded() {
   if (isHost) {
     _handleClientLoaded(_myPeerId);
   } else {
-    _sendToHost({ type: 'LOADED' });
+    hostConn?.send({ type: 'LOADED' });
   }
 }
 
@@ -370,6 +370,7 @@ export function connectToHost(hostPeerId, playerName, carModel = 'SUV') {
           break;
 
         case 'GAME_INIT':
+          Object.values(players).forEach(p => p.loaded = false);
           _onGameInit(data.seed, data.lapCount, data.driveMode, data.handlingMode, data.gridAssignments, data.collisionMode);
           break;
 
