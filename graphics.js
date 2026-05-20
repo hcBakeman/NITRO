@@ -636,14 +636,6 @@ export function updateCamera(targetPos, carQuat, dt) {
 
 export function renderScene(dt) {
   finishBannerTime += dt;
-  if (finishLineMesh) {
-    const pos = finishLineMesh.geometry.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      pos.setZ(i, Math.sin(finishBannerTime * 3 + x * 0.5) * 0.25);
-    }
-    pos.needsUpdate = true;
-  }
 
   Object.values(crateMeshes).forEach(mesh => {
     if (mesh.visible) {
