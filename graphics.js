@@ -151,37 +151,70 @@ export function buildRaceMap(mapData, sceneRef = scene) {
     raceGroup.add(mapData.groundMesh);
   }
 
-  // Checkpoints (wireframe gates)
+  // Helper for 90's style rally arches
+  const pillarGeo = new THREE.CylinderGeometry(0.5, 0.5, 14, 8);
+  const pillarMat = new THREE.MeshStandardMaterial({ color: 0xcc2222, metalness: 0.3, roughness: 0.8 });
+  const cpBannerGeo = new THREE.BoxGeometry(ROAD_HALF * 2 + 4, 3, 1);
+  const cpBannerMat = new THREE.MeshStandardMaterial({ color: 0xffcc00 });
+
+  let checkeredTex = null;
+  if (typeof document !== 'undefined') {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.fillStyle = '#111111';
+    ctx.fillRect(0, 0, 64, 64);
+    ctx.fillRect(64, 64, 64, 64);
+    checkeredTex = new THREE.CanvasTexture(canvas);
+    checkeredTex.wrapS = THREE.RepeatWrapping;
+    checkeredTex.wrapT = THREE.RepeatWrapping;
+    checkeredTex.repeat.set(6, 1);
+    checkeredTex.magFilter = THREE.NearestFilter;
+  }
+  const finishBannerMat = new THREE.MeshStandardMaterial({ map: checkeredTex, color: 0xffffff });
+
+  function createArch(position, tangent, bannerMat) {
+    const group = new THREE.Group();
+    // Pillars
+    const leftPillar = new THREE.Mesh(pillarGeo, pillarMat);
+    leftPillar.position.set(-ROAD_HALF - 1.5, 7, 0);
+    leftPillar.castShadow = true;
+    const rightPillar = new THREE.Mesh(pillarGeo, pillarMat);
+    rightPillar.position.set(ROAD_HALF + 1.5, 7, 0);
+    rightPillar.castShadow = true;
+    // Banner
+    const banner = new THREE.Mesh(cpBannerGeo, bannerMat.clone());
+    banner.position.set(0, 12.5, 0);
+    banner.castShadow = true;
+    
+    group.add(leftPillar);
+    group.add(rightPillar);
+    group.add(banner);
+    group.userData.bannerMesh = banner;
+    
+    group.position.copy(position);
+    group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
+    return group;
+  }
+
+  // Checkpoints (Archways)
   checkpointMeshes = [];
   mapData.checkpoints.forEach(cp => {
-    const geo = new THREE.BoxGeometry(ROAD_HALF * 2, 8, 1);
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0x00ff00,
-      transparent: true,
-      opacity: 0.2,
-      wireframe: true,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(cp.position);
-    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), cp.tangent);
-    raceGroup.add(mesh);
-    checkpointMeshes.push(mesh);
+    const arch = createArch(cp.position, cp.tangent, cpBannerMat);
+    raceGroup.add(arch);
+    checkpointMeshes.push(arch);
   });
 
-  // Finish Line banner
-  const fGeo = new THREE.PlaneGeometry(ROAD_HALF * 2, 4, 20, 1);
-  const fMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    side: THREE.DoubleSide,
-    transparent: true,
-    opacity: 0.8,
-  });
-  finishLineMesh = new THREE.Mesh(fGeo, fMat);
-  const start = mapData.checkpoints[0];
-  finishLineMesh.position.copy(start.position);
-  finishLineMesh.position.y += 6;
-  finishLineMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), start.tangent);
-  raceGroup.add(finishLineMesh);
+  // Finish Line Arch
+  if (mapData.finishLinePt && mapData.finishTangent) {
+    finishLineMesh = createArch(mapData.finishLinePt, mapData.finishTangent, finishBannerMat);
+    // Slightly adjust finish line forward so it's placed exactly on the start/finish mark
+    finishLineMesh.position.add(mapData.finishTangent.clone().multiplyScalar(2));
+    raceGroup.add(finishLineMesh);
+  }
 
   // Weapon crate meshes
   if (mapData.weaponCrateSpawns) {
@@ -682,15 +715,13 @@ export function getScreenPosition(pos3d) {
 }
 
 export function flashCheckpoint(index) {
-  const mesh = checkpointMeshes[index];
-  if (!mesh) return;
-  const origColor = mesh.material.color.getHex();
-  const origOpacity = mesh.material.opacity;
-  mesh.material.color.setHex(0x00ffff);
-  mesh.material.opacity = 0.8;
+  const group = checkpointMeshes[index];
+  if (!group || !group.userData.bannerMesh) return;
+  const banner = group.userData.bannerMesh;
+  const origColor = banner.material.color.getHex();
+  banner.material.color.setHex(0xffffff); // Flash bright white
   setTimeout(() => {
-    mesh.material.color.setHex(origColor);
-    mesh.material.opacity = origOpacity;
+    banner.material.color.setHex(origColor);
   }, 400);
 }
 
