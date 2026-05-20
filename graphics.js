@@ -610,3 +610,93 @@ export function renderScene(dt) {
 export function getCamera() {
   return camera;
 }
+
+export function updateIntroCamera(targetPos, progress) {
+  // Sync internal target so the transition to driving cam is smooth
+  cameraTarget.copy(targetPos);
+
+  // Aerial view: starts high and orbits slowly towards the car
+  const angle = progress * Math.PI * 0.25; // 45 degree slow orbit
+  const radius = 80 - progress * 40; // Zoom in from 80 to 40
+  const height = 100 - progress * 80; // Drop from 100 to 20
+
+  const offset = new THREE.Vector3(Math.cos(angle) * radius, height, Math.sin(angle) * radius);
+
+  camera.position.copy(targetPos).add(offset);
+  camera.lookAt(cameraTarget);
+}
+
+/**
+ * Instantly snaps camera to a position (useful for race start)
+ */
+export function snapCamera(targetPos, carQuat) {
+  cameraTarget.copy(targetPos);
+
+  // Initialize at the start of the INTRO sequence (progress 0)
+  const offset = new THREE.Vector3(80, 100, 0); // radius 80, height 100
+  camera.position.copy(targetPos).add(offset);
+  camera.lookAt(cameraTarget);
+}
+
+export function getScreenPosition(pos3d) {
+  if (!camera) return null;
+  const v = new THREE.Vector3(pos3d.x, pos3d.y, pos3d.z);
+  v.project(camera);
+  return {
+    x: (v.x * 0.5 + 0.5) * window.innerWidth,
+    y: (-(v.y * 0.5) + 0.5) * window.innerHeight,
+    z: v.z,
+  };
+}
+
+export function flashCheckpoint(index) {
+  const mesh = checkpointMeshes[index];
+  if (!mesh) return;
+  const origColor = mesh.material.color.getHex();
+  const origOpacity = mesh.material.opacity;
+  mesh.material.color.setHex(0x00ffff);
+  mesh.material.opacity = 0.8;
+  setTimeout(() => {
+    mesh.material.color.setHex(origColor);
+    mesh.material.opacity = origOpacity;
+  }, 400);
+}
+
+export function updateCrateMesh(index, active) {
+  const mesh = crateMeshes[index];
+  if (mesh) {
+    mesh.visible = active;
+  }
+}
+
+export function spawnFinishBurst(position) {
+  for (let i = 0; i < 5; i++) {
+    setTimeout(() => {
+      const offset = new THREE.Vector3(
+        (Math.random() - 0.5) * 6,
+        1.0 + Math.random() * 4,
+        (Math.random() - 0.5) * 6
+      );
+      const pos = new THREE.Vector3(position.x, position.y, position.z).add(offset);
+      spawnExplosion(pos);
+    }, i * 200);
+  }
+}
+
+export function clearRaceScene() {
+  if (raceGroup) {
+    scene.remove(raceGroup);
+    raceGroup = new THREE.Group();
+  }
+  Object.values(vehicleMeshes).forEach(entry => scene.remove(entry.group));
+  for (const id in vehicleMeshes) delete vehicleMeshes[id];
+  Object.values(crateMeshes).forEach(mesh => scene.remove(mesh));
+  for (const key in crateMeshes) delete crateMeshes[key];
+  checkpointMeshes = [];
+  finishLineMesh = null;
+  if (minimapCtx) {
+    minimapCtx.clearRect(0, 0, minimapCtx.canvas.width, minimapCtx.canvas.height);
+  }
+}
+
+

@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import * as Physics from './physics.js';
 import * as Graphics from './graphics.js';
 import * as Network from './network.js';
@@ -147,10 +148,17 @@ async function setupNetwork() {
     onPlayerLeave: (id) => { Graphics.removeVehicleMesh(id); Physics.removeRemoteVehicle(id); UI.refreshPlayerList(Network.players, Network.getIsHost()); },
     onGameInit: (seed, laps, mode, grid, coll) => _onGameInit(seed, laps, mode, grid, coll),
 
-    onStateUpdate: (data) => _onStateUpdate(data),
-    onCratePickup: (id, type) => _onCratePickup(id, type),
+    onStateUpdate: () => {},
+    onCratePickup: (id, crateIdx, type) => _onCratePickup(id, crateIdx, type),
     onRocketFire: (id, pos, quat) => GameEngine.spawnRemoteRocket(pos, quat),
-    onReturnLobby: () => Game.setState(Game.STATE.LOBBY),
+    onOilDrop: (id, pos, quat) => GameEngine.spawnRemoteOil(pos, quat),
+    onReturnLobby: () => {
+      Game.setState(Game.STATE.LOBBY);
+      Graphics.clearRaceScene();
+      Physics.clearPhysicsWorld();
+      Audio.stopAll();
+      UI.refreshPlayerList(Network.players, Network.getIsHost());
+    },
     onCarUpdate: (id, model) => { if (Game.getState() === Game.STATE.RACING) Graphics.loadVehicle(id, Network.players[id].colorIndex, model); UI.refreshPlayerList(Network.players, Network.getIsHost()); },
     onKicked: () => location.reload(),
     onVehicleHit: (vId, impulse, pt, aId) => _onVehicleHit(vId, impulse, pt, aId),
@@ -163,37 +171,75 @@ async function setupNetwork() {
 }
 
 
-// ── Game Logic Bridges (Keep temporarily until GameEngine is fully independent) ──
-function _onGameInit(seed, laps, mode, grid, coll) {
-  Game.initRace(seed, laps, Physics.world, Physics.groundMat, Physics.wallMat);
+// ── Game Logic Bridges ──
+async function _onGameInit(seed, laps, mode, grid, coll) {
+  GameEngine.setCollisionMode(coll);
+  Physics.setDriveMode(mode || '4WD');
 
+  const mapData = Game.initRace(seed, laps, Physics.world, Physics.groundMat, Physics.wallMat);
+  Graphics.buildRaceMap(mapData);
 
   const myId = Network.getMyPeerId();
-  Object.entries(Network.players).forEach(([id, p]) => {
-    if (id === myId) {
-      Physics.createPlayerVehicle(0, p.carModel);
-    } else {
-      Graphics.loadVehicle(id, p.colorIndex, p.carModel);
-      Physics.createRemoteVehicle(id, 0, p.carModel);
-    }
+  const gridAssignments = {};
+  grid.forEach(item => {
+    gridAssignments[item.id] = item.gridIndex;
   });
+
+  // Local vehicle
+  const myColorIdx = Network.players[myId]?.colorIndex || 0;
+  const myCarModel = Network.players[myId]?.carModel || AVAILABLE_CARS[0];
+  const myIdx = gridAssignments[myId] !== undefined ? gridAssignments[myId] : 0;
+  const gridSpot = mapData.startGrid[myIdx % mapData.startGrid.length];
+  Physics.createPlayerVehicle(gridSpot.pos, gridSpot.quat, myCarModel);
+  await Graphics.loadVehicle('__local__', myColorIdx, myCarModel);
+
+  // Remote vehicles
+  for (const [id, p] of Object.entries(Network.players)) {
+    if (id === myId) continue;
+    const pIdx = gridAssignments[id] !== undefined ? gridAssignments[id] : 0;
+    const rSpot = mapData.startGrid[pIdx % mapData.startGrid.length];
+    await Graphics.loadVehicle(id, p.colorIndex, p.carModel);
+    const rb = Physics.createRemoteVehicle(id, 1, p.carModel);
+    rb.position.set(rSpot.pos.x, rSpot.pos.y + 1.8, rSpot.pos.z);
+    rb.quaternion.copy(rSpot.quat);
+  }
+
+  // NPC Test Driver
+  const testId = '__test_driver__';
+  const testPos = mapData.spline.getPointAt(0.05);
+  const testBody = Physics.createRemoteVehicle(testId, 1, 'police_car');
+  testBody.position.set(testPos.x, testPos.y + 1, testPos.z);
+  const testTan = mapData.spline.getTangentAt(0.05).normalize();
+  testBody.quaternion.setFromEuler(0, Math.atan2(testTan.x, testTan.z), 0);
+  await Graphics.loadVehicle(testId, 5, 'police_car');
+
+  // Snap camera
+  const myChassis = Physics.playerChassis;
+  if (myChassis) {
+    const _camTarget = new THREE.Vector3(myChassis.position.x, myChassis.position.y + 0.5, myChassis.position.z);
+    Graphics.snapCamera(_camTarget, myChassis.quaternion);
+  }
+
   Game.setState(Game.STATE.RACING);
 }
 
-function _onStateUpdate(data) {
-  Network.receiveState(data);
-}
-
-function _onCratePickup(id, type) {
-  if (id === Network.getMyPeerId()) {
-    Game.addAmmo(type);
-    Audio.playCollect();
+function _onCratePickup(id, crateIdx, type) {
+  const mapData = Game.getRaceMapData();
+  if (!mapData) return;
+  if (typeof crateIdx !== 'number' || crateIdx < 0 || crateIdx >= mapData.weaponCrateSpawns.length)
+    return;
+  const crate = mapData.weaponCrateSpawns[crateIdx];
+  if (crate) {
+    crate.active = false;
+    crate.respawnTimer = 20;
+    crate._dirty = true;
   }
+  Audio.playCollect();
 }
 
 function _onVehicleHit(victimId, impulse, point, attackerId) {
   if (victimId === Network.getMyPeerId()) {
-    Physics.applyExplosionImpulse(impulse, point);
+    Physics.applyImpactImpulse(impulse, point);
     Audio.playCollision();
   }
 }

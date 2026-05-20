@@ -666,6 +666,7 @@ export function stepPhysics(dt) {
   for (let i = activeOilSlicks.length - 1; i >= 0; i--) {
     activeOilSlicks[i].life -= dt;
     if (activeOilSlicks[i].life <= 0) {
+      if (activeOilSlicks[i].onCleanup) activeOilSlicks[i].onCleanup();
       world.removeBody(activeOilSlicks[i].body);
       activeOilSlicks.splice(i, 1);
     }
@@ -675,6 +676,11 @@ export function stepPhysics(dt) {
 export function clearPhysicsWorld() {
   const bodiesToRemove = world.bodies.filter(b => !b.isFloorBody);
   bodiesToRemove.forEach(b => world.removeBody(b));
+  
+  // Clean up visual meshes
+  activeRockets.forEach(r => { if (r.onCleanup) r.onCleanup(r.body.position, r); });
+  activeOilSlicks.forEach(s => { if (s.onCleanup) s.onCleanup(); });
+
   activeRockets.length = 0;
   activeOilSlicks.length = 0;
   allVehicleBodies.length = 0;
