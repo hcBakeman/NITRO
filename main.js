@@ -106,11 +106,12 @@ function handleStart() {
   const laps = parseInt(document.getElementById('lap-input').value) || 3;
   const driveMode = document.getElementById('drive-input').value;
   const collisionMode = document.getElementById('collision-input').value;
+  const handlingMode = document.getElementById('handling-input').value;
 
   // Grid assignments
   const grid = Object.keys(Network.players).map((id, index) => ({ id, gridIndex: index }));
   
-  Network.startRace(seed, laps, driveMode, grid, collisionMode);
+  Network.startRace(seed, laps, driveMode, handlingMode, grid, collisionMode);
 }
 
 
@@ -146,7 +147,7 @@ async function setupNetwork() {
   return Network.initNetwork({
     onPlayerJoin: () => UI.refreshPlayerList(Network.players, Network.getIsHost()),
     onPlayerLeave: (id) => { Graphics.removeVehicleMesh(id); Physics.removeRemoteVehicle(id); UI.refreshPlayerList(Network.players, Network.getIsHost()); },
-    onGameInit: (seed, laps, mode, grid, coll) => _onGameInit(seed, laps, mode, grid, coll),
+    onGameInit: (seed, laps, mode, handling, grid, coll) => _onGameInit(seed, laps, mode, handling, grid, coll),
 
     onStateUpdate: () => {},
     onCratePickup: (id, crateIdx, type) => _onCratePickup(id, crateIdx, type),
@@ -172,9 +173,14 @@ async function setupNetwork() {
 
 
 // ── Game Logic Bridges ──
-async function _onGameInit(seed, laps, mode, grid, coll) {
+async function _onGameInit(seed, laps, mode, handlingMode, grid, coll) {
+  Game.setState(Game.STATE.RACING);
+  UI.setLoading(true);
+
   GameEngine.setCollisionMode(coll);
-  Physics.setDriveMode(mode || '4WD');
+
+  Physics.setDriveMode(mode);
+  Physics.setHandlingMode(handlingMode);
 
   const mapData = Game.initRace(seed, laps, Physics.world, Physics.groundMat, Physics.wallMat);
   Graphics.buildRaceMap(mapData);

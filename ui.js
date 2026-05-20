@@ -9,6 +9,7 @@ let _onJoinCarPrev = null;
 let _onJoinCarNext = null;
 let _onConnect = null;
 let _onStart = null;
+let _onHandlingChange = null;
 
 
 export function init(callbacks) {
@@ -20,6 +21,7 @@ export function init(callbacks) {
   _onJoinCarNext = callbacks.onJoinCarNext;
   _onConnect = callbacks.onConnect;
   _onStart = callbacks.onStart;
+  _onHandlingChange = callbacks.onHandlingChange;
 
 
   _setupEventListeners();
@@ -111,6 +113,9 @@ function _setupEventListeners() {
   safeAddListener('join-lobby-name', 'input', (e) => {
     localStorage.setItem('nitro-name', e.target.value);
   });
+  safeAddListener('handling-input', 'change', (e) => {
+    if (_onHandlingChange) _onHandlingChange(e.target.value);
+  });
 }
 
 
@@ -171,3 +176,7 @@ export function refreshPlayerList(players, isHost) {
   if (hostControls) hostControls.classList.toggle('hidden', !isHost);
 }
 
+export function updateHandlingInput(val) {
+  const el = document.getElementById('handling-input');
+  if (el) el.value = val;
+}

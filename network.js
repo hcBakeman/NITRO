@@ -255,10 +255,10 @@ function _setupHostConnHandlers(conn) {
   });
 }
 
-export function startRace(seed, lapCount, driveMode, gridAssignments, collisionMode) {
-  _broadcastToAll({ type: 'GAME_INIT', seed, lapCount, driveMode, gridAssignments, collisionMode });
-  // Host also needs to init locally!
-  _onGameInit(seed, lapCount, driveMode, gridAssignments, collisionMode);
+export function startRace(seed, lapCount, driveMode, handlingMode, gridAssignments, collisionMode) {
+  _broadcastToAll({ type: 'GAME_INIT', seed, lapCount, driveMode, handlingMode, gridAssignments, collisionMode });
+  // Host initializes locally too
+  _onGameInit(seed, lapCount, driveMode, handlingMode, gridAssignments, collisionMode);
 }
 
 
@@ -337,7 +337,7 @@ export function connectToHost(hostPeerId, playerName, carModel = 'SUV') {
           break;
 
         case 'GAME_INIT':
-          _onGameInit(data.seed, data.lapCount, data.driveMode, data.gridAssignments, data.collisionMode);
+          _onGameInit(data.seed, data.lapCount, data.driveMode, data.handlingMode, data.gridAssignments, data.collisionMode);
           break;
 
         case 'VEHICLE_HIT':

@@ -132,9 +132,14 @@ export let playerVehicle = null;
 export let playerChassis = null;
 export let playerCarSpecs = null;
 export let driveMode = '4WD'; // 'FWD', 'RWD', '4WD'
+export let handlingMode = 'Arcade'; // 'Arcade', 'Rally'
 
 export function setDriveMode(mode) {
   driveMode = mode;
+}
+
+export function setHandlingMode(mode) {
+  handlingMode = mode;
 }
 
 let flipTimer = 0;
@@ -456,14 +461,44 @@ export function setVehicleInput(input) {
   const steer = input.left ? steerAmt : input.right ? -steerAmt : 0;
 
   // ── Drift & Steering Recovery Logic ──
-  const BASE_FRONT_FRIC = playerCarSpecs.frontFric;
-  const BASE_REAR_FRIC = playerCarSpecs.rearFric;
+  let currentFrontFric = playerCarSpecs.frontFric;
+  let currentRearFric = playerCarSpecs.rearFric;
+
+  if (handlingMode === 'Rally') {
+    // Looser overall grip for dirt feel
+    currentFrontFric *= 0.8;
+    currentRearFric *= 0.7;
+
+    if (isTurning && speed > 15) {
+      // Induce drift by dropping rear traction significantly
+      currentRearFric *= 0.6;
+      
+      // Artificial yaw impulse to kick the tail out
+      const driftForce = input.left ? 1 : -1;
+      playerChassis.applyLocalImpulse(
+        new CANNON.Vec3(driftForce * speed * 2, 0, 0),
+        new CANNON.Vec3(0, 0, -1.5) // applied at the rear
+      );
+    }
+
+    if (isSliding) {
+      // Counter-steer recovery bonus
+      // sliding right (lateralVel < 0), steering right (steer < 0) -> catch drift!
+      if (lateralVel < -2 && input.right) {
+        currentFrontFric *= 1.8;
+        currentRearFric *= 1.8;
+      } else if (lateralVel > 2 && input.left) {
+        currentFrontFric *= 1.8;
+        currentRearFric *= 1.8;
+      }
+    }
+  }
 
   if (!playerChassis.isOiled) {
-    playerVehicle.wheelInfos[0].frictionSlip = BASE_FRONT_FRIC;
-    playerVehicle.wheelInfos[1].frictionSlip = BASE_FRONT_FRIC;
-    playerVehicle.wheelInfos[2].frictionSlip = BASE_REAR_FRIC;
-    playerVehicle.wheelInfos[3].frictionSlip = BASE_REAR_FRIC;
+    playerVehicle.wheelInfos[0].frictionSlip = currentFrontFric;
+    playerVehicle.wheelInfos[1].frictionSlip = currentFrontFric;
+    playerVehicle.wheelInfos[2].frictionSlip = currentRearFric;
+    playerVehicle.wheelInfos[3].frictionSlip = currentRearFric;
   }
 
   const currentRoll = playerCarSpecs.rollInfluence + speedRatio * 0.05;
