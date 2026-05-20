@@ -147,8 +147,33 @@ export function showMessage(msg, type = 'info') {
   }
 }
 
-export function setLoading(active) {
-  document.getElementById('loading-overlay').classList.toggle('hidden', !active);
+export function setLoading(active, message = 'LOADING ASSETS...') {
+  const overlay = document.getElementById('loading-overlay');
+  overlay.classList.toggle('hidden', !active);
+  const textEl = document.getElementById('loading-text');
+  if (textEl) {
+    textEl.textContent = message;
+  }
+  
+  // Clear the player list if we hide the loading screen
+  if (!active) {
+    const list = document.getElementById('loading-player-list');
+    if (list) list.innerHTML = '';
+  }
+}
+
+export function updateLoadingPlayerList(players) {
+  const list = document.getElementById('loading-player-list');
+  if (!list) return;
+  list.innerHTML = '';
+  Object.values(players).forEach(p => {
+    const statusText = p.loaded ? 'READY' : 'LOADING...';
+    const statusClass = p.loaded ? 'loading-status-ready' : 'loading-status-loading';
+    const item = document.createElement('div');
+    item.className = 'loading-player-item';
+    item.innerHTML = `<span>${p.name || 'Anonymous'}</span><span class="${statusClass}">${statusText}</span>`;
+    list.appendChild(item);
+  });
 }
 
 export function refreshPlayerList(players, isHost) {

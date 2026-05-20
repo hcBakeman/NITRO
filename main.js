@@ -163,6 +163,11 @@ async function setupNetwork() {
     onCarUpdate: (id, model) => { if (Game.getState() === Game.STATE.RACING) Graphics.loadVehicle(id, Network.players[id].colorIndex, model); UI.refreshPlayerList(Network.players, Network.getIsHost()); },
     onKicked: () => location.reload(),
     onVehicleHit: (vId, impulse, pt, aId) => _onVehicleHit(vId, impulse, pt, aId),
+    onPlayerLoaded: (players) => UI.updateLoadingPlayerList(players),
+    onStartCountdown: () => {
+      UI.setLoading(false);
+      Game.startIntro();
+    }
   }).then(id => {
     document.getElementById('peer-id-display').textContent = id;
     document.getElementById(statusElId).textContent = 'CONNECTED ✓';
@@ -226,7 +231,9 @@ async function _onGameInit(seed, laps, mode, handlingMode, grid, coll) {
     Graphics.snapCamera(_camTarget, myChassis.quaternion);
   }
 
-  Game.setState(Game.STATE.RACING);
+  UI.setLoading(true, 'WAITING FOR PLAYERS...');
+  UI.updateLoadingPlayerList(Network.players);
+  Network.sendLoaded();
 }
 
 function _onCratePickup(id, crateIdx, type) {

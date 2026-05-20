@@ -23,6 +23,8 @@ let _onReturnLobby = null;
 let _onCarUpdate = null;
 let _onKicked = null;
 let _onVehicleHit = null;
+let _onPlayerLoaded = null;
+let _onStartCountdown = null;
 let _myPeerId = null;
 
 const PLAYER_COLOR_COUNT = 6; // must match Graphics.PLAYER_COLORS length
@@ -47,6 +49,8 @@ export function initNetwork(callbacks = {}, customId = undefined) {
       location.reload();
     });
   _onVehicleHit = callbacks.onVehicleHit || (() => {});
+  _onPlayerLoaded = callbacks.onPlayerLoaded || (() => {});
+  _onStartCountdown = callbacks.onStartCountdown || (() => {});
 
   // If we already have a peer and it's what we want, just return its ID
   if (peer && !peer.destroyed) {
@@ -170,6 +174,9 @@ function _setupHostConnHandlers(conn) {
         _broadcastExcept(pid, { type: 'PLAYER_CAR_UPDATED', id: pid, carModel: data.carModel });
         _onCarUpdate(pid, data.carModel);
         break;
+      case 'LOADED':
+        _handleClientLoaded(pid);
+        break;
 
       case 'STATE':
         if (players[pid]) {
@@ -256,9 +263,35 @@ function _setupHostConnHandlers(conn) {
 }
 
 export function startRace(seed, lapCount, driveMode, handlingMode, gridAssignments, collisionMode) {
+  // Reset loaded status for all players
+  Object.values(players).forEach(p => p.loaded = false);
+
   _broadcastToAll({ type: 'GAME_INIT', seed, lapCount, driveMode, handlingMode, gridAssignments, collisionMode });
   // Host initializes locally too
   _onGameInit(seed, lapCount, driveMode, handlingMode, gridAssignments, collisionMode);
+}
+
+export function sendLoaded() {
+  if (isHost) {
+    _handleClientLoaded(_myPeerId);
+  } else {
+    _sendToHost({ type: 'LOADED' });
+  }
+}
+
+function _handleClientLoaded(id) {
+  if (players[id]) {
+    players[id].loaded = true;
+    _broadcastToAll({ type: 'PLAYER_LOADED', id });
+    _onPlayerLoaded(players);
+
+    // Check if ALL players are loaded
+    const allLoaded = Object.values(players).every(p => p.loaded);
+    if (allLoaded) {
+      _broadcastToAll({ type: 'START_COUNTDOWN' });
+      _onStartCountdown();
+    }
+  }
 }
 
 
@@ -342,6 +375,15 @@ export function connectToHost(hostPeerId, playerName, carModel = 'SUV') {
 
         case 'VEHICLE_HIT':
           _onVehicleHit(data.attackerId, data.impulse, data.point);
+          break;
+        case 'PLAYER_LOADED':
+          if (players[data.id]) {
+            players[data.id].loaded = true;
+          }
+          _onPlayerLoaded(players);
+          break;
+        case 'START_COUNTDOWN':
+          _onStartCountdown();
           break;
 
         case 'PLAYER_JOINED':

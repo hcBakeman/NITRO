@@ -231,6 +231,39 @@ input:focus {
   z-index: 9999;
   backdrop-filter: blur(8px);
 }
+.loading-player-list {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--col-border);
+  border-radius: var(--radius);
+  padding: 10px;
+  min-width: 150px;
+  max-height: 400px;
+  overflow-y: auto;
+  font-family: var(--font);
+  font-size: 8px;
+  color: #fff;
+}
+.loading-player-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.loading-player-item:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+.loading-status-loading {
+  color: var(--col-accent);
+}
+.loading-status-ready {
+  color: #22ff22;
+}
 .loader-box {
   text-align: center;
   color: var(--col-accent);

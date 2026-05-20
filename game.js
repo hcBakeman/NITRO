@@ -132,7 +132,7 @@ const TROLL_TIMEOUT = 15;
 let lastPos = null;
 let stuckTimer = 0;
 
-export let racePhase = 'INTRO'; // 'INTRO', 'COUNTDOWN', 'ACTIVE', 'FINISHED'
+export let racePhase = 'WAITING_FOR_PLAYERS'; // 'WAITING_FOR_PLAYERS', 'INTRO', 'COUNTDOWN', 'ACTIVE', 'FINISHED'
 export let raceCountdown = 5.0; // 5s for Intro, then 4s for Lights
 export let currentRaceTime = 0;
 export let currentLapTime = 0;
@@ -151,7 +151,7 @@ export function initRace(seed, laps, world, groundMat, wallMat) {
   lastPos = null;
   stuckTimer = 0;
 
-  racePhase = 'INTRO';
+  racePhase = 'WAITING_FOR_PLAYERS';
   raceCountdown = 5.0;
   currentRaceTime = 0;
   currentLapTime = 0;
@@ -170,11 +170,20 @@ export function getRaceMapData() {
   return mapData;
 }
 
+export function startIntro() {
+  racePhase = 'INTRO';
+  raceCountdown = 5.0;
+}
+
 // ── Per-frame race update ──────────────────────────────────────────────────
 export function updateRace(dt, chassis) {
   if (currentState !== STATE.RACING || !mapData || !chassis) return;
 
   const pos = chassis.position;
+
+  if (racePhase === 'WAITING_FOR_PLAYERS') {
+    return; // Completely freeze game logic during loading
+  }
 
   if (racePhase === 'INTRO') {
     raceCountdown -= dt;
