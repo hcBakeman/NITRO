@@ -333,8 +333,18 @@ export function connectToHost(hostPeerId, playerName, carModel = 'dacia_duster_l
   hostConn = peer.connect(hostPeerId, { reliable: false });
 
   return new Promise((resolve, reject) => {
+    // Prevent UI hanging if WebRTC handshake fails or host is unavailable
+    const connTimeout = setTimeout(() => {
+      reject(new Error('Connection to host timed out. Please check the ID and try again.'));
+    }, 10000);
+
     hostConn.on('open', () => {
       hostConn.send({ type: 'JOIN', name: playerName, carModel });
+    });
+
+    hostConn.on('error', err => {
+      clearTimeout(connTimeout);
+      reject(new Error('Connection failed: ' + err.message));
     });
 
     hostConn.on('data', data => {
@@ -355,6 +365,7 @@ export function connectToHost(hostPeerId, playerName, carModel = 'dacia_duster_l
           break;
 
         case 'JOIN_OK':
+          clearTimeout(connTimeout);
           players[_myPeerId] = {
             name: playerName,
             colorIndex: data.colorIndex,
