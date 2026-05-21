@@ -218,6 +218,15 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
   playerChassis._vehicleRef = playerVehicle;
   playerChassis.peerId = '__local__';
 
+  // Settle the suspension instantly before the first render so the car doesn't visibly drop
+  for (let i = 0; i < 60; i++) {
+    world.step(1 / 60);
+  }
+  
+  // Reset velocities just in case the settle caused a bounce
+  playerChassis.velocity.set(0, 0, 0);
+  playerChassis.angularVelocity.set(0, 0, 0);
+
   playerChassis.addEventListener('collide', e => {
     const other = e.body;
     if (other.peerId && other.peerId !== '__local__') {
