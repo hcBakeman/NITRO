@@ -238,9 +238,15 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
     const other = e.body;
     if (other.peerId && other.peerId !== '__local__') {
       const contact = e.contact;
+      
+      const now = performance.now();
+      if (now - (other._lastHitTime || 0) < 300) return; // 300ms cooldown to prevent multi-hit drain
+      
       const impactVel = Math.min(contact.getImpactVelocityAlongNormal(), 30); // Cap impact vel to 30m/s
       
       if (impactVel > 1.5) {
+        other._lastHitTime = now;
+        
         let impulseMag = impactVel * playerChassis.mass * 0.8; 
         impulseMag = Math.min(impulseMag, 45000); // Hard cap on impulse magnitude
         
@@ -251,14 +257,24 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           y: other.position.y + (contact.bj === other ? contact.rj.y : contact.ri.y), 
           z: other.position.z + (contact.bj === other ? contact.rj.z : contact.ri.z) 
         };
-        
         const impulse = { 
           x: contact.ni.x * impulseMag * sign, 
           y: Math.min(contact.ni.y * impulseMag * sign + (impulseMag * 0.1), 5000), // Cap vertical pop
           z: contact.ni.z * impulseMag * sign 
         };
-        // Use a separate callback for local-only detection to avoid double-hits in Strict mode
+        
+        // Broadcast the hit so the remote client applies it to their car
         if (_onVehicleImpact) _onVehicleImpact(other.peerId, impulse, point, '__local__');
+
+        // Manually apply the INVERSE impulse to our local car so it realistically bounces
+        // without relying on the CANNON solver (which causes multi-frame velocity drains)
+        const localImpulse = new CANNON.Vec3(-impulse.x, -impulse.y * 0.2, -impulse.z);
+        const localPoint = new CANNON.Vec3(
+          playerChassis.position.x + (contact.bi === playerChassis ? contact.ri.x : contact.rj.x),
+          playerChassis.position.y + (contact.bi === playerChassis ? contact.ri.y : contact.rj.y),
+          playerChassis.position.z + (contact.bi === playerChassis ? contact.ri.z : contact.rj.z)
+        );
+        playerChassis.applyImpulse(localImpulse, localPoint);
       }
     }
   });
@@ -268,13 +284,15 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
 }
 
 export function createRemoteVehicle(peerId, mass = 0, carModel, spawnPos = null, spawnQuat = null) {
-  // Remote vehicles are DYNAMIC so they absorb collision momentum realistically
-  // instead of acting like immovable brick walls.
+  // Remote vehicles MUST be kinematic with collisionResponse = false
+  // so they act as triggers. We handle the momentum transfer manually
+  // to avoid multi-hit velocity drain from the CANNON solver.
   const body = new CANNON.Body({
-    mass: 1400, 
+    mass: 0, 
     material: vehicleMat,
-    type: CANNON.Body.DYNAMIC,
+    type: CANNON.Body.KINEMATIC,
   });
+  body.collisionResponse = false; // Do not brick-wall the local car!
   body.collisionFilterGroup = CGROUP_REMOTE_CAR;
   // Ignore ground and walls so they don't fight network lerping
   body.collisionFilterMask = CGROUP_LOCAL_CAR | CGROUP_ROCKET;

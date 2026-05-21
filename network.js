@@ -377,7 +377,8 @@ export function connectToHost(hostPeerId, playerName, carModel = 'dacia_duster_l
           break;
 
         case 'VEHICLE_HIT':
-          _onVehicleHit(data.attackerId, data.impulse, data.point);
+          // Pass _myPeerId as victimId so main.js successfully validates it
+          _onVehicleHit(_myPeerId, data.impulse, data.point, data.attackerId);
           break;
         case 'PLAYER_LOADED':
           if (players[data.id]) {
