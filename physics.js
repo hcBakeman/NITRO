@@ -269,12 +269,15 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
         // Manually apply the INVERSE impulse to our local car so it realistically bounces
         // without relying on the CANNON solver (which causes multi-frame velocity drains)
         const localImpulse = new CANNON.Vec3(-impulse.x, -impulse.y * 0.2, -impulse.z);
-        const localPoint = new CANNON.Vec3(
+        const localPointRaw = new CANNON.Vec3(
           playerChassis.position.x + (contact.bi === playerChassis ? contact.ri.x : contact.rj.x),
           playerChassis.position.y + (contact.bi === playerChassis ? contact.ri.y : contact.rj.y),
           playerChassis.position.z + (contact.bi === playerChassis ? contact.ri.z : contact.rj.z)
         );
-        playerChassis.applyImpulse(localImpulse, localPoint);
+        
+        // Bring the impact point 85% closer to COM to prevent wild spinning
+        const safeLocalPoint = playerChassis.position.clone().lerp(localPointRaw, 0.15);
+        playerChassis.applyImpulse(localImpulse, safeLocalPoint);
       }
     }
   });
@@ -333,7 +336,10 @@ export function applyImpactImpulse(impulse, point) {
   if (!playerChassis) return;
   const i = new CANNON.Vec3(impulse.x, impulse.y, impulse.z);
   const p = new CANNON.Vec3(point.x, point.y, point.z);
-  playerChassis.applyImpulse(i, p);
+  
+  // Bring the impact point 85% closer to the center of mass to prevent massive spin-outs
+  const safePoint = playerChassis.position.clone().lerp(p, 0.15);
+  playerChassis.applyImpulse(i, safePoint);
 }
 
 export function updateRemoteVehicles() {
