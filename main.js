@@ -63,6 +63,29 @@ window.addEventListener('load', async () => {
     Game.setState(Game.STATE.MENU);
   }
 
+  // Lobby Setting Listeners
+  const broadcastSettings = () => {
+    Network.broadcastLobbySettings({
+      seed: document.getElementById('seed-input').value,
+      laps: document.getElementById('lap-input').value,
+      driveMode: document.getElementById('drive-input').value,
+      handlingMode: document.getElementById('handling-input').value,
+      collisionMode: document.getElementById('collision-input').value
+    });
+  };
+  
+  ['seed-input', 'lap-input', 'drive-input', 'handling-input', 'collision-input'].forEach(id => {
+    document.getElementById(id).addEventListener('change', broadcastSettings);
+  });
+  
+  window._updateGuestLobbySettings = (settings) => {
+    if (settings.seed) document.getElementById('seed-input').value = settings.seed;
+    if (settings.laps) document.getElementById('lap-input').value = settings.laps;
+    if (settings.driveMode) document.getElementById('drive-input').value = settings.driveMode;
+    if (settings.handlingMode) document.getElementById('handling-input').value = settings.handlingMode;
+    if (settings.collisionMode) document.getElementById('collision-input').value = settings.collisionMode;
+  };
+
   GameEngine.startLoop();
 });
 

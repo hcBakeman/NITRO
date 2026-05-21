@@ -147,11 +147,17 @@ export function updateHUD(data) {
 
 
 export function showMessage(msg, type = 'info') {
-  const el = document.getElementById('lobby-status');
-  if (el) {
-    el.textContent = msg;
-    el.className = 'status-msg ' + type;
-  }
+  const el1 = document.getElementById('lobby-status');
+  const el2 = document.getElementById('join-lobby-status');
+  const el3 = document.getElementById('menu-status');
+  
+  // Update all of them so whatever screen is active sees it
+  [el1, el2, el3].forEach(el => {
+    if (el) {
+      el.textContent = msg;
+      el.className = 'status-msg ' + type;
+    }
+  });
 }
 
 export function setLoading(active, message = 'LOADING ASSETS...') {
@@ -201,11 +207,42 @@ export function refreshPlayerList(players, isHost) {
     list.appendChild(li);
   });
 
-  // Toggle host-only UI
+  // Toggle host-only UI state instead of hiding it
   const startBtn = document.getElementById('btn-start');
-  if (startBtn) startBtn.classList.toggle('hidden', !isHost);
+  if (startBtn) {
+    if (isHost) {
+      startBtn.textContent = 'START RACE';
+      startBtn.disabled = false;
+      startBtn.classList.remove('btn-secondary');
+      startBtn.classList.add('btn-primary');
+      startBtn.classList.remove('hidden'); // Ensure it's not hidden
+    } else {
+      startBtn.textContent = 'WAITING FOR HOST...';
+      startBtn.disabled = true;
+      startBtn.classList.remove('btn-primary');
+      startBtn.classList.add('btn-secondary');
+      startBtn.classList.remove('hidden'); // Ensure it's not hidden
+    }
+  }
+
   const hostControls = document.getElementById('host-controls');
-  if (hostControls) hostControls.classList.toggle('hidden', !isHost);
+  if (hostControls) {
+    // Make sure it's always visible so guests can see the settings
+    hostControls.classList.remove('hidden');
+    
+    // Disable or enable the inputs based on host status
+    const inputs = hostControls.querySelectorAll('input, select');
+    inputs.forEach(input => {
+      input.disabled = !isHost;
+      if (!isHost) {
+        input.style.opacity = '0.7';
+        input.style.cursor = 'not-allowed';
+      } else {
+        input.style.opacity = '1';
+        input.style.cursor = 'pointer';
+      }
+    });
+  }
 }
 
 export function updateHandlingInput(val) {

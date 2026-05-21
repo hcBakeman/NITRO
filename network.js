@@ -268,9 +268,28 @@ export function startRace(seed, lapCount, driveMode, handlingMode, gridAssignmen
   // Reset loaded status for all players
   Object.values(players).forEach(p => p.loaded = false);
 
-  _broadcastToAll({ type: 'GAME_INIT', seed, lapCount, driveMode, handlingMode, gridAssignments, collisionMode });
+  _broadcastToAll({
+    type: 'GAME_INIT',
+    seed,
+    lapCount,
+    driveMode,
+    handlingMode,
+    gridAssignments,
+    collisionMode
+  });
+  
   // Host initializes locally too
   _onGameInit(seed, lapCount, driveMode, handlingMode, gridAssignments, collisionMode);
+}
+
+// Host broadcasts setting changes to guests so they can see them
+export function broadcastLobbySettings(settings) {
+  if (isHost) {
+    _broadcastToAll({
+      type: 'LOBBY_SETTINGS',
+      settings
+    });
+  }
 }
 
 export function sendLoaded() {
@@ -379,7 +398,16 @@ export function connectToHost(hostPeerId, playerName, carModel = 'dacia_duster_l
             finished: false,
             disqualified: false,
           };
+          if (data.lobbySettings && typeof window._updateGuestLobbySettings === 'function') {
+            window._updateGuestLobbySettings(data.lobbySettings);
+          }
           resolve(data.colorIndex);
+          break;
+          
+        case 'LOBBY_SETTINGS':
+          if (data.settings && typeof window._updateGuestLobbySettings === 'function') {
+            window._updateGuestLobbySettings(data.settings);
+          }
           break;
 
         case 'GAME_INIT':
