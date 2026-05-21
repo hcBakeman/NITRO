@@ -276,6 +276,13 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           
           // Broadcast the actual impulse to the victim so their screen applies it natively
           if (_onVehicleImpact) _onVehicleImpact(other.peerId, impulse, point, '__local__');
+          
+          // Apply counter-impulse to our own car (the attacker) so we feel the bump!
+          // Applied directly at the center of mass to prevent spinning.
+          playerChassis.applyImpulse(
+            new CANNON.Vec3(-pushDir.x * impulseMag, verticalPop * 0.5, -pushDir.z * impulseMag),
+            playerChassis.position
+          );
         }
       }
     }
@@ -297,7 +304,9 @@ export function createRemoteVehicle(peerId, mass = 0, carModel, spawnPos = null,
     linearDamping: 0.1,
     angularDamping: 0.1
   });
-  body.collisionResponse = true; // Use native solver!
+  // Disable native rigid-body separation so networked lag doesn't cause explosive bumps.
+  // We will manually apply smooth impulses in the 'collide' event.
+  body.collisionResponse = false; 
   body.collisionFilterGroup = CGROUP_REMOTE_CAR;
   // Let them hit EVERYTHING: ground, walls, local cars, rockets
   body.collisionFilterMask = CGROUP_DEFAULT | CGROUP_LOCAL_CAR | CGROUP_ROCKET | CGROUP_REMOTE_CAR;
