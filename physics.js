@@ -262,31 +262,24 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           let pushDir = new CANNON.Vec3(other.position.x - playerChassis.position.x, 0, other.position.z - playerChassis.position.z);
           pushDir.normalize();
           
-          // 2. Calculate a perfectly centered horizontal impulse based on relative velocity.
-          // Because collisionResponse = false, we manually exchange momentum.
-          // 0.6 multiplier creates a slightly heavy, damped arcade collision (not 100% elastic)
-          let horizontalForce = impactVel * playerChassis.mass * 0.6;
-          horizontalForce = Math.min(horizontalForce, 20000); // Sanity cap
+          // 2. Controlled Arcade Velocity Bump
+          // Instead of exchanging thousands of Newtons of raw impulse, we use a fixed max velocity change.
+          // This absolutely guarantees cars will NEVER fly backwards or explode from network lag.
+          let bumpSpeed = 1.0 + (impactVel * 0.15); 
+          bumpSpeed = Math.min(bumpSpeed, 5.0); // Capped at 5 m/s (~18 km/h) velocity change
           
-          // 3. Calculate the arcade vertical pop (hop)
-          let verticalPop = impactVel * 3; 
-          verticalPop = Math.min(verticalPop, 100);
+          // 3. Apply exactly half the bump to our own velocity instantly
+          playerChassis.velocity.x -= pushDir.x * bumpSpeed;
+          playerChassis.velocity.z -= pushDir.z * bumpSpeed;
           
-          // 4. Apply PERFECTLY CENTERED forces to the true center of mass.
-          // This guarantees ZERO sideways torque, meaning the cars will NEVER roll or flip over!
-          const myHorizontal = new CANNON.Vec3(-pushDir.x * horizontalForce, 0, -pushDir.z * horizontalForce);
-          const theirHorizontal = new CANNON.Vec3(pushDir.x * horizontalForce, 0, pushDir.z * horizontalForce);
+          // 4. Apply the other half to the remote car LOCALLY so it reacts instantly on our screen
+          other.velocity.x += pushDir.x * bumpSpeed;
+          other.velocity.z += pushDir.z * bumpSpeed;
           
-          playerChassis.applyImpulse(myHorizontal, playerChassis.position);
-          other.applyImpulse(theirHorizontal, other.position);
-          
-          // Wipe out any immediate twitching from tire friction kicking in instantly
-          playerChassis.angularVelocity.y *= 0.1;
-          
-          // 5. Apply the gentle vertical hop
-          const hopImpulse = new CANNON.Vec3(0, verticalPop, 0);
-          playerChassis.applyImpulse(hopImpulse, playerChassis.position);
-          other.applyImpulse(hopImpulse, other.position);
+          // 5. Broadcast this EXACT velocity bump to the victim so their game applies it perfectly
+          if (_onVehicleImpact) {
+            _onVehicleImpact(other.peerId, {x: pushDir.x * bumpSpeed, y: 0, z: pushDir.z * bumpSpeed}, '__local__');
+          }
         }
       }
     }
@@ -348,17 +341,19 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
   }
 }
 
-export function applyImpactImpulse(impulse, point) {
+export function applyNetworkBump(bumpVel) {
   if (!playerChassis) return;
-  const i = new CANNON.Vec3(impulse.x, impulse.y, impulse.z);
   
-  // CRITICAL: We MUST ignore the 'point' sent over the network!
-  // Because of network latency, the sender's perceived world coordinate of our car
-  // is often several meters away from our ACTUAL local position.
-  // Applying an impulse several meters away from the center of mass generates catastrophic torque!
-  const p = playerChassis.position.vadd(new CANNON.Vec3(0, 0.6, 0));
+  // Apply the velocity bump directly
+  playerChassis.velocity.x += bumpVel.x;
+  playerChassis.velocity.z += bumpVel.z;
   
-  playerChassis.applyImpulse(i, p);
+  // Lock out our own local collide event for 500ms so we don't bounce twice
+  playerChassis._lastHitTime = performance.now();
+  
+  // Activate heavy anti-spin assist
+  playerChassis._hitDampTime = performance.now();
+  playerChassis.angularVelocity.y *= 0.1;
 }
 
 export function updateRemoteVehicles() {

@@ -222,8 +222,7 @@ function _setupHostConnHandlers(conn) {
           peers[data.targetId].send({
             type: 'VEHICLE_HIT',
             attackerId: pid,
-            impulse: data.impulse,
-            point: data.point,
+            bumpVel: data.bumpVel,
           });
         }
         break;
@@ -316,20 +315,19 @@ function _handleClientLoaded(id) {
 }
 
 
-export function sendVehicleHit(targetId, impulse, point, attackerId) {
+export function sendVehicleHit(targetId, bumpVel, attackerId) {
   if (isHost) {
     // If Host detects a hit, broadcast it to the victim directly
     if (peers[targetId]) {
       peers[targetId].send({
         type: 'VEHICLE_HIT',
         attackerId: attackerId || _myPeerId,
-        impulse,
-        point,
+        bumpVel,
       });
     }
   } else {
     // Client sends to host for relay
-    hostConn?.send({ type: 'VEHICLE_HIT', targetId, impulse, point });
+    hostConn?.send({ type: 'VEHICLE_HIT', targetId, bumpVel });
   }
 }
 
@@ -417,7 +415,7 @@ export function connectToHost(hostPeerId, playerName, carModel = 'dacia_duster_l
 
         case 'VEHICLE_HIT':
           // Pass _myPeerId as victimId so main.js successfully validates it
-          _onVehicleHit(_myPeerId, data.impulse, data.point, data.attackerId);
+          _onVehicleHit(_myPeerId, data.bumpVel, data.attackerId);
           break;
         case 'PLAYER_LOADED':
           if (players[data.id]) {

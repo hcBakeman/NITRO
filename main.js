@@ -191,7 +191,7 @@ async function setupNetwork() {
     },
     onCarUpdate: (id, model) => { if (Game.getState() === Game.STATE.RACING) Graphics.loadVehicle(id, Network.players[id].colorIndex, model); UI.refreshPlayerList(Network.players, Network.getIsHost()); },
     onKicked: () => location.reload(),
-    onVehicleHit: (vId, impulse, pt, aId) => _onVehicleHit(vId, impulse, pt, aId),
+    onVehicleHit: (vId, bumpVel, aId) => _onVehicleHit(vId, bumpVel, aId),
     onPlayerLoaded: (players) => UI.updateLoadingPlayerList(players),
     onStartCountdown: () => {
       UI.setLoading(false);
@@ -294,9 +294,9 @@ function _onCratePickup(id, crateIdx, type) {
   Audio.playCollect();
 }
 
-function _onVehicleHit(victimId, impulse, point, attackerId) {
+function _onVehicleHit(victimId, bumpVel, attackerId) {
   if (victimId === Network.getMyPeerId()) {
-    Physics.applyImpactImpulse(impulse, point);
+    Physics.applyNetworkBump(bumpVel);
     Audio.playCollision();
   }
 }

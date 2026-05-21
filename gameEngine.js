@@ -16,9 +16,9 @@ let _crosshairTimer = 0;
 let _collisionMode = 'fast';
 
 export function init() {
-  Physics.setOnVehicleImpact((victimId, impulse, point, attackerId) => {
-    // Network vehicle hits have been replaced by decentralized CANNON.js local collisions!
-    // No need to broadcast impact forces over the network anymore.
+  Physics.setOnVehicleImpact((victimId, bumpVel, attackerId) => {
+    if (Game.getState() !== Game.STATE.RACING || Game.racePhase !== 'ACTIVE') return;
+    Network.sendVehicleHit(victimId, bumpVel, attackerId);
   });
 }
 
