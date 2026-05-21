@@ -255,9 +255,11 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
         if (now - (other._lastHitTime || 0) > 300) {
           other._lastHitTime = now;
           
-          // Restored impulse magnitude now that inertia tensor is fixed!
-          let impulseMag = impactVel * playerChassis.mass * 0.5;
-          impulseMag = Math.min(impulseMag, 12000); 
+          // Use arcade scale forces! A rocket explosion is ~550 Ns.
+          // Realistic physics (12000 Ns) is way too violent for a top-down game.
+          // Scale the impact velocity so a 30km/h bump is about 400 Ns.
+          let impulseMag = impactVel * 40;
+          impulseMag = Math.min(impulseMag, 1200); 
           
           const sign = (contact.bj === other) ? 1 : -1;
           const verticalPop = impulseMag * 0.08; // Fun arcade vertical pop, similar to rockets
