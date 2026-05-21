@@ -250,14 +250,30 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
         
         if (now - (other._lastHitTime || 0) > 300) {
           other._lastHitTime = now;
+          
+          // Calculate the impulse that CANNON's native solver is approximately applying
+          // Effective mass = (m1 * m2) / (m1 + m2) = mass / 2
+          // Restitution = 0.3 (material default), multiplier = 1 + 0.3 = 1.3
+          let impulseMag = impactVel * (playerChassis.mass / 2) * 1.3;
+          impulseMag = Math.min(impulseMag, 25000); // Sanity cap
+          
+          const sign = (contact.bj === other) ? 1 : -1;
+          const verticalPop = Math.min(impulseMag * 0.05, 1000); // Tiny visual hop
+          
+          const impulse = {
+            x: contact.ni.x * impulseMag * sign,
+            y: verticalPop,
+            z: contact.ni.z * impulseMag * sign
+          };
+          
           const point = { 
             x: other.position.x, 
             y: other.position.y, 
             z: other.position.z 
           };
           
-          // Broadcast a dummy impulse just to trigger visual sparks/sounds on other clients
-          if (_onVehicleImpact) _onVehicleImpact(other.peerId, {x:0, y:0, z:0}, point, '__local__');
+          // Broadcast the actual impulse to the victim so their screen applies it natively
+          if (_onVehicleImpact) _onVehicleImpact(other.peerId, impulse, point, '__local__');
         }
       }
     }
