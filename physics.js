@@ -50,7 +50,7 @@ export function initPhysics() {
     new CANNON.ContactMaterial(vehicleMat, vehicleMat, {
       friction: 0.0, // NO friction between cars so they don't grab and flip sideways!
       restitution: 0.1, 
-      contactEquationStiffness: 1e7, // Hard collision to prevent clipping
+      contactEquationStiffness: 1e5, // Soft constraint! Prevents explosive bouncing when network lag causes overlapping!
       contactEquationRelaxation: 4,
     })
   );
@@ -262,19 +262,15 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           let pushDir = new CANNON.Vec3(other.position.x - playerChassis.position.x, 0, other.position.z - playerChassis.position.z);
           pushDir.normalize();
           
-          // 2. Controlled Arcade Velocity Bump
-          // Instead of exchanging thousands of Newtons of raw impulse, we use a fixed max velocity change.
-          // This absolutely guarantees cars will NEVER fly backwards or explode from network lag.
+          // 2. Controlled Arcade Velocity Bump (Networked)
+          // Since collisionResponse is TRUE, CANNON natively pushes the cars apart (no clipping).
+          // However, we still calculate the impact severity to broadcast the bump to the victim,
+          // so the victim's game ALSO reacts perfectly synchronously.
           let bumpSpeed = 1.0 + (impactVel * 0.15); 
           bumpSpeed = Math.min(bumpSpeed, 5.0); // Capped at 5 m/s (~18 km/h) velocity change
           
-          // 3. Apply exactly half the bump to our own velocity instantly
-          playerChassis.velocity.x -= pushDir.x * bumpSpeed;
-          playerChassis.velocity.z -= pushDir.z * bumpSpeed;
-          
-          // 4. Apply the other half to the remote car LOCALLY so it reacts instantly on our screen
-          other.velocity.x += pushDir.x * bumpSpeed;
-          other.velocity.z += pushDir.z * bumpSpeed;
+          // Note: We DO NOT manually change our local playerChassis.velocity here anymore!
+          // CANNON's native overlap solver already handles our local bounce perfectly without clipping.
           
           // 5. Broadcast this EXACT velocity bump to the victim so their game applies it perfectly
           if (_onVehicleImpact) {
@@ -301,10 +297,8 @@ export function createRemoteVehicle(peerId, mass = 0, carModel, spawnPos = null,
     linearDamping: 0.1,
     angularDamping: 0.1
   });
-  // Disable native collisions! CANNON's native box-overlap solver picks a random corner 
-  // when cars clip due to lag, applying massive sideways torque and flipping them over.
-  // We handle collisions purely via the manual 'collide' event impulse.
-  body.collisionResponse = false; 
+  // Enable native collisions so they physically push each other apart!
+  body.collisionResponse = true; 
   body.collisionFilterGroup = CGROUP_REMOTE_CAR;
   // Let them hit EVERYTHING: ground, walls, local cars, rockets
   body.collisionFilterMask = CGROUP_DEFAULT | CGROUP_LOCAL_CAR | CGROUP_ROCKET | CGROUP_REMOTE_CAR;
