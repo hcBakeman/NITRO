@@ -251,14 +251,13 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           other._lastHitTime = now;
           
           // Reduce impulse magnitude for more realistic bumps, less flying
-          let impulseMag = impactVel * playerChassis.mass * 0.4;
-          impulseMag = Math.min(impulseMag, 12000); // Much tighter sanity cap
+          let impulseMag = impactVel * playerChassis.mass * 0.5;
+          impulseMag = Math.min(impulseMag, 12000); 
           
           const sign = (contact.bj === other) ? 1 : -1;
-          const verticalPop = Math.min(impulseMag * 0.02, 300); // very small visual hop
+          const verticalPop = impulseMag * 0.08; // Fun arcade vertical pop, similar to rockets
           
           // Apply force along the actual horizontal direction from attacker to victim
-          // Ignore the strict contact normal because it often points UP if cars overlap
           let pushDir = new CANNON.Vec3(other.position.x - playerChassis.position.x, 0, other.position.z - playerChassis.position.z);
           pushDir.normalize();
           
@@ -268,20 +267,21 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
             z: pushDir.z * impulseMag
           };
           
+          // Create an offset point (above the center of mass) so the car pitches/rolls slightly instead of just sliding flat
           const point = { 
             x: other.position.x, 
-            y: other.position.y, 
+            y: other.position.y + 0.6, 
             z: other.position.z 
           };
           
-          // Broadcast the actual impulse to the victim so their screen applies it natively
+          // Broadcast the actual impulse to the victim
           if (_onVehicleImpact) _onVehicleImpact(other.peerId, impulse, point, '__local__');
           
-          // Apply counter-impulse to our own car (the attacker) so we feel the bump!
-          // Applied directly at the center of mass to prevent spinning.
+          // Apply counter-impulse to our own car (the attacker) with the same rocket-style offset
+          const localOffset = new CANNON.Vec3(0, 0.6, 0);
           playerChassis.applyImpulse(
             new CANNON.Vec3(-pushDir.x * impulseMag, verticalPop * 0.5, -pushDir.z * impulseMag),
-            playerChassis.position
+            playerChassis.position.vadd(localOffset)
           );
         }
       }
@@ -347,8 +347,9 @@ export function applyImpactImpulse(impulse, point) {
   if (!playerChassis) return;
   const i = new CANNON.Vec3(impulse.x, impulse.y, impulse.z);
   
-  // Apply EXACTLY at Center of Mass to prevent massive spin-outs
-  playerChassis.applyImpulse(i, playerChassis.position);
+  // Use the provided point (which is now offset above the CoM) so the car pitches nicely!
+  const p = new CANNON.Vec3(point.x, point.y, point.z);
+  playerChassis.applyImpulse(i, p);
 }
 
 export function updateRemoteVehicles() {
