@@ -1,4 +1,4 @@
-import { input } from './game.js';
+import { input, triggerFire } from './game.js';
 
 let isMobile = false;
 let joystickLeft = null;
@@ -58,16 +58,11 @@ export function initMobileControls() {
     // Dedicated fire button handling
     btnFire.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      input.fire = true;
-      // We also need to set fireQueued via a hack, or we can just import the setter if it existed.
-      // Wait, game.js has consumeFire() which checks an internal `fireQueued`. 
-      // We can't set it directly, so let's dispatch a keyboard event for Space!
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+      triggerFire(true);
     });
     btnFire.addEventListener('touchend', (e) => {
       e.preventDefault();
-      input.fire = false;
-      window.dispatchEvent(new KeyboardEvent('keyup', { key: ' ' }));
+      triggerFire(false);
     });
   }
 }

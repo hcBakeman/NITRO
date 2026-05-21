@@ -7,6 +7,7 @@ import * as CANNON from 'cannon-es';
 import * as Physics from './physics.js';
 import * as Network from './network.js';
 import * as Graphics from './graphics.js';
+import { carPreview } from './graphics.js';
 import {
   generateMap,
   checkCheckpointProximity,
@@ -30,22 +31,27 @@ export function setState(s) {
   if (s === STATE.MENU) {
     document.getElementById('screen-menu').classList.add('active');
     hudEl.classList.add('hidden');
+    carPreview.start();
   }
   if (s === STATE.JOIN_LOBBY) {
     document.getElementById('screen-join-lobby').classList.add('active');
     hudEl.classList.add('hidden');
+    carPreview.start();
   }
 
   if (s === STATE.LOBBY) {
     document.getElementById('screen-lobby').classList.add('active');
     hudEl.classList.add('hidden');
+    carPreview.start();
   }
   if (s === STATE.RACING) {
     hudEl.classList.remove('hidden');
+    carPreview.stop();
   }
   if (s === STATE.FINISHED) {
     document.getElementById('screen-finished').classList.add('active');
     hudEl.classList.add('hidden');
+    carPreview.stop();
   }
 }
 
@@ -89,6 +95,11 @@ export function consumeFire() {
   const f = fireQueued;
   fireQueued = false;
   return f;
+}
+
+export function triggerFire(state) {
+  input.fire = state;
+  if (state) fireQueued = true;
 }
 
 // ── Weapon ─────────────────────────────────────────────────────────────────

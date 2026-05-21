@@ -21,9 +21,10 @@ const rocketLightPool = [];
 const ROCKET_LIGHT_COUNT = 8;
 let cameraShake = 0;
 
-let minimapCtx,
-  minimapSpline,
-  minimapBounds = { minX: 0, maxX: 0, minZ: 0, maxZ: 0 };
+let minimapCtx = null;
+let minimapSpline = null;
+let minimapBounds = null;
+let minimapPoints = null;
 let raceGroup = new THREE.Group();
 
 // ── Object Pooling ──────────────────────────────────────────────────────────
@@ -96,6 +97,7 @@ export function initMinimap(canvas, spline, mapBounds) {
   minimapCtx = canvas.getContext('2d');
   minimapSpline = spline;
   minimapBounds = mapBounds;
+  minimapPoints = spline.getPoints(100);
 }
 
 export function updateMinimap(players, localPlayer) {
@@ -110,8 +112,7 @@ export function updateMinimap(players, localPlayer) {
   ctx.strokeStyle = 'rgba(255,255,255,0.3)';
   ctx.lineWidth = 4;
   ctx.beginPath();
-  const points = minimapSpline.getPoints(100);
-  points.forEach((p, i) => {
+  minimapPoints.forEach((p, i) => {
     const x = ((p.x - minimapBounds.minX) / (minimapBounds.maxX - minimapBounds.minX)) * w;
     const z = ((p.z - minimapBounds.minZ) / (minimapBounds.maxZ - minimapBounds.minZ)) * h;
     if (i === 0) ctx.moveTo(x, z);
@@ -318,10 +319,26 @@ export class CarPreview {
     this.scene.add(this.carGroup);
 
     this.animate = this.animate.bind(this);
-    this.animationId = requestAnimationFrame(this.animate);
+    this.animationId = null;
+    this.isRunning = false;
+  }
+  
+  start() {
+    if (this.isRunning) return;
+    this.isRunning = true;
+    this.animate();
+  }
+  
+  stop() {
+    this.isRunning = false;
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId);
+      this.animationId = null;
+    }
   }
 
   animate() {
+    if (!this.isRunning) return;
     this.animationId = requestAnimationFrame(this.animate);
     this.carGroup.rotation.y += 0.015;
     this.renderer.render(this.scene, this.camera);

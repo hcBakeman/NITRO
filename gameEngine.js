@@ -15,7 +15,16 @@ let _lastRacePhase = null;
 let _crosshairTimer = 0;
 let _collisionMode = 'fast';
 
+let domLightsEl, domTimeEl, domLight1, domLight2, domLight3, domLight4;
+
 export function init() {
+  domLightsEl = document.getElementById('start-lights');
+  domTimeEl = document.getElementById('hud-time');
+  domLight1 = document.getElementById('light-1');
+  domLight2 = document.getElementById('light-2');
+  domLight3 = document.getElementById('light-3');
+  domLight4 = document.getElementById('light-4');
+
   Physics.setOnVehicleImpact((victimId, bumpVel, attackerId) => {
     if (Game.getState() !== Game.STATE.RACING || Game.racePhase !== 'ACTIVE') return;
     Network.sendVehicleHit(victimId, bumpVel, attackerId);
@@ -54,12 +63,9 @@ function _updateRacing(dt) {
   }
 
   // 2. Race UI (Countdown & Time) & Input & Engine Sound
-  const lightsEl = document.getElementById('start-lights');
-  const timeEl = document.getElementById('hud-time');
-
   if (Game.racePhase === 'WAITING_FOR_PLAYERS' || Game.racePhase === 'INTRO') {
-    if (lightsEl) lightsEl.classList.add('hidden');
-    if (timeEl) timeEl.textContent = Game.racePhase === 'WAITING_FOR_PLAYERS' ? 'WAITING FOR PLAYERS...' : 'WARMING UP...';
+    if (domLightsEl) domLightsEl.classList.add('hidden');
+    if (domTimeEl) domTimeEl.textContent = Game.racePhase === 'WAITING_FOR_PLAYERS' ? 'WAITING FOR PLAYERS...' : 'WARMING UP...';
     Audio.updateEngine(0, false);
     Physics.setVehicleInput({
       forward: false,
@@ -74,29 +80,25 @@ function _updateRacing(dt) {
       chassis.angularVelocity.set(0,0,0);
     }
   } else if (Game.racePhase === 'COUNTDOWN') {
-    if (lightsEl) lightsEl.classList.remove('hidden');
+    if (domLightsEl) domLightsEl.classList.remove('hidden');
     const c = Game.raceCountdown;
     
-    const l1 = document.getElementById('light-1');
-    const l2 = document.getElementById('light-2');
-    const l3 = document.getElementById('light-3');
-    const l4 = document.getElementById('light-4');
-    
-    if (l1) l1.classList.toggle('on', c <= 4.0);
-    if (l2) l2.classList.toggle('on', c <= 3.0);
-    if (l3) l3.classList.toggle('on', c <= 2.0);
-    if (l4) l4.classList.toggle('on', c <= 1.0);
+    if (domLight1) domLight1.classList.toggle('on', c <= 4.0);
+    if (domLight2) domLight2.classList.toggle('on', c <= 3.0);
+    if (domLight3) domLight3.classList.toggle('on', c <= 2.0);
+    if (domLight4) domLight4.classList.toggle('on', c <= 1.0);
 
     // Ensure they are yellow
-    for (let i = 1; i <= 4; i++) {
-      const el = document.getElementById(`light-${i}`);
+    const lights = [domLight1, domLight2, domLight3, domLight4];
+    for (let i = 0; i < 4; i++) {
+      const el = lights[i];
       if (el) {
         el.classList.remove('light-green');
         el.classList.add('light-yellow');
       }
     }
 
-    if (timeEl) timeEl.textContent = '00:00.000';
+    if (domTimeEl) domTimeEl.textContent = '00:00.000';
 
     // Allow input so the user can potentially jump-start
     Physics.setVehicleInput(Game.input);
@@ -113,23 +115,24 @@ function _updateRacing(dt) {
         (Game.currentRaceTime >= 5.0 && Game.currentRaceTime < 6.0)
       ) {
         // 5.0 is the jump start penalty time base. We show the green lights for 1 second after 'GO'.
-        for (let i = 1; i <= 4; i++) {
-          const el = document.getElementById(`light-${i}`);
+        const lights = [domLight1, domLight2, domLight3, domLight4];
+        for (let i = 0; i < 4; i++) {
+          const el = lights[i];
           if (el) {
             el.classList.remove('light-yellow');
             el.classList.add('light-green', 'on');
           }
         }
       } else {
-        if (lightsEl) lightsEl.classList.add('hidden');
+        if (domLightsEl) domLightsEl.classList.add('hidden');
       }
-      if (timeEl) timeEl.textContent = formatTime(Game.currentRaceTime);
+      if (domTimeEl) domTimeEl.textContent = formatTime(Game.currentRaceTime);
       Physics.setVehicleInput(Game.input);
       Audio.updateEngine(chassis ? chassis.velocity.length() : 0, Game.input.forward);
     } else {
       // FINISHED
-      if (lightsEl) lightsEl.classList.add('hidden');
-      if (timeEl) timeEl.textContent = formatTime(Game.currentRaceTime);
+      if (domLightsEl) domLightsEl.classList.add('hidden');
+      if (domTimeEl) domTimeEl.textContent = formatTime(Game.currentRaceTime);
       Physics.setVehicleInput({
         forward: false,
         backward: false,
