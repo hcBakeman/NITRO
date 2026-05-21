@@ -57,9 +57,9 @@ function _updateRacing(dt) {
   const lightsEl = document.getElementById('start-lights');
   const timeEl = document.getElementById('hud-time');
 
-  if (Game.racePhase === 'INTRO') {
+  if (Game.racePhase === 'WAITING_FOR_PLAYERS' || Game.racePhase === 'INTRO') {
     if (lightsEl) lightsEl.classList.add('hidden');
-    if (timeEl) timeEl.textContent = 'WARMING UP...';
+    if (timeEl) timeEl.textContent = Game.racePhase === 'WAITING_FOR_PLAYERS' ? 'WAITING FOR PLAYERS...' : 'WARMING UP...';
     Audio.updateEngine(0, false);
     Physics.setVehicleInput({
       forward: false,
@@ -68,6 +68,11 @@ function _updateRacing(dt) {
       right: false,
       fire: false,
     });
+    // Stop the vehicle from moving physically before the intro starts
+    if (chassis) {
+      chassis.velocity.set(0,0,0);
+      chassis.angularVelocity.set(0,0,0);
+    }
   } else if (Game.racePhase === 'COUNTDOWN') {
     if (lightsEl) lightsEl.classList.remove('hidden');
     const c = Game.raceCountdown;
