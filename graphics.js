@@ -10,6 +10,9 @@ let renderer, scene, camera;
 let cameraYaw = 0;
 let cameraZoom = 35;
 let cameraTarget = new THREE.Vector3();
+const _tmpCamOffset = new THREE.Vector3();
+const _tmpCamIdeal = new THREE.Vector3();
+const _tmpCamUp = new THREE.Vector3(0, 1, 0);
 
 const vehicleMeshes = {}; // peerId → { group, wheels[] }
 const crateMeshes = {}; // crateIndex → mesh
@@ -71,10 +74,10 @@ export function initGraphics(canvas) {
   scene.add(ambient);
 
   const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-  sun.position.set(50, 100, 50);
+  sun.position.set(100, 200, 50);
   sun.castShadow = true;
-  sun.shadow.mapSize.width = 2048;
-  sun.shadow.mapSize.height = 2048;
+  sun.shadow.mapSize.width = 1024;
+  sun.shadow.mapSize.height = 1024;
   sun.shadow.camera.left = -300;
   sun.shadow.camera.right = 300;
   sun.shadow.camera.top = 300;
@@ -652,12 +655,12 @@ export function updateCamera(targetPos, carQuat, dt) {
   cameraTarget.lerp(targetPos, alphaTarget);
 
   const hFactor = 0.35 + (cameraZoom / 60) * 0.5;
-  const offset = new THREE.Vector3(0, cameraZoom * hFactor, -cameraZoom * 0.6);
-  offset.applyQuaternion(carQuat);
+  _tmpCamOffset.set(0, cameraZoom * hFactor, -cameraZoom * 0.6);
+  _tmpCamOffset.applyQuaternion(carQuat);
 
-  const idealPos = cameraTarget.clone().add(offset);
-  camera.position.lerp(idealPos, 1 - Math.exp(-10 * dt));
-  camera.lookAt(cameraTarget.clone().add(new THREE.Vector3(0, 1, 0)));
+  _tmpCamIdeal.copy(cameraTarget).add(_tmpCamOffset);
+  camera.position.lerp(_tmpCamIdeal, 1 - Math.exp(-10 * dt));
+  camera.lookAt(_tmpCamIdeal.copy(cameraTarget).add(_tmpCamUp));
 
   if (cameraShake > 0.01) {
     camera.position.x += (Math.random() - 0.5) * cameraShake;

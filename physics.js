@@ -162,6 +162,9 @@ const _tmpFwd = new CANNON.Vec3();
 const _tmpUp = new CANNON.Vec3();
 const _tmpWorldUp = new CANNON.Vec3(0, 1, 0);
 
+const _tmpDriftForce1 = new CANNON.Vec3();
+const _tmpDriftForce2 = new CANNON.Vec3();
+
 function _addVanShapes(body) {
   // Tightened hitbox: 1.64m wide, 0.9m tall, 3.5m long
   const chassisShape = new CANNON.Box(new CANNON.Vec3(0.82, 0.45, 1.75));
@@ -519,10 +522,11 @@ export function setVehicleInput(input) {
       
       // Artificial yaw impulse to kick the tail out
       const driftForce = input.left ? 1 : -1;
-      playerChassis.applyLocalImpulse(
-        new CANNON.Vec3(driftForce * speed * 2, 0, 0),
-        new CANNON.Vec3(0, 0, -1.5) // applied at the rear
-      );
+      if (Math.abs(driftForce) > 0.01) {
+        _tmpDriftForce1.set(driftForce * speed * 2, 0, 0);
+        _tmpDriftForce2.set(0, 0, -1.5);
+        playerChassis.applyLocalImpulse(_tmpDriftForce1, _tmpDriftForce2);
+      }
     }
 
     if (isSliding) {

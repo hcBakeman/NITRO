@@ -16,7 +16,13 @@ let _crosshairTimer = 0;
 let _collisionMode = 'fast';
 let _smokeTimer = 0;
 
-let domLightsEl, domTimeEl, domLight1, domLight2, domLight3, domLight4;
+let domLightsEl, domTimeEl, domLight1, domLight2, domLight3, domLight4, domFpsCounter;
+let _framesThisSecond = 0;
+let _lastFpsTime = 0;
+
+const _tmpFwd = new CANNON.Vec3(0, 0, 1);
+const _tmpRl = new CANNON.Vec3(-0.7, -0.4, -1.4);
+const _tmpRr = new CANNON.Vec3(0.7, -0.4, -1.4);
 
 export function init() {
   domLightsEl = document.getElementById('start-lights');
@@ -25,6 +31,7 @@ export function init() {
   domLight2 = document.getElementById('light-2');
   domLight3 = document.getElementById('light-3');
   domLight4 = document.getElementById('light-4');
+  domFpsCounter = document.getElementById('fps-counter');
 
   Physics.setOnVehicleImpact((victimId, bumpVel, attackerId) => {
     if (Game.getState() !== Game.STATE.RACING || Game.racePhase !== 'ACTIVE') return;
@@ -45,6 +52,13 @@ function _tick(now) {
   requestAnimationFrame(_tick);
   const dt = Math.min((now - _lastTime) / 1000, 0.1);
   _lastTime = now;
+
+  _framesThisSecond++;
+  if (now - _lastFpsTime >= 500) {
+    if (domFpsCounter) domFpsCounter.textContent = Math.round((_framesThisSecond * 1000) / (now - _lastFpsTime)) + ' FPS';
+    _framesThisSecond = 0;
+    _lastFpsTime = now;
+  }
 
   const state = Game.getState();
   if (state !== Game.STATE.RACING) {
@@ -183,13 +197,13 @@ function _updateRacing(dt) {
   const speed = chassis ? chassis.velocity.length() : 0;
   // Drift smoke only when sliding sideways
   if (chassis && speed > 20) {
-    const fwd = new CANNON.Vec3(0, 0, 1);
-    chassis.quaternion.vmult(fwd, fwd);
+    _tmpFwd.set(0, 0, 1);
+    chassis.quaternion.vmult(_tmpFwd, _tmpFwd);
     const vel = chassis.velocity.clone();
     vel.y = 0; // Ignore vertical speed
     if (vel.length() > 5) {
       vel.normalize();
-      const slipDot = fwd.dot(vel);
+      const slipDot = _tmpFwd.dot(vel);
       const isTurning = Game.input.left || Game.input.right;
       // Relaxed threshold: dot < 0.98 means > 11 degrees slip
       if (slipDot < 0.98 || (isTurning && speed > 28)) {
@@ -199,12 +213,12 @@ function _updateRacing(dt) {
           _smokeTimer = 0;
           const q = chassis.quaternion,
             p = chassis.position;
-          const rl = new CANNON.Vec3(-0.7, -0.4, -1.4),
-            rr = new CANNON.Vec3(0.7, -0.4, -1.4);
-          q.vmult(rl, rl);
-          q.vmult(rr, rr);
-          Graphics.spawnTireSmoke(p.vadd(rl));
-          Graphics.spawnTireSmoke(p.vadd(rr));
+          _tmpRl.set(-0.7, -0.4, -1.4);
+          _tmpRr.set(0.7, -0.4, -1.4);
+          q.vmult(_tmpRl, _tmpRl);
+          q.vmult(_tmpRr, _tmpRr);
+          Graphics.spawnTireSmoke(p.vadd(_tmpRl));
+          Graphics.spawnTireSmoke(p.vadd(_tmpRr));
         }
       } else {
         Audio.setScreech(false);
