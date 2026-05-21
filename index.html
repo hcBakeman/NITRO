@@ -31,7 +31,7 @@
       <div class="menu-box">
         <h1 class="game-title">NITRO<br /><span class="title-seed">SEED</span></h1>
         <p class="subtitle">COMBAT RACER</p>
-        <p class="version-label">v1.0.9</p>
+        <p class="version-label">v1.1.0</p>
         <div class="field-row">
           <div class="field-group half">
             <label for="player-name">YOUR NAME</label>
@@ -45,9 +45,10 @@
           </div>
         </div>
 
-        <div class="btn-row">
+        <div class="btn-row" style="flex-wrap: wrap;">
           <button id="btn-host" class="btn btn-primary">HOST GAME</button>
           <button id="btn-join" class="btn btn-secondary">JOIN GAME</button>
+          <button id="btn-fullscreen" class="btn btn-secondary full-width" style="margin-top: 10px; display: none;">PLAY FULLSCREEN</button>
         </div>
         <div id="join-panel" class="hidden">
           <div class="field-group">
@@ -272,6 +273,22 @@
       <div id="minimap-wrap">
         <canvas id="minimap-canvas" width="160" height="160"></canvas>
         <div class="minimap-label">MAP</div>
+      </div>
+      
+      <!-- ── MOBILE CONTROLS ─────────────────────────────────── -->
+      <div id="mobile-controls" style="display: none;">
+        <!-- Left Joystick (Throttle/Brake) -->
+        <div id="joystick-left" class="joystick-base">
+          <div class="joystick-stick"></div>
+        </div>
+        
+        <!-- Right Joystick (Steering) -->
+        <div id="joystick-right" class="joystick-base">
+          <div class="joystick-stick"></div>
+        </div>
+        
+        <!-- Fire Button -->
+        <button id="btn-mobile-fire" class="mobile-btn-fire">FIRE</button>
       </div>
     </div>
 

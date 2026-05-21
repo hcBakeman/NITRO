@@ -6,6 +6,9 @@ import * as Game from './game.js';
 import * as Audio from './audio.js';
 import * as UI from './ui.js';
 import * as GameEngine from './gameEngine.js';
+import { initMobileControls } from './mobile.js';
+
+initMobileControls();
 
 // ── Configuration ──────────────────────────────────────────────────────────
 const AVAILABLE_CARS = [

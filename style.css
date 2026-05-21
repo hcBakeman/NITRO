@@ -798,3 +798,85 @@ input:focus {
     opacity: 1;
   }
 }
+
+/* ── MOBILE CONTROLS ─────────────────────────────────── */
+@media (pointer: coarse), (max-width: 900px) {
+  /* Smaller minimap to make room for steering joystick */
+  #minimap-wrap {
+    bottom: auto !important;
+    top: 60px !important;
+    right: 16px !important;
+    transform: scale(0.6);
+    transform-origin: top right;
+  }
+  
+  /* Mobile controls layout */
+  #mobile-controls {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Let touches pass through the wrapper */
+    z-index: 2000;
+  }
+  
+  /* Joystick Base */
+  .joystick-base {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    pointer-events: auto; /* Catch touches on the base */
+  }
+  
+  /* Left Joystick (Throttle/Brake) */
+  #joystick-left {
+    bottom: 30px;
+    left: 30px;
+  }
+  
+  /* Right Joystick (Steering) */
+  #joystick-right {
+    bottom: 30px;
+    right: 30px;
+  }
+  
+  /* Thumb Stick */
+  .joystick-stick {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  
+  /* Dedicated Fire Button */
+  .mobile-btn-fire {
+    position: absolute;
+    bottom: 160px;
+    right: 30px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255, 68, 68, 0.6);
+    border: 2px solid #ff4444;
+    color: #fff;
+    font-family: inherit;
+    font-size: 10px;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+  .mobile-btn-fire:active {
+    background: rgba(255, 68, 68, 0.9);
+  }
+}
