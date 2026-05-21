@@ -228,7 +228,7 @@ async function _onGameInit(seed, laps, mode, handlingMode, grid, coll) {
     if (id === myId) continue;
     const pIdx = gridAssignments[id] !== undefined ? gridAssignments[id] : 0;
     const rSpot = mapData.startGrid[pIdx % mapData.startGrid.length];
-    const rSpawnPos = { x: rSpot.pos.x, y: rSpot.pos.y + 1.8, z: rSpot.pos.z };
+    const rSpawnPos = { x: rSpot.pos.x, y: rSpot.pos.y, z: rSpot.pos.z };
     const rSpawnQuat = { x: rSpot.quat.x, y: rSpot.quat.y, z: rSpot.quat.z, w: rSpot.quat.w };
     Physics.createRemoteVehicle(id, 1, p.carModel, rSpawnPos, rSpawnQuat);
     await Graphics.loadVehicle(id, p.colorIndex, p.carModel);

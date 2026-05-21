@@ -252,35 +252,55 @@ export function generateMap(seed, world, groundMat, wallMat) {
   const finishLinePt = spline.getPointAt(0.001);
   const finishTangent = spline.getTangentAt(0.001);
 
-  // ── Start Grid (rally-style single-file, centered on road) ─────────────
+  // ── Start Grid (staggered 2-wide, numbered 1-8) ────────────────────────
   const startGrid = [];
   const startGridMeshes = [];
   const dtPerMeter = 1.0 / length;
+  const GRID_LATERAL = 2; // meters from center (was 3, reduced to prevent wall clipping on curves)
 
   for (let i = 0; i < 8; i++) {
-    // Rally grid: first car 6m back from finish, then 6m gaps
-    const distBack = 6 + i * 6;
+    // Staggered pairs: row 0 at 6m back, then 6m increments per row
+    const distBack = 6 + Math.floor(i / 2) * 6;
     let t = 1.0 - distBack * dtPerMeter;
     if (t < 0) t += 1.0;
 
     const pt = spline.getPointAt(t % 1);
     const tan = spline.getTangentAt(t % 1).normalize();
+    const side = i % 2 === 0 ? -1 : 1;
+    const right = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
 
-    // Center of road, 1.5m above to drop onto mesh
-    const spawnPos = pt.clone();
+    const spawnPos = pt.clone().addScaledVector(right, side * GRID_LATERAL);
     spawnPos.y += 1.5;
 
     const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan);
     startGrid.push({ pos: spawnPos, quat: quat.clone() });
 
-    // Visual grid spot (white line across the road)
-    const spot = new THREE.Mesh(
-      new THREE.BoxGeometry(4, 0.1, 0.3),
-      new THREE.MeshBasicMaterial({ color: 0xffffff })
-    );
+    // ── Numbered grid marker ──
+    // Create a canvas texture with the grid number
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#222222';
+    ctx.fillRect(0, 0, 128, 64);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 40px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(i + 1), 64, 32);
+    // Border
+    ctx.strokeStyle = '#ff4444';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(2, 2, 124, 60);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    const spotMat = new THREE.MeshBasicMaterial({ map: tex });
+    const spot = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 1.2), spotMat);
     spot.position.copy(spawnPos);
-    spot.position.y = pt.y + 0.05;
+    spot.position.y = pt.y + 0.06;
     spot.quaternion.copy(quat);
+    // Rotate flat on the ground (plane faces up)
+    spot.rotateX(-Math.PI / 2);
     spot.receiveShadow = true;
     startGridMeshes.push(spot);
   }
