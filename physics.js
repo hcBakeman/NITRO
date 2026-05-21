@@ -171,7 +171,9 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
   playerChassis.isOiled = false;
   _addVanShapes(playerChassis);
 
-  playerChassis.position.set(startPos.x, startPos.y + 1.65, startPos.z);
+  // Chassis shape offset is 0.4. Suspension adds ~0.5. Wheels are 0.38 radius.
+  // Set chassis so wheels are exactly touching the ground.
+  playerChassis.position.set(startPos.x, startPos.y + 0.95, startPos.z);
   if (startQuat) {
     playerChassis.quaternion.copy(startQuat);
   }

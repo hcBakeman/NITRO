@@ -269,8 +269,8 @@ export function generateMap(seed, world, groundMat, wallMat) {
     const side = i % 2 === 0 ? -1 : 1;
     const right = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
 
+    // Start position is exact track surface
     const spawnPos = pt.clone().addScaledVector(right, side * GRID_LATERAL);
-    spawnPos.y += 1.5;
 
     const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan);
     startGrid.push({ pos: spawnPos, quat: quat.clone() });
@@ -297,7 +297,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
     const spotMat = new THREE.MeshBasicMaterial({ map: tex });
     const spot = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 1.2), spotMat);
     spot.position.copy(spawnPos);
-    spot.position.y = pt.y + 0.06;
+    spot.position.y = spawnPos.y + 0.06;
     spot.quaternion.copy(quat);
     // Rotate flat on the ground (plane faces up)
     spot.rotateX(-Math.PI / 2);

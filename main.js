@@ -236,7 +236,8 @@ async function _onGameInit(seed, laps, mode, handlingMode, grid, coll) {
     const pIdx = gridAssignments[id] !== undefined ? gridAssignments[id] : 0;
     console.log('[GAME_INIT] Remote', id, 'grid index:', pIdx);
     const rSpot = mapData.startGrid[pIdx % mapData.startGrid.length];
-    const rSpawnPos = { x: rSpot.pos.x, y: rSpot.pos.y, z: rSpot.pos.z };
+    // Set remote chassis so it perfectly aligns with ground, matching local physics height
+    const rSpawnPos = { x: rSpot.pos.x, y: rSpot.pos.y + 0.95, z: rSpot.pos.z };
     const rSpawnQuat = { x: rSpot.quat.x, y: rSpot.quat.y, z: rSpot.quat.z, w: rSpot.quat.w };
     Physics.createRemoteVehicle(id, 1, p.carModel, rSpawnPos, rSpawnQuat);
     await Graphics.loadVehicle(id, p.colorIndex, p.carModel);
