@@ -247,25 +247,25 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
       const impactVel = Math.min(contact.getImpactVelocityAlongNormal(), 30);
       
       if (impactVel > 1.0) {
-        // Trigger Local Physics Authority Override for 500ms
-        other._physicsOverrideUntil = now + 500;
-        
         if (now - (other._lastHitTime || 0) > 300) {
           other._lastHitTime = now;
           
-          // Calculate the impulse that CANNON's native solver is approximately applying
-          // Effective mass = (m1 * m2) / (m1 + m2) = mass / 2
-          // Restitution = 0.3 (material default), multiplier = 1 + 0.3 = 1.3
-          let impulseMag = impactVel * (playerChassis.mass / 2) * 1.3;
-          impulseMag = Math.min(impulseMag, 25000); // Sanity cap
+          // Reduce impulse magnitude for more realistic bumps, less flying
+          let impulseMag = impactVel * playerChassis.mass * 0.4;
+          impulseMag = Math.min(impulseMag, 12000); // Much tighter sanity cap
           
           const sign = (contact.bj === other) ? 1 : -1;
-          const verticalPop = Math.min(impulseMag * 0.05, 1000); // Tiny visual hop
+          const verticalPop = Math.min(impulseMag * 0.02, 300); // very small visual hop
+          
+          // Apply force along the actual horizontal direction from attacker to victim
+          // Ignore the strict contact normal because it often points UP if cars overlap
+          let pushDir = new CANNON.Vec3(other.position.x - playerChassis.position.x, 0, other.position.z - playerChassis.position.z);
+          pushDir.normalize();
           
           const impulse = {
-            x: contact.ni.x * impulseMag * sign,
+            x: pushDir.x * impulseMag,
             y: verticalPop,
-            z: contact.ni.z * impulseMag * sign
+            z: pushDir.z * impulseMag
           };
           
           const point = { 
@@ -348,12 +348,6 @@ export function updateRemoteVehicles() {
   for (const id in remoteVehicles) {
     const rBody = remoteVehicles[id];
     
-    // Local Physics Authority Override:
-    // If recently hit by local car, pause network lerp and let CANNON.js simulate physics naturally!
-    if (rBody._physicsOverrideUntil && now < rBody._physicsOverrideUntil) {
-      continue; 
-    }
-
     if (rBody.targetPos) {
       // Lerp position (0.2 is a good smoothing factor for 60fps)
       rBody.position.lerp(rBody.targetPos, 0.2, rBody.position);
@@ -778,4 +772,5 @@ export function resetVehicle(pos, quat) {
   playerChassis.velocity.set(0, 0, 0);
   playerChassis.angularVelocity.set(0, 0, 0);
   playerChassis._closestT = undefined; // Reset wrong-way detection cache
+  playerChassis._distToSplineSq = 0; // Prevent infinite respawn loop
 }
