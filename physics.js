@@ -257,19 +257,32 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           other._lastHitTime = now;
           playerChassis._lastHitTime = now;
           
-          // Let CANNON.js handle the horizontal push (since collisionResponse = true).
-          // We only add a manual vertical "arcade pop" to make the crashes look dramatic!
-          // Scale it down to match the rocket's gentle hop (~80 Ns max)
+          // 1. Calculate the horizontal direction of the impact
+          let pushDir = new CANNON.Vec3(other.position.x - playerChassis.position.x, 0, other.position.z - playerChassis.position.z);
+          pushDir.normalize();
+          
+          // 2. Calculate a perfectly centered horizontal impulse based on relative velocity.
+          // Because collisionResponse = false, we manually exchange momentum.
+          // 0.6 multiplier creates a slightly heavy, damped arcade collision (not 100% elastic)
+          let horizontalForce = impactVel * playerChassis.mass * 0.6;
+          horizontalForce = Math.min(horizontalForce, 20000); // Sanity cap
+          
+          // 3. Calculate the arcade vertical pop (hop)
           let verticalPop = impactVel * 3; 
           verticalPop = Math.min(verticalPop, 100);
           
-          const localOffset = new CANNON.Vec3(0, 0.6, 0);
+          // 4. Apply PERFECTLY CENTERED forces to the true center of mass.
+          // This guarantees ZERO sideways torque, meaning the cars will NEVER roll or flip over!
+          const myHorizontal = new CANNON.Vec3(-pushDir.x * horizontalForce, 0, -pushDir.z * horizontalForce);
+          const theirHorizontal = new CANNON.Vec3(pushDir.x * horizontalForce, 0, pushDir.z * horizontalForce);
           
-          // Pop our car
-          playerChassis.applyImpulse(new CANNON.Vec3(0, verticalPop, 0), playerChassis.position.vadd(localOffset));
+          playerChassis.applyImpulse(myHorizontal, playerChassis.position);
+          other.applyImpulse(theirHorizontal, other.position);
           
-          // Pop their car LOCALLY on our screen (so it reacts instantly!)
-          other.applyImpulse(new CANNON.Vec3(0, verticalPop, 0), other.position.vadd(localOffset));
+          // 5. Apply the gentle vertical hop
+          const hopImpulse = new CANNON.Vec3(0, verticalPop, 0);
+          playerChassis.applyImpulse(hopImpulse, playerChassis.position);
+          other.applyImpulse(hopImpulse, other.position);
         }
       }
     }
@@ -291,8 +304,10 @@ export function createRemoteVehicle(peerId, mass = 0, carModel, spawnPos = null,
     linearDamping: 0.1,
     angularDamping: 0.1
   });
-  // Enable native collisions so cars physically bounce off each other and don't clip!
-  body.collisionResponse = true; 
+  // Disable native collisions! CANNON's native box-overlap solver picks a random corner 
+  // when cars clip due to lag, applying massive sideways torque and flipping them over.
+  // We handle collisions purely via the manual 'collide' event impulse.
+  body.collisionResponse = false; 
   body.collisionFilterGroup = CGROUP_REMOTE_CAR;
   // Let them hit EVERYTHING: ground, walls, local cars, rockets
   body.collisionFilterMask = CGROUP_DEFAULT | CGROUP_LOCAL_CAR | CGROUP_ROCKET | CGROUP_REMOTE_CAR;
