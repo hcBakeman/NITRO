@@ -96,7 +96,14 @@ body {
   font-size: 10px;
   color: var(--col-blue);
   letter-spacing: 6px;
+  margin-bottom: 8px;
+}
+.version-label {
+  font-size: 8px;
+  color: var(--col-border);
+  letter-spacing: 2px;
   margin-bottom: 28px;
+  opacity: 0.8;
 }
 
 /* ── Lobby Box ───────────────────────────────────────── */
