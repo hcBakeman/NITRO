@@ -170,6 +170,11 @@ function _addVanShapes(body) {
   // Cabin is narrower to allow for more lean in corners
   const cabinShape = new CANNON.Box(new CANNON.Vec3(0.65, 0.35, 0.85));
   body.addShape(cabinShape, new CANNON.Vec3(0, 0.8, 0));
+  
+  // CRITICAL: We MUST update mass properties after adding shapes to a body!
+  // Otherwise the inertia tensor remains at its default (usually 1,1,1), causing
+  // ANY offset forces (like collisions or rockets) to spin the 1400kg car infinitely fast!
+  body.updateMassProperties();
 }
 
 export function createPlayerVehicle(startPos, startQuat, carModel) {
@@ -250,12 +255,12 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
         if (now - (other._lastHitTime || 0) > 300) {
           other._lastHitTime = now;
           
-          // Reduce impulse magnitude for more realistic bumps, less flying
-          let impulseMag = impactVel * playerChassis.mass * 0.25;
-          impulseMag = Math.min(impulseMag, 6000); // EXTREME sanity cap to absolutely prevent flying
+          // Restored impulse magnitude now that inertia tensor is fixed!
+          let impulseMag = impactVel * playerChassis.mass * 0.5;
+          impulseMag = Math.min(impulseMag, 12000); 
           
           const sign = (contact.bj === other) ? 1 : -1;
-          const verticalPop = impulseMag * 0.05; // Fun arcade vertical pop, similar to rockets
+          const verticalPop = impulseMag * 0.08; // Fun arcade vertical pop, similar to rockets
           
           // Apply force along the actual horizontal direction from attacker to victim
           let pushDir = new CANNON.Vec3(other.position.x - playerChassis.position.x, 0, other.position.z - playerChassis.position.z);
@@ -274,16 +279,12 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
             z: other.position.z 
           };
           
-          console.log(`[COLLISION NATIVE] Hit remote car! impactVel=${impactVel.toFixed(2)}, impulseMag=${impulseMag.toFixed(2)}, verticalPop=${verticalPop.toFixed(2)}`);
-          console.log(`[COLLISION NATIVE] pushDir=(${pushDir.x.toFixed(2)}, 0, ${pushDir.z.toFixed(2)})`);
-          
           // Broadcast the actual impulse to the victim
           if (_onVehicleImpact) _onVehicleImpact(other.peerId, impulse, point, '__local__');
           
           // Apply counter-impulse to our own car (the attacker) with the same rocket-style offset
           const localOffset = new CANNON.Vec3(0, 0.6, 0);
           const localImpulse = new CANNON.Vec3(-pushDir.x * impulseMag, verticalPop * 0.5, -pushDir.z * impulseMag);
-          console.log(`[COLLISION LOCAL APPLY] applying to self: x=${localImpulse.x.toFixed(2)}, y=${localImpulse.y.toFixed(2)}, z=${localImpulse.z.toFixed(2)}`);
           
           playerChassis.applyImpulse(localImpulse, playerChassis.position.vadd(localOffset));
         }
@@ -352,8 +353,6 @@ export function applyImpactImpulse(impulse, point) {
   
   // Use the provided point (which is now offset above the CoM) so the car pitches nicely!
   const p = new CANNON.Vec3(point.x, point.y, point.z);
-  
-  console.log(`[COLLISION NETWORK] Received hit! impulse=(${i.x.toFixed(2)}, ${i.y.toFixed(2)}, ${i.z.toFixed(2)}), point=(${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})`);
   
   playerChassis.applyImpulse(i, p);
 }
