@@ -269,7 +269,7 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
 
 export function createRemoteVehicle(peerId, mass = 0, carModel, spawnPos = null, spawnQuat = null) {
   // Use real CANNON physics! DYNAMIC bodies, accurate mass.
-  const spec = CARS[carModel] || CARS['dacia_duster_low_poly'];
+  const spec = VEHICLE_CLASSES[carModel] || VEHICLE_CLASSES['dacia_duster_low_poly'];
   const realMass = spec.mass;
 
   const body = new CANNON.Body({
