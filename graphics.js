@@ -54,7 +54,7 @@ class Pool {
 // ── Init ──────────────────────────────────────────────────────────────────
 export function initGraphics(canvas) {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: false }); // pixelated look
-  const isMobile = window.innerWidth < 800;
+  const isMobile = Math.min(window.innerWidth, window.innerHeight) < 800;
   renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 1.5));
   renderer.setSize(window.innerWidth, window.innerHeight);
   
@@ -593,7 +593,8 @@ const tireSmokePool = new Pool(() => new THREE.Mesh(_tireSmokeGeo, _tireSmokeMat
 
 export function spawnTireSmoke(pos) {
   // Mobile Optimization: Tire smoke causes massive transparent overdraw, killing GPU fillrate.
-  if (window.innerWidth < 800) return;
+  const isMobile = Math.min(window.innerWidth, window.innerHeight) < 800;
+  if (isMobile) return;
   
   const mesh = tireSmokePool.get();
   mesh.position.copy(pos);
