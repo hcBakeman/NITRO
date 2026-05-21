@@ -351,8 +351,11 @@ export function applyImpactImpulse(impulse, point) {
   if (!playerChassis) return;
   const i = new CANNON.Vec3(impulse.x, impulse.y, impulse.z);
   
-  // Use the provided point (which is now offset above the CoM) so the car pitches nicely!
-  const p = new CANNON.Vec3(point.x, point.y, point.z);
+  // CRITICAL: We MUST ignore the 'point' sent over the network!
+  // Because of network latency, the sender's perceived world coordinate of our car
+  // is often several meters away from our ACTUAL local position.
+  // Applying an impulse several meters away from the center of mass generates catastrophic torque!
+  const p = playerChassis.position.vadd(new CANNON.Vec3(0, 0.6, 0));
   
   playerChassis.applyImpulse(i, p);
 }
