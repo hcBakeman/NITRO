@@ -256,6 +256,7 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           // Mark BOTH cars as recently hit so we can let the physics engine coast them locally
           other._lastHitTime = now;
           playerChassis._lastHitTime = now;
+          playerChassis._hitDampTime = now; // Activate heavy anti-spin assist!
           
           // 1. Calculate the horizontal direction of the impact
           let pushDir = new CANNON.Vec3(other.position.x - playerChassis.position.x, 0, other.position.z - playerChassis.position.z);
@@ -278,6 +279,9 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           
           playerChassis.applyImpulse(myHorizontal, playerChassis.position);
           other.applyImpulse(theirHorizontal, other.position);
+          
+          // Wipe out any immediate twitching from tire friction kicking in instantly
+          playerChassis.angularVelocity.y *= 0.1;
           
           // 5. Apply the gentle vertical hop
           const hopImpulse = new CANNON.Vec3(0, verticalPop, 0);
@@ -738,6 +742,17 @@ export function raycastForward(body) {
 // ── Physics Step ──────────────────────────────────────────────────────────
 export function stepPhysics(dt) {
   updateRemoteVehicles();
+  
+  if (playerChassis) {
+    // Anti-Spin Assist: If we recently crashed, heavily dampen rotation so tire friction doesn't whip us into a violent spin
+    const now = performance.now();
+    if (now - (playerChassis._hitDampTime || 0) < 600) {
+      playerChassis.angularDamping = 0.9; // Extremely heavy, feels solid and prevents spinouts
+    } else {
+      playerChassis.angularDamping = 0.1; // Normal arcade damping
+    }
+  }
+
   world.step(1 / 60, dt, 10);
   for (let i = activeRockets.length - 1; i >= 0; i--) {
     const r = activeRockets[i];
