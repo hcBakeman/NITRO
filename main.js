@@ -111,6 +111,7 @@ async function handleConnect(lobbyId) {
   if (!lobbyId) return UI.showMessage('PLEASE ENTER LOBBY NAME', 'error');
   try {
     await setupNetwork();
+    document.getElementById('peer-id-display').textContent = lobbyId;
     await Network.connectToHost(lobbyId, getName(), AVAILABLE_CARS[currentCarIndex]);
     UI.refreshPlayerList(Network.players, Network.getIsHost());
     Game.setState(Game.STATE.LOBBY);
