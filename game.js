@@ -21,6 +21,9 @@ export const STATE = { MENU: 'MENU', JOIN_LOBBY: 'JOIN_LOBBY', LOBBY: 'LOBBY', R
 let currentState = STATE.MENU;
 
 export let onStateChange = null;
+export function setOnStateChange(cb) {
+  onStateChange = cb;
+}
 
 export function getState() {
   return currentState;
