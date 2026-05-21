@@ -8,6 +8,11 @@ import * as CANNON from 'cannon-es';
 export let world;
 export let groundMat, vehicleMat, wallMat;
 
+export const CGROUP_DEFAULT = 1;
+export const CGROUP_LOCAL_CAR = 2;
+export const CGROUP_REMOTE_CAR = 4;
+export const CGROUP_ROCKET = 8;
+
 let _onVehicleImpact = null;
 export function setOnVehicleImpact(cb) {
   _onVehicleImpact = cb;
@@ -179,6 +184,8 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
   }
   playerChassis.linearDamping = 0.08;
   playerChassis.angularDamping = 0.15;
+  playerChassis.collisionFilterGroup = CGROUP_LOCAL_CAR;
+  playerChassis.collisionFilterMask = CGROUP_DEFAULT | CGROUP_LOCAL_CAR | CGROUP_REMOTE_CAR | CGROUP_ROCKET;
 
   playerVehicle = new CANNON.RaycastVehicle({
     chassisBody: playerChassis,
@@ -261,13 +268,16 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
 }
 
 export function createRemoteVehicle(peerId, mass = 0, carModel, spawnPos = null, spawnQuat = null) {
-  // Remote vehicles MUST be kinematic to prevent violent physics explosions
-  // when network spring forces fight local ground collisions.
+  // Remote vehicles are DYNAMIC so they absorb collision momentum realistically
+  // instead of acting like immovable brick walls.
   const body = new CANNON.Body({
-    mass: 0, 
+    mass: 1400, 
     material: vehicleMat,
-    type: CANNON.Body.KINEMATIC,
+    type: CANNON.Body.DYNAMIC,
   });
+  body.collisionFilterGroup = CGROUP_REMOTE_CAR;
+  // Ignore ground and walls so they don't fight network lerping
+  body.collisionFilterMask = CGROUP_LOCAL_CAR | CGROUP_ROCKET;
   body.peerId = peerId;
   body.isOiled = false;
   _addVanShapes(body);
@@ -291,9 +301,14 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
   const body = remoteVehicles[id];
   if (!body) return;
 
-  // Store the targets so the update loop can lerp the KINEMATIC body smoothly
+  // Store the targets so the update loop can lerp the body smoothly
   body.targetPos = new CANNON.Vec3(targetPos.x, targetPos.y, targetPos.z);
   body.targetQuat = new CANNON.Quaternion(targetQuat.x, targetQuat.y, targetQuat.z, targetQuat.w);
+  if (targetVel) {
+    body.targetVel = new CANNON.Vec3(targetVel.x, targetVel.y, targetVel.z);
+  } else {
+    body.targetVel = new CANNON.Vec3(0, 0, 0);
+  }
 }
 
 export function applyImpactImpulse(impulse, point) {
@@ -307,10 +322,16 @@ export function updateRemoteVehicles() {
   // Lerp remote vehicles smoothly
   for (const id in remoteVehicles) {
     const rBody = remoteVehicles[id];
-    if (rBody.type === CANNON.Body.KINEMATIC && rBody.targetPos) {
+    if (rBody.targetPos) {
       // Lerp position (0.2 is a good smoothing factor for 60fps)
       rBody.position.lerp(rBody.targetPos, 0.2, rBody.position);
       rBody.quaternion.slerp(rBody.targetQuat, 0.3, rBody.quaternion);
+      
+      // Sync velocity so CANNON.js solver calculates realistic collision forces
+      if (rBody.targetVel) {
+        rBody.velocity.copy(rBody.targetVel);
+        rBody.angularVelocity.set(0, 0, 0);
+      }
     }
   }
 }
