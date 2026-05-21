@@ -252,32 +252,30 @@ export function generateMap(seed, world, groundMat, wallMat) {
   const finishLinePt = spline.getPointAt(0.001);
   const finishTangent = spline.getTangentAt(0.001);
 
-  // ── Start Grid ──────────────────────────────────────────────────────────
+  // ── Start Grid (rally-style single-file, centered on road) ─────────────
   const startGrid = [];
   const startGridMeshes = [];
   const dtPerMeter = 1.0 / length;
 
   for (let i = 0; i < 8; i++) {
-    // F1 staggered grid: 6m back for row 1, then 8m increments
-    const distBack = 6 + Math.floor(i / 2) * 8;
+    // Rally grid: first car 6m back from finish, then 6m gaps
+    const distBack = 6 + i * 6;
     let t = 1.0 - distBack * dtPerMeter;
     if (t < 0) t += 1.0;
 
     const pt = spline.getPointAt(t % 1);
     const tan = spline.getTangentAt(t % 1).normalize();
-    const side = i % 2 === 0 ? -1 : 1;
-    const right = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
 
-    // Position car 3m to the side, and 1.5m ABOVE the road to ensure it drops onto the mesh
-    const spawnPos = pt.clone().addScaledVector(right, side * 3);
+    // Center of road, 1.5m above to drop onto mesh
+    const spawnPos = pt.clone();
     spawnPos.y += 1.5;
 
     const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan);
     startGrid.push({ pos: spawnPos, quat: quat.clone() });
 
-    // Visual grid spot
+    // Visual grid spot (white line across the road)
     const spot = new THREE.Mesh(
-      new THREE.BoxGeometry(3, 0.1, 0.5),
+      new THREE.BoxGeometry(4, 0.1, 0.3),
       new THREE.MeshBasicMaterial({ color: 0xffffff })
     );
     spot.position.copy(spawnPos);
