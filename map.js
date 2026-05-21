@@ -123,11 +123,51 @@ export function generateMap(seed, world, groundMat, wallMat) {
   const trackMesh = new THREE.Mesh(roadGeo, roadMat);
   trackMesh.receiveShadow = true;
 
-  // --- Physics Trimesh ---
-  const roadShape = new CANNON.Trimesh(vertices, physIndices);
-  const roadBody = new CANNON.Body({ mass: 0, material: groundMat });
-  roadBody.addShape(roadShape);
-  world.addBody(roadBody);
+  // --- Physics Trimesh Chunking ---
+  // A single 1000m Trimesh has no internal BVH in Cannon.js, causing ~1 million 
+  // ray-triangle tests per second. We chunk it into 40m sections so the broadphase
+  // completely culls the track sections not directly under the car.
+  const CHUNK_SIZE = 20; // 20 segments * 2m = 40m chunks
+  for (let chunkStart = 0; chunkStart < samples; chunkStart += CHUNK_SIZE) {
+    const chunkVerts = [];
+    const chunkIndices = [];
+    const vertMap = new Map(); // global_index -> local_index
+
+    const getLocalIdx = (globalVertexIdx) => {
+      if (!vertMap.has(globalVertexIdx)) {
+        vertMap.set(globalVertexIdx, chunkVerts.length / 3);
+        chunkVerts.push(
+          vertices[globalVertexIdx * 3],
+          vertices[globalVertexIdx * 3 + 1],
+          vertices[globalVertexIdx * 3 + 2]
+        );
+      }
+      return vertMap.get(globalVertexIdx);
+    };
+
+    const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, samples);
+    for (let i = chunkStart; i < chunkEnd; i++) {
+      const v = i * 3;
+      const nvPhys = ((i + 1) % samples) * 3;
+
+      // Front faces
+      chunkIndices.push(getLocalIdx(v), getLocalIdx(v + 1), getLocalIdx(nvPhys));
+      chunkIndices.push(getLocalIdx(v + 1), getLocalIdx(nvPhys + 1), getLocalIdx(nvPhys));
+      chunkIndices.push(getLocalIdx(v + 1), getLocalIdx(v + 2), getLocalIdx(nvPhys + 1));
+      chunkIndices.push(getLocalIdx(v + 2), getLocalIdx(nvPhys + 2), getLocalIdx(nvPhys + 1));
+
+      // Back faces
+      chunkIndices.push(getLocalIdx(v), getLocalIdx(nvPhys), getLocalIdx(v + 1));
+      chunkIndices.push(getLocalIdx(v + 1), getLocalIdx(nvPhys), getLocalIdx(nvPhys + 1));
+      chunkIndices.push(getLocalIdx(v + 1), getLocalIdx(nvPhys + 1), getLocalIdx(v + 2));
+      chunkIndices.push(getLocalIdx(v + 2), getLocalIdx(nvPhys + 1), getLocalIdx(nvPhys + 2));
+    }
+
+    const chunkShape = new CANNON.Trimesh(chunkVerts, chunkIndices);
+    const chunkBody = new CANNON.Body({ mass: 0, material: groundMat });
+    chunkBody.addShape(chunkShape);
+    world.addBody(chunkBody);
+  }
 
   // ── Wall physics and visual meshes ──────────────────────────────────────
   const wallMeshes = [];
