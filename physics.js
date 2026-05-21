@@ -253,42 +253,22 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
       
       if (impactVel > 1.0) {
         if (now - (other._lastHitTime || 0) > 300) {
+          // Mark BOTH cars as recently hit so we can let the physics engine coast them locally
           other._lastHitTime = now;
+          playerChassis._lastHitTime = now;
           
-          // Use arcade scale forces! A rocket explosion is ~550 Ns.
-          // Realistic physics (12000 Ns) is way too violent for a top-down game.
-          // Scale the impact velocity so a 30km/h bump is about 400 Ns.
-          let impulseMag = impactVel * 40;
-          impulseMag = Math.min(impulseMag, 1200); 
+          // Let CANNON.js handle the horizontal push (since collisionResponse = true).
+          // We only add a manual vertical "arcade pop" to make the crashes look dramatic!
+          let verticalPop = impactVel * 20; 
+          verticalPop = Math.min(verticalPop, 600);
           
-          const sign = (contact.bj === other) ? 1 : -1;
-          const verticalPop = impulseMag * 0.08; // Fun arcade vertical pop, similar to rockets
-          
-          // Apply force along the actual horizontal direction from attacker to victim
-          let pushDir = new CANNON.Vec3(other.position.x - playerChassis.position.x, 0, other.position.z - playerChassis.position.z);
-          pushDir.normalize();
-          
-          const impulse = {
-            x: pushDir.x * impulseMag,
-            y: verticalPop,
-            z: pushDir.z * impulseMag
-          };
-          
-          // Create an offset point (above the center of mass) so the car pitches/rolls slightly instead of just sliding flat
-          const point = { 
-            x: other.position.x, 
-            y: other.position.y + 0.6, 
-            z: other.position.z 
-          };
-          
-          // Broadcast the actual impulse to the victim
-          if (_onVehicleImpact) _onVehicleImpact(other.peerId, impulse, point, '__local__');
-          
-          // Apply counter-impulse to our own car (the attacker) with the same rocket-style offset
           const localOffset = new CANNON.Vec3(0, 0.6, 0);
-          const localImpulse = new CANNON.Vec3(-pushDir.x * impulseMag, verticalPop * 0.5, -pushDir.z * impulseMag);
           
-          playerChassis.applyImpulse(localImpulse, playerChassis.position.vadd(localOffset));
+          // Pop our car
+          playerChassis.applyImpulse(new CANNON.Vec3(0, verticalPop, 0), playerChassis.position.vadd(localOffset));
+          
+          // Pop their car LOCALLY on our screen (so it reacts instantly!)
+          other.applyImpulse(new CANNON.Vec3(0, verticalPop, 0), other.position.vadd(localOffset));
         }
       }
     }
@@ -310,9 +290,8 @@ export function createRemoteVehicle(peerId, mass = 0, carModel, spawnPos = null,
     linearDamping: 0.1,
     angularDamping: 0.1
   });
-  // Disable native rigid-body separation so networked lag doesn't cause explosive bumps.
-  // We will manually apply smooth impulses in the 'collide' event.
-  body.collisionResponse = false; 
+  // Enable native collisions so cars physically bounce off each other and don't clip!
+  body.collisionResponse = true; 
   body.collisionFilterGroup = CGROUP_REMOTE_CAR;
   // Let them hit EVERYTHING: ground, walls, local cars, rockets
   body.collisionFilterMask = CGROUP_DEFAULT | CGROUP_LOCAL_CAR | CGROUP_ROCKET | CGROUP_REMOTE_CAR;
@@ -369,6 +348,13 @@ export function updateRemoteVehicles() {
     const rBody = remoteVehicles[id];
     
     if (rBody.targetPos) {
+      // If this car was recently involved in a local collision, suspend network interpolation
+      // for 400ms. This allows CANNON.js to seamlessly play out the collision physics locally,
+      // making it visually smooth and completely eliminating clipping!
+      if (now - (rBody._lastHitTime || 0) < 400) {
+        continue; // Let CANNON's engine simulate it naturally without forcing its position!
+      }
+      
       // Lerp position (0.2 is a good smoothing factor for 60fps)
       rBody.position.lerp(rBody.targetPos, 0.2, rBody.position);
       rBody.quaternion.slerp(rBody.targetQuat, 0.3, rBody.quaternion);
