@@ -158,7 +158,20 @@ function _updateRacing(dt) {
   }
 
   // 6. Out of bounds reset
-  if (chassis && chassis.position.y < -5) {
+  let isOutOfBounds = false;
+  if (chassis) {
+    if (chassis.position.y < -5) {
+      isOutOfBounds = true;
+    } else if (chassis._distToSplineSq > 45 * 45) { // ~3 track widths away
+      // Make sure they aren't mid-air flying over a track piece by checking if their velocity is low
+      // OR if they are comically far away
+      if (chassis.velocity.length() < 2.0 || chassis._distToSplineSq > 100 * 100) {
+        isOutOfBounds = true;
+      }
+    }
+  }
+
+  if (isOutOfBounds) {
     _resetToLastCheckpoint();
   }
 

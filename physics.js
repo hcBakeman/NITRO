@@ -245,36 +245,20 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
       const impactVel = Math.min(contact.getImpactVelocityAlongNormal(), 30);
       
       if (impactVel > 1.0) {
-        other._lastHitTime = now;
+        // Trigger Local Physics Authority Override for 500ms
+        other._physicsOverrideUntil = now + 500;
         
-        // Use 0.5 for an inelastic "heavy car" feel (half momentum transfer)
-        let impulseMag = impactVel * playerChassis.mass * 0.5; 
-        impulseMag = Math.min(impulseMag, 25000); // Cap for ~100km/h hits
-        
-        const sign = (contact.bj === other) ? 1 : -1;
-        
-        // Calculate a small vertical pop (mostly visual, max 1m/s)
-        const verticalPop = Math.min(impulseMag * 0.05, 1500);
-        
-        const point = { 
-          x: other.position.x, 
-          y: other.position.y, 
-          z: other.position.z 
-        };
-        const impulse = { 
-          x: contact.ni.x * impulseMag * sign, 
-          y: verticalPop, 
-          z: contact.ni.z * impulseMag * sign 
-        };
-        
-        // Broadcast the hit so the remote client applies it to their car
-        if (_onVehicleImpact) _onVehicleImpact(other.peerId, impulse, point, '__local__');
-
-        // Manually apply the INVERSE impulse to our local car
-        const localImpulse = new CANNON.Vec3(-impulse.x, verticalPop * 0.5, -impulse.z);
-        
-        // Apply EXACTLY at Center of Mass to prevent physics engine torque explosions!
-        playerChassis.applyImpulse(localImpulse, playerChassis.position);
+        if (now - (other._lastHitTime || 0) > 300) {
+          other._lastHitTime = now;
+          const point = { 
+            x: other.position.x, 
+            y: other.position.y, 
+            z: other.position.z 
+          };
+          
+          // Broadcast a dummy impulse just to trigger visual sparks/sounds on other clients
+          if (_onVehicleImpact) _onVehicleImpact(other.peerId, {x:0, y:0, z:0}, point, '__local__');
+        }
       }
     }
   });
@@ -284,18 +268,21 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
 }
 
 export function createRemoteVehicle(peerId, mass = 0, carModel, spawnPos = null, spawnQuat = null) {
-  // Remote vehicles MUST be kinematic with collisionResponse = false
-  // so they act as triggers. We handle the momentum transfer manually
-  // to avoid multi-hit velocity drain from the CANNON solver.
+  // Use real CANNON physics! DYNAMIC bodies, accurate mass.
+  const spec = CARS[carModel] || CARS['dacia_duster_low_poly'];
+  const realMass = spec.mass;
+
   const body = new CANNON.Body({
-    mass: 0, 
+    mass: realMass, 
     material: vehicleMat,
-    type: CANNON.Body.KINEMATIC,
+    type: CANNON.Body.DYNAMIC,
+    linearDamping: 0.1,
+    angularDamping: 0.1
   });
-  body.collisionResponse = false; // Do not brick-wall the local car!
+  body.collisionResponse = true; // Use native solver!
   body.collisionFilterGroup = CGROUP_REMOTE_CAR;
-  // Ignore ground and walls so they don't fight network lerping
-  body.collisionFilterMask = CGROUP_LOCAL_CAR | CGROUP_ROCKET;
+  // Let them hit EVERYTHING: ground, walls, local cars, rockets
+  body.collisionFilterMask = CGROUP_DEFAULT | CGROUP_LOCAL_CAR | CGROUP_ROCKET | CGROUP_REMOTE_CAR;
   body.peerId = peerId;
   body.isOiled = false;
   _addVanShapes(body);
@@ -338,9 +325,17 @@ export function applyImpactImpulse(impulse, point) {
 }
 
 export function updateRemoteVehicles() {
+  const now = performance.now();
   // Lerp remote vehicles smoothly
   for (const id in remoteVehicles) {
     const rBody = remoteVehicles[id];
+    
+    // Local Physics Authority Override:
+    // If recently hit by local car, pause network lerp and let CANNON.js simulate physics naturally!
+    if (rBody._physicsOverrideUntil && now < rBody._physicsOverrideUntil) {
+      continue; 
+    }
+
     if (rBody.targetPos) {
       // Lerp position (0.2 is a good smoothing factor for 60fps)
       rBody.position.lerp(rBody.targetPos, 0.2, rBody.position);

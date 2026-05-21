@@ -262,6 +262,7 @@ export function updateRace(dt, chassis) {
             closestT = t;
           }
         }
+        chassis._distToSplineSq = minDistSq; // Store for out-of-bounds detection
       } else {
         // Incremental search around previous t (handling wrap-around)
         const STEPS = 14;
@@ -275,6 +276,8 @@ export function updateRace(dt, chassis) {
             closestT = t;
           }
         }
+        
+        chassis._distToSplineSq = minDistSq; // Store for out-of-bounds detection
         
         // If the closest point found is way too far, do a recovery global search
         if (minDistSq > 100 * 100) {
