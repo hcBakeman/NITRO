@@ -242,43 +242,39 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
       const now = performance.now();
       if (now - (other._lastHitTime || 0) < 300) return; // 300ms cooldown to prevent multi-hit drain
       
-      const impactVel = Math.min(contact.getImpactVelocityAlongNormal(), 30); // Cap impact vel to 30m/s
+      const impactVel = Math.min(contact.getImpactVelocityAlongNormal(), 30);
       
-      if (impactVel > 1.5) {
+      if (impactVel > 1.0) {
         other._lastHitTime = now;
         
-        let impulseMag = impactVel * playerChassis.mass * 0.8; 
-        impulseMag = Math.min(impulseMag, 45000); // Hard cap on impulse magnitude
+        // Use 0.5 for an inelastic "heavy car" feel (half momentum transfer)
+        let impulseMag = impactVel * playerChassis.mass * 0.5; 
+        impulseMag = Math.min(impulseMag, 25000); // Cap for ~100km/h hits
         
         const sign = (contact.bj === other) ? 1 : -1;
         
+        // Calculate a small vertical pop (mostly visual, max 1m/s)
+        const verticalPop = Math.min(impulseMag * 0.05, 1500);
+        
         const point = { 
-          x: other.position.x + (contact.bj === other ? contact.rj.x : contact.ri.x), 
-          y: other.position.y + (contact.bj === other ? contact.rj.y : contact.ri.y), 
-          z: other.position.z + (contact.bj === other ? contact.rj.z : contact.ri.z) 
+          x: other.position.x, 
+          y: other.position.y, 
+          z: other.position.z 
         };
         const impulse = { 
           x: contact.ni.x * impulseMag * sign, 
-          y: Math.min(contact.ni.y * impulseMag * sign + (impulseMag * 0.1), 5000), // Cap vertical pop
+          y: verticalPop, 
           z: contact.ni.z * impulseMag * sign 
         };
         
         // Broadcast the hit so the remote client applies it to their car
         if (_onVehicleImpact) _onVehicleImpact(other.peerId, impulse, point, '__local__');
 
-        // Manually apply the INVERSE impulse to our local car so it realistically bounces
-        // without relying on the CANNON solver (which causes multi-frame velocity drains)
-        const localImpulse = new CANNON.Vec3(-impulse.x, -impulse.y * 0.2, -impulse.z);
-        const localPointRaw = new CANNON.Vec3(
-          playerChassis.position.x + (contact.bi === playerChassis ? contact.ri.x : contact.rj.x),
-          playerChassis.position.y + (contact.bi === playerChassis ? contact.ri.y : contact.rj.y),
-          playerChassis.position.z + (contact.bi === playerChassis ? contact.ri.z : contact.rj.z)
-        );
+        // Manually apply the INVERSE impulse to our local car
+        const localImpulse = new CANNON.Vec3(-impulse.x, verticalPop * 0.5, -impulse.z);
         
-        // Bring the impact point 85% closer to COM to prevent wild spinning
-        const safeLocalPoint = new CANNON.Vec3();
-        playerChassis.position.lerp(localPointRaw, 0.15, safeLocalPoint);
-        playerChassis.applyImpulse(localImpulse, safeLocalPoint);
+        // Apply EXACTLY at Center of Mass to prevent physics engine torque explosions!
+        playerChassis.applyImpulse(localImpulse, playerChassis.position);
       }
     }
   });
@@ -336,12 +332,9 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
 export function applyImpactImpulse(impulse, point) {
   if (!playerChassis) return;
   const i = new CANNON.Vec3(impulse.x, impulse.y, impulse.z);
-  const p = new CANNON.Vec3(point.x, point.y, point.z);
   
-  // Bring the impact point 85% closer to the center of mass to prevent massive spin-outs
-  const safePoint = new CANNON.Vec3();
-  playerChassis.position.lerp(p, 0.15, safePoint);
-  playerChassis.applyImpulse(i, safePoint);
+  // Apply EXACTLY at Center of Mass to prevent massive spin-outs
+  playerChassis.applyImpulse(i, playerChassis.position);
 }
 
 export function updateRemoteVehicles() {
