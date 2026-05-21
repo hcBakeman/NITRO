@@ -7,7 +7,6 @@ import * as CANNON from 'cannon-es';
 import * as Physics from './physics.js';
 import * as Network from './network.js';
 import * as Graphics from './graphics.js';
-import { carPreview } from './graphics.js';
 import {
   generateMap,
   checkCheckpointProximity,
@@ -21,37 +20,35 @@ export const STATE = { MENU: 'MENU', JOIN_LOBBY: 'JOIN_LOBBY', LOBBY: 'LOBBY', R
 
 let currentState = STATE.MENU;
 
+export let onStateChange = null;
+
 export function getState() {
   return currentState;
 }
 export function setState(s) {
   currentState = s;
+  if (onStateChange) onStateChange(s);
   document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
   const hudEl = document.getElementById('hud');
   if (s === STATE.MENU) {
     document.getElementById('screen-menu').classList.add('active');
     hudEl.classList.add('hidden');
-    carPreview.start();
   }
   if (s === STATE.JOIN_LOBBY) {
     document.getElementById('screen-join-lobby').classList.add('active');
     hudEl.classList.add('hidden');
-    carPreview.start();
   }
 
   if (s === STATE.LOBBY) {
     document.getElementById('screen-lobby').classList.add('active');
     hudEl.classList.add('hidden');
-    carPreview.start();
   }
   if (s === STATE.RACING) {
     hudEl.classList.remove('hidden');
-    carPreview.stop();
   }
   if (s === STATE.FINISHED) {
     document.getElementById('screen-finished').classList.add('active');
     hudEl.classList.add('hidden');
-    carPreview.stop();
   }
 }
 

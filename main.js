@@ -46,6 +46,14 @@ window.addEventListener('load', async () => {
 
   // Car Previews
   lobbyPreview = Graphics.createCarPreview(document.getElementById('car-preview-canvas'));
+
+  Game.onStateChange = (state) => {
+    if (state === Game.STATE.RACING || state === Game.STATE.FINISHED) {
+      if (lobbyPreview) lobbyPreview.stop();
+    } else {
+      if (lobbyPreview) lobbyPreview.start();
+    }
+  };
   
   updatePreviews();
 
