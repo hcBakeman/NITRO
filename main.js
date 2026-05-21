@@ -17,8 +17,7 @@ const AVAILABLE_CARS = [
 ];
 
 let currentCarIndex = 0;
-let joinCarIndex = 0;
-let lobbyPreview, joinPreview;
+let lobbyPreview = null;
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 window.addEventListener('load', async () => {
@@ -36,8 +35,6 @@ window.addEventListener('load', async () => {
     onJoin: handleJoin,
     onCarPrev: () => { currentCarIndex = (currentCarIndex - 1 + AVAILABLE_CARS.length) % AVAILABLE_CARS.length; updatePreviews(); },
     onCarNext: () => { currentCarIndex = (currentCarIndex + 1) % AVAILABLE_CARS.length; updatePreviews(); },
-    onJoinCarPrev: () => { joinCarIndex = (joinCarIndex - 1 + AVAILABLE_CARS.length) % AVAILABLE_CARS.length; updateJoinPreview(); },
-    onJoinCarNext: () => { joinCarIndex = (joinCarIndex + 1) % AVAILABLE_CARS.length; updateJoinPreview(); },
     onConnect: handleConnect,
     onStart: handleStart,
     onReturnLobby: handleReturnToLobby,
@@ -46,10 +43,8 @@ window.addEventListener('load', async () => {
 
   // Car Previews
   lobbyPreview = Graphics.createCarPreview(document.getElementById('car-preview-canvas'));
-  joinPreview = Graphics.createCarPreview(document.getElementById('join-car-preview-canvas'));
   
   updatePreviews();
-  updateJoinPreview();
 
   // Restore Name
   const savedName = localStorage.getItem('nitro-name');
@@ -145,13 +140,7 @@ async function updatePreviews() {
 }
 
 
-async function updateJoinPreview() {
-  const car = AVAILABLE_CARS[joinCarIndex];
-  document.getElementById('join-car-name-display').textContent = car.replace(/_/g, ' ').toUpperCase();
-  UI.setLoading(true);
-  if (joinPreview) await joinPreview.setCar(car);
-  UI.setLoading(false);
-}
+
 
 
 // ── Network Setup ──────────────────────────────────────────────────────────
