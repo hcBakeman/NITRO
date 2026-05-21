@@ -57,7 +57,9 @@ export function initGraphics(canvas) {
   const isMobile = window.innerWidth < 800;
   renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 1.5));
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
+  
+  // Disable shadows entirely on mobile for massive GPU fillrate boost
+  renderer.shadowMap.enabled = !isMobile;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.setClearColor(0x0077ff); // Fallback sky blue
 
@@ -590,6 +592,9 @@ const _tireSmokeMat = new THREE.MeshBasicMaterial({
 const tireSmokePool = new Pool(() => new THREE.Mesh(_tireSmokeGeo, _tireSmokeMat.clone()));
 
 export function spawnTireSmoke(pos) {
+  // Mobile Optimization: Tire smoke causes massive transparent overdraw, killing GPU fillrate.
+  if (window.innerWidth < 800) return;
+  
   const mesh = tireSmokePool.get();
   mesh.position.copy(pos);
   mesh.scale.setScalar(0.8 + Math.random() * 0.4);

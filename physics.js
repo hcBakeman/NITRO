@@ -746,7 +746,9 @@ export function stepPhysics(dt) {
     }
   }
 
-  world.step(1 / 60, dt, 10);
+  // Mobile optimization: Limit maxSubSteps to 3 (instead of 10) to prevent the CPU 
+  // from death-spiraling if the frame rate drops.
+  world.step(1 / 60, dt, 3);
   for (let i = activeRockets.length - 1; i >= 0; i--) {
     const r = activeRockets[i];
     r.life -= dt;
