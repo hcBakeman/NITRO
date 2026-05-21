@@ -252,27 +252,15 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
 }
 
 export function createRemoteVehicle(peerId, mass = 0, carModel, spawnPos = null, spawnQuat = null) {
-  const specs = VEHICLE_CLASSES[carModel] || VEHICLE_CLASSES['dacia_duster_low_poly'];
+  // Remote vehicles MUST be kinematic to prevent violent physics explosions
+  // when network spring forces fight local ground collisions.
   const body = new CANNON.Body({
-    mass: mass > 0 ? specs.mass : 1,
+    mass: 0, 
     material: vehicleMat,
-    type: mass > 0 ? CANNON.Body.DYNAMIC : CANNON.Body.KINEMATIC,
+    type: CANNON.Body.KINEMATIC,
   });
   body.peerId = peerId;
   body.isOiled = false;
-
-  if (mass > 0) {
-    // Disable native gravity ONLY for networked players to avoid vertical sagging against the network spring.
-    // NPC/Test vehicles should keep gravity for realistic physics.
-    if (peerId !== '__test_driver__') {
-      body.preStep = () => {
-        body.force.y -= body.mass * world.gravity.y;
-      };
-    }
-    body.linearDamping = 0.4;
-    body.angularDamping = 0.6;
-  }
-
   _addVanShapes(body);
 
   // Set spawn position BEFORE adding to world to avoid origin collisions
@@ -292,49 +280,11 @@ export function createRemoteVehicle(peerId, mass = 0, carModel, spawnPos = null,
 
 export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
   const body = remoteVehicles[id];
-  if (!body || body.type === CANNON.Body.KINEMATIC) return;
+  if (!body) return;
 
-  // 1. Position Spring-Damper (PD Controller)
-  const posError = new CANNON.Vec3(
-    targetPos.x - body.position.x,
-    targetPos.y - body.position.y,
-    targetPos.z - body.position.z
-  );
-  
-  // Spring stiffness & damping
-  // Relaxed stiffness to allow cars to be pushed during collisions
-  if (posError.length() < 0.2) {
-    posError.set(0, 0, 0); // Deadzone: don't fight small physical movements
-  }
-  const kP = body.mass * 180; 
-  const kD = body.mass * 25;
-
-  const springForce = new CANNON.Vec3();
-  posError.scale(kP, springForce);
-  
-  // Damping relative to target velocity to reduce "dragging" feel
-  const currentVel = body.velocity;
-  const velError = new CANNON.Vec3(
-    (targetVel ? targetVel.x : 0) - currentVel.x,
-    (targetVel ? targetVel.y : 0) - currentVel.y,
-    (targetVel ? targetVel.z : 0) - currentVel.z
-  );
-  
-  const dampingForce = new CANNON.Vec3();
-  velError.scale(kD, dampingForce);
-  
-  const totalForce = new CANNON.Vec3();
-  // F = kP * posError + kD * velError
-  springForce.vadd(dampingForce, totalForce);
-  
-  body.applyForce(totalForce, new CANNON.Vec3(0, 0, 0));
-
-  // 2. Rotation Sync (Slerp)
-  const tQuat = new CANNON.Quaternion(targetQuat.x, targetQuat.y, targetQuat.z, targetQuat.w);
-  body.quaternion.slerp(tQuat, 0.3, body.quaternion);
-  
-  // Damp angular velocity to prevent wild spinning after physical impacts
-  body.angularVelocity.scale(0.8, body.angularVelocity);
+  // Store the targets so the update loop can lerp the KINEMATIC body smoothly
+  body.targetPos = new CANNON.Vec3(targetPos.x, targetPos.y, targetPos.z);
+  body.targetQuat = new CANNON.Quaternion(targetQuat.x, targetQuat.y, targetQuat.z, targetQuat.w);
 }
 
 export function applyImpactImpulse(impulse, point) {
@@ -342,6 +292,18 @@ export function applyImpactImpulse(impulse, point) {
   const i = new CANNON.Vec3(impulse.x, impulse.y, impulse.z);
   const p = new CANNON.Vec3(point.x, point.y, point.z);
   playerChassis.applyImpulse(i, p);
+}
+
+export function updateRemoteVehicles() {
+  // Lerp remote vehicles smoothly
+  for (const id in remoteVehicles) {
+    const rBody = remoteVehicles[id];
+    if (rBody.type === CANNON.Body.KINEMATIC && rBody.targetPos) {
+      // Lerp position (0.2 is a good smoothing factor for 60fps)
+      rBody.position.lerp(rBody.targetPos, 0.2, rBody.position);
+      rBody.quaternion.slerp(rBody.targetQuat, 0.3, rBody.quaternion);
+    }
+  }
 }
 
 export function checkStrictCollisions() {
@@ -697,6 +659,7 @@ export function raycastForward(body) {
 
 // ── Physics Step ──────────────────────────────────────────────────────────
 export function stepPhysics(dt) {
+  updateRemoteVehicles();
   world.step(1 / 60, dt, 10);
   for (let i = activeRockets.length - 1; i >= 0; i--) {
     const r = activeRockets[i];
