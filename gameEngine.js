@@ -14,6 +14,7 @@ const activeRocketVisuals = new Map();
 let _lastRacePhase = null;
 let _crosshairTimer = 0;
 let _collisionMode = 'fast';
+let _smokeTimer = 0;
 
 let domLightsEl, domTimeEl, domLight1, domLight2, domLight3, domLight4;
 
@@ -193,14 +194,18 @@ function _updateRacing(dt) {
       // Relaxed threshold: dot < 0.98 means > 11 degrees slip
       if (slipDot < 0.98 || (isTurning && speed > 28)) {
         Audio.setScreech(true);
-        const q = chassis.quaternion,
-          p = chassis.position;
-        const rl = new CANNON.Vec3(-0.7, -0.4, -1.4),
-          rr = new CANNON.Vec3(0.7, -0.4, -1.4);
-        q.vmult(rl, rl);
-        q.vmult(rr, rr);
-        Graphics.spawnTireSmoke(p.vadd(rl));
-        Graphics.spawnTireSmoke(p.vadd(rr));
+        _smokeTimer += dt;
+        if (_smokeTimer > 0.05) {
+          _smokeTimer = 0;
+          const q = chassis.quaternion,
+            p = chassis.position;
+          const rl = new CANNON.Vec3(-0.7, -0.4, -1.4),
+            rr = new CANNON.Vec3(0.7, -0.4, -1.4);
+          q.vmult(rl, rl);
+          q.vmult(rr, rr);
+          Graphics.spawnTireSmoke(p.vadd(rl));
+          Graphics.spawnTireSmoke(p.vadd(rr));
+        }
       } else {
         Audio.setScreech(false);
       }
