@@ -48,9 +48,9 @@ export function initPhysics() {
 
   world.addContactMaterial(
     new CANNON.ContactMaterial(vehicleMat, vehicleMat, {
-      friction: 0.1,
-      restitution: 0.1, // Reduced restitution
-      contactEquationStiffness: 1e4, // Very soft collision to handle network overlap gracefully
+      friction: 0.0, // NO friction between cars so they don't grab and flip sideways!
+      restitution: 0.1, 
+      contactEquationStiffness: 1e7, // Hard collision to prevent clipping
       contactEquationRelaxation: 4,
     })
   );
@@ -259,8 +259,9 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           
           // Let CANNON.js handle the horizontal push (since collisionResponse = true).
           // We only add a manual vertical "arcade pop" to make the crashes look dramatic!
-          let verticalPop = impactVel * 20; 
-          verticalPop = Math.min(verticalPop, 600);
+          // Scale it down to match the rocket's gentle hop (~80 Ns max)
+          let verticalPop = impactVel * 3; 
+          verticalPop = Math.min(verticalPop, 100);
           
           const localOffset = new CANNON.Vec3(0, 0.6, 0);
           
