@@ -276,7 +276,8 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
         );
         
         // Bring the impact point 85% closer to COM to prevent wild spinning
-        const safeLocalPoint = playerChassis.position.clone().lerp(localPointRaw, 0.15);
+        const safeLocalPoint = new CANNON.Vec3();
+        playerChassis.position.lerp(localPointRaw, 0.15, safeLocalPoint);
         playerChassis.applyImpulse(localImpulse, safeLocalPoint);
       }
     }
@@ -338,7 +339,8 @@ export function applyImpactImpulse(impulse, point) {
   const p = new CANNON.Vec3(point.x, point.y, point.z);
   
   // Bring the impact point 85% closer to the center of mass to prevent massive spin-outs
-  const safePoint = playerChassis.position.clone().lerp(p, 0.15);
+  const safePoint = new CANNON.Vec3();
+  playerChassis.position.lerp(p, 0.15, safePoint);
   playerChassis.applyImpulse(i, safePoint);
 }
 
