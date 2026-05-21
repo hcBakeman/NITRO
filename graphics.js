@@ -28,6 +28,7 @@ let minimapCtx = null;
 let minimapSpline = null;
 let minimapBounds = null;
 let minimapPoints = null;
+let minimapOffscreenCanvas = null;
 let raceGroup = new THREE.Group();
 
 // ── Object Pooling ──────────────────────────────────────────────────────────
@@ -53,7 +54,8 @@ class Pool {
 // ── Init ──────────────────────────────────────────────────────────────────
 export function initGraphics(canvas) {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: false }); // pixelated look
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  const isMobile = window.innerWidth < 800;
+  renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 1.5));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -101,6 +103,23 @@ export function initMinimap(canvas, spline, mapBounds) {
   minimapSpline = spline;
   minimapBounds = mapBounds;
   minimapPoints = spline.getPoints(100);
+
+  // Pre-draw the track to an offscreen canvas
+  minimapOffscreenCanvas = document.createElement('canvas');
+  minimapOffscreenCanvas.width = canvas.width;
+  minimapOffscreenCanvas.height = canvas.height;
+  const offCtx = minimapOffscreenCanvas.getContext('2d');
+  
+  offCtx.strokeStyle = 'rgba(255,255,255,0.3)';
+  offCtx.lineWidth = 4;
+  offCtx.beginPath();
+  minimapPoints.forEach((p, i) => {
+    const x = ((p.x - minimapBounds.minX) / (minimapBounds.maxX - minimapBounds.minX)) * canvas.width;
+    const z = ((p.z - minimapBounds.minZ) / (minimapBounds.maxZ - minimapBounds.minZ)) * canvas.height;
+    if (i === 0) offCtx.moveTo(x, z);
+    else offCtx.lineTo(x, z);
+  });
+  offCtx.stroke();
 }
 
 export function updateMinimap(players, localPlayer) {
@@ -111,17 +130,10 @@ export function updateMinimap(players, localPlayer) {
   const h = ctx.canvas.height;
   ctx.clearRect(0, 0, w, h);
 
-  // Draw track
-  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  minimapPoints.forEach((p, i) => {
-    const x = ((p.x - minimapBounds.minX) / (minimapBounds.maxX - minimapBounds.minX)) * w;
-    const z = ((p.z - minimapBounds.minZ) / (minimapBounds.maxZ - minimapBounds.minZ)) * h;
-    if (i === 0) ctx.moveTo(x, z);
-    else ctx.lineTo(x, z);
-  });
-  ctx.stroke();
+  // Draw track from offscreen canvas
+  if (minimapOffscreenCanvas) {
+    ctx.drawImage(minimapOffscreenCanvas, 0, 0);
+  }
 
   // Draw players
   Object.entries(players).forEach(([id, p]) => {

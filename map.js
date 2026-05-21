@@ -136,15 +136,15 @@ export function generateMap(seed, world, groundMat, wallMat) {
   // Left wall
   const leftGeo = _buildContinuousWallGeo(spline, length, samples, -1, jumpZones, frames);
   const leftMesh = new THREE.Mesh(leftGeo, wallMatVisual);
-  leftMesh.castShadow = true;
-  leftMesh.receiveShadow = true;
+  leftMesh.castShadow = false;
+  leftMesh.receiveShadow = false;
   wallMeshes.push(leftMesh);
 
   // Right wall
   const rightGeo = _buildContinuousWallGeo(spline, length, samples, 1, jumpZones, frames);
   const rightMesh = new THREE.Mesh(rightGeo, wallMatVisual);
-  rightMesh.castShadow = true;
-  rightMesh.receiveShadow = true;
+  rightMesh.castShadow = false;
+  rightMesh.receiveShadow = false;
   wallMeshes.push(rightMesh);
 
   // Wall Physics (Static Boxes, skipping gaps)
