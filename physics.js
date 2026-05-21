@@ -49,7 +49,9 @@ export function initPhysics() {
   world.addContactMaterial(
     new CANNON.ContactMaterial(vehicleMat, vehicleMat, {
       friction: 0.1,
-      restitution: 0.3,
+      restitution: 0.1, // Reduced restitution
+      contactEquationStiffness: 1e4, // Very soft collision to handle network overlap gracefully
+      contactEquationRelaxation: 4,
     })
   );
 
