@@ -93,7 +93,7 @@ async function handleConnect(lobbyId) {
   if (!lobbyId) return UI.showMessage('PLEASE ENTER LOBBY NAME', 'error');
   try {
     await setupNetwork();
-    await Network.connectToHost(lobbyId, getName(), 0, AVAILABLE_CARS[joinCarIndex]);
+    await Network.connectToHost(lobbyId, getName(), AVAILABLE_CARS[joinCarIndex]);
     UI.refreshPlayerList(Network.players, Network.getIsHost());
     Game.setState(Game.STATE.LOBBY);
 
@@ -115,7 +115,10 @@ function handleStart() {
     const j = Math.floor(Math.random() * (i + 1));
     [playerIds[i], playerIds[j]] = [playerIds[j], playerIds[i]];
   }
-  const grid = playerIds.map((id, index) => ({ id, gridIndex: index }));
+  // Build grid as a plain map: { peerId: gridIndex }
+  const grid = {};
+  playerIds.forEach((id, index) => { grid[id] = index; });
+  console.log('[START] Grid assignments:', JSON.stringify(grid));
 
   Network.startRace(seed, laps, driveMode, handlingMode, grid, collisionMode);
 }
@@ -210,16 +213,20 @@ async function _onGameInit(seed, laps, mode, handlingMode, grid, coll) {
   Graphics.buildRaceMap(mapData);
 
   const myId = Network.getMyPeerId();
-  const gridAssignments = {};
-  grid.forEach(item => {
-    gridAssignments[item.id] = item.gridIndex;
-  });
+
+  // Grid is now a plain map: { peerId: gridIndex }
+  // (previously was an array of {id, gridIndex} which could fail serialization)
+  const gridAssignments = grid; // already a map
+  console.log('[GAME_INIT] My ID:', myId);
+  console.log('[GAME_INIT] Grid assignments received:', JSON.stringify(gridAssignments));
 
   // Local vehicle
   const myColorIdx = Network.players[myId]?.colorIndex || 0;
   const myCarModel = Network.players[myId]?.carModel || AVAILABLE_CARS[0];
   const myIdx = gridAssignments[myId] !== undefined ? gridAssignments[myId] : 0;
+  console.log('[GAME_INIT] My grid index:', myIdx, '(out of', mapData.startGrid.length, 'slots)');
   const gridSpot = mapData.startGrid[myIdx % mapData.startGrid.length];
+  console.log('[GAME_INIT] My spawn pos:', JSON.stringify(gridSpot.pos));
   Physics.createPlayerVehicle(gridSpot.pos, gridSpot.quat, myCarModel);
   await Graphics.loadVehicle('__local__', myColorIdx, myCarModel);
 
@@ -227,6 +234,7 @@ async function _onGameInit(seed, laps, mode, handlingMode, grid, coll) {
   for (const [id, p] of Object.entries(Network.players)) {
     if (id === myId) continue;
     const pIdx = gridAssignments[id] !== undefined ? gridAssignments[id] : 0;
+    console.log('[GAME_INIT] Remote', id, 'grid index:', pIdx);
     const rSpot = mapData.startGrid[pIdx % mapData.startGrid.length];
     const rSpawnPos = { x: rSpot.pos.x, y: rSpot.pos.y, z: rSpot.pos.z };
     const rSpawnQuat = { x: rSpot.quat.x, y: rSpot.quat.y, z: rSpot.quat.z, w: rSpot.quat.w };
