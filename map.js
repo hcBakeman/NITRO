@@ -153,6 +153,8 @@ export function generateMap(seed, world, groundMat, wallMat) {
     ? new THREE.MeshLambertMaterial({ color: 0x2244ff })
     : _buildRoadMaterial();
   const trackMesh = new THREE.Mesh(roadGeo, roadMat);
+  trackMesh.matrixAutoUpdate = false;
+  trackMesh.updateMatrix();
   trackMesh.receiveShadow = true;
 
   // --- Physics Trimesh Chunking ---
@@ -208,6 +210,8 @@ export function generateMap(seed, world, groundMat, wallMat) {
   // Left wall
   const leftGeo = _buildContinuousWallGeo(spline, length, samples, -1, jumpZones, frames);
   const leftMesh = new THREE.Mesh(leftGeo, wallMatVisual);
+  leftMesh.matrixAutoUpdate = false;
+  leftMesh.updateMatrix();
   leftMesh.castShadow = false;
   leftMesh.receiveShadow = false;
   wallMeshes.push(leftMesh);
@@ -215,6 +219,8 @@ export function generateMap(seed, world, groundMat, wallMat) {
   // Right wall
   const rightGeo = _buildContinuousWallGeo(spline, length, samples, 1, jumpZones, frames);
   const rightMesh = new THREE.Mesh(rightGeo, wallMatVisual);
+  rightMesh.matrixAutoUpdate = false;
+  rightMesh.updateMatrix();
   rightMesh.castShadow = false;
   rightMesh.receiveShadow = false;
   wallMeshes.push(rightMesh);
@@ -269,6 +275,8 @@ export function generateMap(seed, world, groundMat, wallMat) {
         // Sink it so only the top curve is visible
         mesh.position.y -= style.size[1] * 0.8;
       }
+      mesh.matrixAutoUpdate = false;
+      mesh.updateMatrix();
 
       trackMesh.add(mesh);
 
@@ -353,9 +361,10 @@ export function generateMap(seed, world, groundMat, wallMat) {
     spot.position.copy(spawnPos);
     spot.position.y = spawnPos.y + 0.06;
     spot.quaternion.copy(quat);
-    // Rotate flat on the ground (plane faces up)
     spot.rotateX(-Math.PI / 2);
     spot.receiveShadow = true;
+    spot.matrixAutoUpdate = false;
+    spot.updateMatrix();
     startGridMeshes.push(spot);
   }
   startGridMeshes.forEach(m => trackMesh.add(m));
@@ -407,6 +416,8 @@ export function generateMap(seed, world, groundMat, wallMat) {
   groundMesh.rotation.x = -Math.PI / 2;
   groundMesh.position.y = -1.0; // Lowered further to avoid clipping with low road parts
   groundMesh.receiveShadow = true;
+  groundMesh.matrixAutoUpdate = false;
+  groundMesh.updateMatrix();
 
   return {
     trackMesh,

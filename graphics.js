@@ -66,6 +66,16 @@ export function initGraphics(canvas) {
   scene = new THREE.Scene();
   scene.fog = new THREE.Fog(0x1a9bff, 250, 800);
 
+  smokeInstanced = new THREE.InstancedMesh(_smokeGeo, _smokeMat, MAX_PARTICLES);
+  smokeInstanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  smokeInstanced.count = 0;
+  scene.add(smokeInstanced);
+
+  tireSmokeInstanced = new THREE.InstancedMesh(_tireSmokeGeo, _tireSmokeMat, MAX_PARTICLES);
+  tireSmokeInstanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  tireSmokeInstanced.count = 0;
+  scene.add(tireSmokeInstanced);
+
   // Pre-instantiate rocket lights for pooling
   for (let i = 0; i < ROCKET_LIGHT_COUNT; i++) {
     const light = new THREE.PointLight(0xff6600, 0, 20);
@@ -412,10 +422,47 @@ async function loadCarModelGltf(modelName) {
   const center = box.getCenter(new THREE.Vector3());
   const bottomY = box.min.y;
   object.position.set(-center.x * scale, -bottomY * scale - 0.42, -center.z * scale);
+  object.updateMatrixWorld(true);
+
+  // Merge into a single mesh for massive draw call reduction
+  const geometries = [];
+  const materials = [];
+  object.traverse(child => {
+    if (child.isMesh && child.geometry) {
+      const geo = child.geometry.clone();
+      geo.applyMatrix4(child.matrixWorld);
+
+      let matIndex = materials.indexOf(child.material);
+      if (matIndex === -1) {
+        materials.push(child.material);
+        matIndex = materials.length - 1;
+      }
+
+      if (geo.groups.length === 0) {
+        geo.addGroup(0, geo.attributes.position.count, matIndex);
+      } else {
+        geo.groups.forEach(g => g.materialIndex = matIndex);
+      }
+      geometries.push(geo);
+    }
+  });
+
+  const wrapper = new THREE.Group();
+  if (geometries.length > 0) {
+    const mergedGeo = mergeGeometries(geometries, true);
+    if (mergedGeo) {
+      const mergedMesh = new THREE.Mesh(mergedGeo, materials);
+      mergedMesh.castShadow = true;
+      mergedMesh.receiveShadow = true;
+      wrapper.add(mergedMesh);
+    } else {
+      wrapper.add(object);
+    }
+  } else {
+    wrapper.add(object);
+  }
 
   const dims = { width: size.x * scale, length: size.z * scale };
-  const wrapper = new THREE.Group();
-  wrapper.add(object);
   loadedModelsCache[modelName] = { mesh: wrapper, dims };
   return { mesh: wrapper.clone(), dims };
 }
@@ -433,13 +480,7 @@ export async function loadVehicle(peerId, colorIndex, modelName) {
     import('./physics.js').then(Physics => {
       Physics.setVehicleHitbox(peerId, dims.width, 0.9, dims.length);
     });
-
-    group.traverse(child => {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
-    });
+    // Merged geometry already casts/receives shadows
   } catch (e) {
     console.error('Failed to load vehicle', modelName, e);
     const color = PLAYER_COLORS[colorIndex % PLAYER_COLORS.length];
@@ -454,12 +495,13 @@ export async function loadVehicle(peerId, colorIndex, modelName) {
 function _buildFallbackCar(color) {
   const grp = new THREE.Group();
   const container = new THREE.Group();
-  grp.add(container);
+  
+  const geometries = [];
+  const materials = [];
 
   const mat = new THREE.MeshLambertMaterial({ color, flatShading: true });
   const body = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.9, 3.6), mat);
   body.position.y = 0;
-  body.castShadow = true;
   container.add(body);
 
   const cabin = new THREE.Mesh(
@@ -468,6 +510,23 @@ function _buildFallbackCar(color) {
   );
   cabin.position.set(0, 0.7, -0.2);
   container.add(cabin);
+  
+  container.updateMatrixWorld(true);
+  
+  container.traverse(child => {
+    if (child.isMesh) {
+      const geo = child.geometry.clone();
+      geo.applyMatrix4(child.matrixWorld);
+      
+      let matIndex = materials.indexOf(child.material);
+      if (matIndex === -1) {
+        materials.push(child.material);
+        matIndex = matIndex = materials.length - 1;
+      }
+      geo.addGroup(0, geo.attributes.position.count, matIndex);
+      geometries.push(geo);
+    }
+  });
 
   const wGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.4, 8);
   wGeo.rotateZ(Math.PI / 2);
@@ -480,9 +539,29 @@ function _buildFallbackCar(color) {
   ].forEach(([x, z]) => {
     const w = new THREE.Mesh(wGeo, wMat);
     w.position.set(x, 0.38, z);
-    w.castShadow = true;
-    container.add(w);
+    w.updateMatrixWorld(true);
+    const geo = w.geometry.clone();
+    geo.applyMatrix4(w.matrixWorld);
+    
+    let matIndex = materials.indexOf(w.material);
+    if (matIndex === -1) {
+      materials.push(w.material);
+      matIndex = materials.length - 1;
+    }
+    geo.addGroup(0, geo.attributes.position.count, matIndex);
+    geometries.push(geo);
   });
+
+  const mergedGeo = mergeGeometries(geometries, true);
+  if (mergedGeo) {
+    const mergedMesh = new THREE.Mesh(mergedGeo, materials);
+    mergedMesh.castShadow = true;
+    mergedMesh.receiveShadow = true;
+    grp.add(mergedMesh);
+  } else {
+    grp.add(container);
+  }
+
   return grp;
 }
 
@@ -573,17 +652,15 @@ export function updateRocketMesh(mesh, pos, vel, dt) {
   }
 }
 
+const MAX_PARTICLES = 300;
+const _dummy = new THREE.Object3D();
+
 const _smokeGeo = new THREE.SphereGeometry(0.2, 4, 4);
 const _smokeMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.6 });
-const smokePool = new Pool(() => new THREE.Mesh(_smokeGeo, _smokeMat));
+let smokeInstanced;
 
 function _spawnSmoke(pos) {
-  const mesh = smokePool.get();
-  mesh.position.set(pos.x, pos.y, pos.z);
-  mesh.userData.baseScale = 0.75 + Math.random() * 0.5;
-  mesh.scale.setScalar(mesh.userData.baseScale);
-  scene.add(mesh);
-  explosionParticles.push({ mesh, type: 'smoke', life: 0.6, maxLife: 0.6 });
+  explosionParticles.push({ type: 'smoke', life: 0.6, maxLife: 0.6, pos: pos.clone(), scale: 0.75 + Math.random() * 0.5 });
 }
 
 const _tireSmokeGeo = new THREE.SphereGeometry(0.15, 4, 4);
@@ -592,18 +669,12 @@ const _tireSmokeMat = new THREE.MeshBasicMaterial({
   transparent: true,
   opacity: 0.4,
 });
-const tireSmokePool = new Pool(() => new THREE.Mesh(_tireSmokeGeo, _tireSmokeMat.clone()));
+let tireSmokeInstanced;
 
 export function spawnTireSmoke(pos) {
-  // Mobile Optimization: Tire smoke causes massive transparent overdraw, killing GPU fillrate.
   const isMobile = Math.min(window.innerWidth, window.innerHeight) < 800;
   if (isMobile) return;
-  
-  const mesh = tireSmokePool.get();
-  mesh.position.copy(pos);
-  mesh.scale.setScalar(0.8 + Math.random() * 0.4);
-  scene.add(mesh);
-  explosionParticles.push({ mesh, type: 'tireSmoke', life: 0.4, maxLife: 0.4 });
+  explosionParticles.push({ type: 'tireSmoke', life: 0.4, maxLife: 0.4, pos: pos.clone(), scale: 0.8 + Math.random() * 0.4 });
 }
 
 export function removeMesh(mesh) {
@@ -647,11 +718,12 @@ let explosionTemplateGeo = null;
 
 const explosionPool = new Pool(() => new THREE.Mesh(explosionTemplateGeo, explosionMat));
 
-export function spawnExplosion(position) {
+export function spawnExplosion(pos) {
   const mesh = explosionPool.get();
-  mesh.position.set(position.x, position.y, position.z);
+  mesh.position.copy(pos);
+  mesh.scale.setScalar(0.1);
   scene.add(mesh);
-  explosionParticles.push({ mesh, type: 'explosion', life: 1.0, maxLife: 1.0, vels: [] });
+  explosionParticles.push({ mesh, type: 'explosion', life: 0.8, maxLife: 0.8, pos: pos.clone() });
 }
 
 export function createOilSlickMesh(position, quaternion) {
@@ -702,20 +774,57 @@ export function renderScene(dt) {
     }
   });
 
+  let smokeIdx = 0;
+  let tireSmokeIdx = 0;
+
   for (let i = explosionParticles.length - 1; i >= 0; i--) {
     const ep = explosionParticles[i];
     ep.life -= dt;
     if (ep.life <= 0) {
-      scene.remove(ep.mesh);
-      if (ep.type === 'smoke') smokePool.release(ep.mesh);
-      if (ep.type === 'tireSmoke') tireSmokePool.release(ep.mesh);
-      if (ep.type === 'explosion') explosionPool.release(ep.mesh);
+      if (ep.type === 'explosion' && ep.mesh) {
+        scene.remove(ep.mesh);
+        explosionPool.release(ep.mesh);
+      }
+      // Note: smoke and tireSmoke have no mesh to release anymore
       explosionParticles.splice(i, 1);
       continue;
     }
-    const ratio = ep.life / ep.maxLife;
-    const baseScale = ep.mesh.userData.baseScale || 1.0;
-    ep.mesh.scale.setScalar(baseScale * ratio);
+    
+    const t = 1.0 - ep.life / ep.maxLife;
+    if (ep.type === 'explosion' && ep.mesh) {
+      const scale = 0.1 + t * 2.0;
+      ep.mesh.scale.setScalar(scale);
+      ep.mesh.position.y += dt * 0.5;
+    } else if (ep.type === 'smoke') {
+      if (smokeIdx < MAX_PARTICLES && smokeInstanced) {
+        _dummy.position.copy(ep.pos);
+        _dummy.position.y += dt * 1.5;
+        ep.pos.copy(_dummy.position);
+        const scale = ep.scale * (1.0 + t * 1.5);
+        _dummy.scale.setScalar(scale);
+        _dummy.updateMatrix();
+        smokeInstanced.setMatrixAt(smokeIdx++, _dummy.matrix);
+      }
+    } else if (ep.type === 'tireSmoke') {
+      if (tireSmokeIdx < MAX_PARTICLES && tireSmokeInstanced) {
+        _dummy.position.copy(ep.pos);
+        _dummy.position.y += dt * 1.0;
+        ep.pos.copy(_dummy.position);
+        const scale = ep.scale * (1.0 + t);
+        _dummy.scale.setScalar(scale);
+        _dummy.updateMatrix();
+        tireSmokeInstanced.setMatrixAt(tireSmokeIdx++, _dummy.matrix);
+      }
+    }
+  }
+
+  if (smokeInstanced) {
+    smokeInstanced.count = smokeIdx;
+    smokeInstanced.instanceMatrix.needsUpdate = true;
+  }
+  if (tireSmokeInstanced) {
+    tireSmokeInstanced.count = tireSmokeIdx;
+    tireSmokeInstanced.instanceMatrix.needsUpdate = true;
   }
 
   renderer.render(scene, camera);
