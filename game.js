@@ -44,6 +44,9 @@ export function setState(s) {
 
   if (s === STATE.LOBBY) {
     document.getElementById('screen-lobby').classList.add('active');
+    document.getElementById('btn-lobby').classList.add('hidden'); // hide race-over button
+    document.getElementById('btn-lobby').disabled = false;
+    document.getElementById('btn-host-return-lobby').disabled = false;
     hudEl.classList.add('hidden');
   }
   if (s === STATE.RACING) {
@@ -59,7 +62,16 @@ export function setState(s) {
 export const input = { forward: false, backward: false, left: false, right: false, fire: false };
 let fireQueued = false;
 
+let domWrongWayMsg, domHudSpeed, domHudRecovery;
+const _tmpFwd2D = new THREE.Vector2();
+const _tmpTan2D = new THREE.Vector2();
+const _tmpFwdVec3 = new CANNON.Vec3(0, 0, 1);
+
 export function initInput() {
+  domWrongWayMsg = document.getElementById('wrong-way-msg');
+  domHudSpeed = document.getElementById('hud-speed');
+  domHudRecovery = document.getElementById('hud-recovery');
+
   const down = e => {
     if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
     
@@ -309,24 +321,23 @@ export function updateRace(dt, chassis) {
       // 2. Heading Check
       // Use 2D projection (XZ) to ignore vehicle pitch/roll influence
       const tan = mapData.spline.getTangentAt(closestT).normalize();
-      const fwd = new CANNON.Vec3(0, 0, 1);
-      chassis.quaternion.vmult(fwd, fwd);
+      _tmpFwdVec3.set(0, 0, 1);
+      chassis.quaternion.vmult(_tmpFwdVec3, _tmpFwdVec3);
       
-      const tan2D = new THREE.Vector2(tan.x, tan.z).normalize();
-      const fwd2D = new THREE.Vector2(fwd.x, fwd.z).normalize();
-      const dot = tan2D.dot(fwd2D);
+      _tmpTan2D.set(tan.x, tan.z).normalize();
+      _tmpFwd2D.set(_tmpFwdVec3.x, _tmpFwdVec3.z).normalize();
+      const dot = _tmpTan2D.dot(_tmpFwd2D);
       
-      const msgEl = document.getElementById('wrong-way-msg');
       // Threshold: -0.3 is very generous (>107 deg). 
       // Also ensure player is actually near the road (within 35m) to avoid confusion during air-time or out-of-bounds.
       if (dot < -0.3 && minDistSq < 35 * 35) {
-        msgEl?.classList.remove('hidden');
+        domWrongWayMsg?.classList.remove('hidden');
       } else {
-        msgEl?.classList.add('hidden');
+        domWrongWayMsg?.classList.add('hidden');
       }
     }
   } else {
-    document.getElementById('wrong-way-msg')?.classList.add('hidden');
+    domWrongWayMsg?.classList.add('hidden');
   }
 
   // ── Troll / Stuck Detection ──
@@ -369,20 +380,24 @@ export function updateRace(dt, chassis) {
         stuckTimer = 0;
       }
     }
-    lastPos = { x: pos.x, y: pos.y, z: pos.z };
+    if (!lastPos) lastPos = { x: 0, y: 0, z: 0 };
+    lastPos.x = pos.x;
+    lastPos.y = pos.y;
+    lastPos.z = pos.z;
   }
 
   // ── Speed HUD ──
   const speed = chassis.velocity.length() * 3.6; // m/s → km/h
-  document.getElementById('hud-speed').textContent = Math.round(speed);
+  if (domHudSpeed) domHudSpeed.textContent = Math.round(speed);
 
   // ── Flip HUD ──
   const flip = Physics.getFlipProgress();
-  const recEl = document.getElementById('hud-recovery');
-  if (flip.timer > 0.2) {
-    recEl.classList.remove('hidden');
-  } else {
-    recEl.classList.add('hidden');
+  if (domHudRecovery) {
+    if (flip.timer > 0.2) {
+      domHudRecovery.classList.remove('hidden');
+    } else {
+      domHudRecovery.classList.add('hidden');
+    }
   }
 }
 

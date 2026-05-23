@@ -510,8 +510,9 @@ export function connectToHost(hostPeerId, playerName, carModel = 'dacia_duster_l
 // ── Interpolation (client-side LERP for remote players) ─────────────────────
 export function lerpRemotePlayers(dt) {
   const alpha = 1 - Math.exp(-12 * dt); // exponential smoothing
-  Object.entries(players).forEach(([id, p]) => {
-    if (p.isLocal || !p._lerp?.pos) return;
+  for (const id in players) {
+    const p = players[id];
+    if (p.isLocal || !p._lerp?.pos) continue;
     // Position
     p.position.x = _lerp(p.position.x, p._lerp.pos.x, alpha);
     p.position.y = _lerp(p.position.y, p._lerp.pos.y, alpha);
@@ -523,7 +524,7 @@ export function lerpRemotePlayers(dt) {
       p.quaternion.z = _lerp(p.quaternion.z, p._lerp.quat.z, alpha);
       p.quaternion.w = _lerp(p.quaternion.w, p._lerp.quat.w, alpha);
     }
-  });
+  }
 }
 
 // ── Send local state ────────────────────────────────────────────────────────
@@ -628,18 +629,21 @@ export function sendCarUpdate(carModel) {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function _broadcastToAll(msg) {
-  Object.values(peers).forEach(conn => conn.send(msg));
+  for (const id in peers) {
+    peers[id].send(msg);
+  }
 }
 function _broadcastExcept(excludeId, msg) {
-  Object.entries(peers).forEach(([id, conn]) => {
-    if (id !== excludeId) conn.send(msg);
-  });
+  for (const id in peers) {
+    if (id !== excludeId) peers[id].send(msg);
+  }
 }
 function _sanitizePlayers() {
   const out = {};
-  Object.entries(players).forEach(([id, p]) => {
+  for (const id in players) {
+    const p = players[id];
     out[id] = { name: p.name, colorIndex: p.colorIndex, carModel: p.carModel };
-  });
+  }
   return out;
 }
 function _lerp(a, b, t) {

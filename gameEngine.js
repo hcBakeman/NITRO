@@ -16,13 +16,15 @@ let _crosshairTimer = 0;
 let _collisionMode = 'fast';
 let _smokeTimer = 0;
 
-let domLightsEl, domTimeEl, domLight1, domLight2, domLight3, domLight4, domFpsCounter;
+let domLightsEl, domTimeEl, domLight1, domLight2, domLight3, domLight4, domFpsCounter, domCrosshair;
 let _framesThisSecond = 0;
 let _lastFpsTime = 0;
 
 const _tmpFwd = new CANNON.Vec3(0, 0, 1);
 const _tmpRl = new CANNON.Vec3(-0.7, -0.4, -1.4);
 const _tmpRr = new CANNON.Vec3(0.7, -0.4, -1.4);
+const _tmpVel = new CANNON.Vec3();
+const _tmpCamTarget = new THREE.Vector3();
 
 export function init() {
   domLightsEl = document.getElementById('start-lights');
@@ -32,6 +34,7 @@ export function init() {
   domLight3 = document.getElementById('light-3');
   domLight4 = document.getElementById('light-4');
   domFpsCounter = document.getElementById('fps-counter');
+  domCrosshair = document.getElementById('crosshair');
 
   Physics.setOnVehicleImpact((victimId, bumpVel, attackerId) => {
     if (Game.getState() !== Game.STATE.RACING || Game.racePhase !== 'ACTIVE') return;
@@ -199,11 +202,11 @@ function _updateRacing(dt) {
   if (chassis && speed > 20) {
     _tmpFwd.set(0, 0, 1);
     chassis.quaternion.vmult(_tmpFwd, _tmpFwd);
-    const vel = chassis.velocity.clone();
-    vel.y = 0; // Ignore vertical speed
-    if (vel.length() > 5) {
-      vel.normalize();
-      const slipDot = _tmpFwd.dot(vel);
+    _tmpVel.copy(chassis.velocity);
+    _tmpVel.y = 0; // Ignore vertical speed
+    if (_tmpVel.length() > 5) {
+      _tmpVel.normalize();
+      const slipDot = _tmpFwd.dot(_tmpVel);
       const isTurning = Game.input.left || Game.input.right;
       // Relaxed threshold: dot < 0.98 means > 11 degrees slip
       if (slipDot < 0.98 || (isTurning && speed > 28)) {
@@ -260,7 +263,8 @@ function _updateRacing(dt) {
 
   // 9. Remote player LERP + mesh sync
   Network.lerpRemotePlayers(dt);
-  for (const [id, p] of Object.entries(Network.players)) {
+  for (const id in Network.players) {
+    const p = Network.players[id];
     if (p.isLocal) continue;
     
     // Sync the dynamic physics body to the network position
@@ -295,13 +299,13 @@ function _updateRacing(dt) {
   if (chassis) {
     const pos = chassis.interpolatedPosition || chassis.position;
     const quat = chassis.interpolatedQuaternion || chassis.quaternion;
-    const _camTarget = new THREE.Vector3(pos.x, pos.y + 0.5, pos.z);
+    _tmpCamTarget.set(pos.x, pos.y + 0.5, pos.z);
 
     if (Game.racePhase === 'INTRO') {
       const progress = 1.0 - Game.raceCountdown / 5.0; // 5s intro
-      Graphics.updateIntroCamera(_camTarget, progress);
+      Graphics.updateIntroCamera(_tmpCamTarget, progress);
     } else {
-      Graphics.updateCamera(_camTarget, quat, dt);
+      Graphics.updateCamera(_tmpCamTarget, quat, dt);
     }
   }
 
@@ -324,23 +328,22 @@ function _updateRacing(dt) {
   Graphics.renderScene(dt);
 
   // 17. Update Crosshair (throttled to 10Hz to reduce physics raycast overhead)
-  const crosshairEl = document.getElementById('crosshair');
-  if (Game.heldWeapon === 'ROCKET' && chassis && crosshairEl) {
+  if (Game.heldWeapon === 'ROCKET' && chassis && domCrosshair) {
     _crosshairTimer += dt;
     if (_crosshairTimer > 0.1) {
       _crosshairTimer = 0;
       const hitPoint = Physics.raycastForward(chassis);
       const screenPos = Graphics.getScreenPosition(hitPoint);
       if (screenPos && screenPos.z < 1.0) {
-        crosshairEl.classList.remove('hidden');
-        crosshairEl.style.left = `${screenPos.x}px`;
-        crosshairEl.style.top = `${screenPos.y}px`;
+        domCrosshair.classList.remove('hidden');
+        domCrosshair.style.left = `${screenPos.x}px`;
+        domCrosshair.style.top = `${screenPos.y}px`;
       } else {
-        crosshairEl.classList.add('hidden');
+        domCrosshair.classList.add('hidden');
       }
     }
-  } else if (crosshairEl) {
-    crosshairEl.classList.add('hidden');
+  } else if (domCrosshair) {
+    domCrosshair.classList.add('hidden');
   }
 }
 

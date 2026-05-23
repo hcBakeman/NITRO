@@ -105,6 +105,7 @@ function _setupEventListeners() {
 
   safeAddListener('btn-lobby', 'click', (e) => {
     e.target.blur();
+    e.target.disabled = true; // Prevent multiple clicks
     Network.returnToLobby();
   });
 
@@ -121,7 +122,8 @@ function _setupEventListeners() {
 
   safeAddListener('btn-host-return-lobby', 'click', (e) => {
     e.target.blur();
-    if (_onReturnLobby) _onReturnLobby();
+    e.target.disabled = true;
+    Network.returnToLobby(); // Use Network.returnToLobby to ensure countdown triggers
   });
 }
 
@@ -256,23 +258,32 @@ export function showHostReturnButton(visible) {
   if (btn) btn.classList.toggle('hidden', !visible);
 }
 
-/** Show a 3-2-1 countdown overlay then call `onDone`. */
 export function showReturnLobbyCountdown(onDone) {
   const overlay = document.getElementById('return-lobby-overlay');
   const countdownEl = document.getElementById('return-lobby-countdown');
-  if (!overlay || !countdownEl) { onDone(); return; }
+  if (!overlay || !countdownEl) {
+    if (onDone) onDone();
+    return;
+  }
 
-  // Remove the hidden class so the inline display:flex can work
+  // Ensure it's forcefully shown
   overlay.classList.remove('hidden');
+  overlay.style.display = 'flex';
+  
   let count = 3;
   countdownEl.textContent = count;
 
-  const tick = setInterval(() => {
+  // Clear any existing interval just in case
+  if (overlay._tick) clearInterval(overlay._tick);
+
+  overlay._tick = setInterval(() => {
     count--;
     if (count <= 0) {
-      clearInterval(tick);
+      clearInterval(overlay._tick);
+      overlay._tick = null;
       overlay.classList.add('hidden');
-      onDone();
+      overlay.style.display = 'none';
+      if (onDone) onDone();
     } else {
       countdownEl.textContent = count;
     }

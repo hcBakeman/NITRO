@@ -244,6 +244,8 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
   playerChassis.velocity.set(0, 0, 0);
   playerChassis.angularVelocity.set(0, 0, 0);
 
+  const _tmpPushDir = new CANNON.Vec3();
+  
   playerChassis.addEventListener('collide', e => {
     const other = e.body;
     if (other.peerId && other.peerId !== '__local__') {
@@ -262,8 +264,8 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           playerChassis._hitDampTime = now; // Activate heavy anti-spin assist!
           
           // 1. Calculate the horizontal direction of the impact
-          let pushDir = new CANNON.Vec3(other.position.x - playerChassis.position.x, 0, other.position.z - playerChassis.position.z);
-          pushDir.normalize();
+          _tmpPushDir.set(other.position.x - playerChassis.position.x, 0, other.position.z - playerChassis.position.z);
+          _tmpPushDir.normalize();
           
           // 2. Controlled Arcade Velocity Bump (Networked)
           // Since collisionResponse is TRUE, CANNON natively pushes the cars apart (no clipping).
@@ -277,7 +279,7 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           
           // 5. Broadcast this EXACT velocity bump to the victim so their game applies it perfectly
           if (_onVehicleImpact) {
-            _onVehicleImpact(other.peerId, {x: pushDir.x * bumpSpeed, y: 0, z: pushDir.z * bumpSpeed}, '__local__');
+            _onVehicleImpact(other.peerId, {x: _tmpPushDir.x * bumpSpeed, y: 0, z: _tmpPushDir.z * bumpSpeed}, '__local__');
           }
         }
       }
@@ -317,6 +319,13 @@ export function createRemoteVehicle(peerId, mass = 0, carModel, spawnPos = null,
     body.quaternion.set(spawnQuat.x, spawnQuat.y, spawnQuat.z, spawnQuat.w);
   }
 
+  const tp = spawnPos || { x: 0, y: 0, z: 0 };
+  const tq = spawnQuat || { x: 0, y: 0, z: 0, w: 1 };
+  
+  body.targetPos = new CANNON.Vec3(tp.x, tp.y, tp.z);
+  body.targetQuat = new CANNON.Quaternion(tq.x, tq.y, tq.z, tq.w);
+  body.targetVel = new CANNON.Vec3(0, 0, 0);
+
   world.addBody(body);
   body.peerId = peerId;
   remoteVehicles[peerId] = body;
@@ -329,12 +338,12 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
   if (!body) return;
 
   // Store the targets so the update loop can lerp the body smoothly
-  body.targetPos = new CANNON.Vec3(targetPos.x, targetPos.y, targetPos.z);
-  body.targetQuat = new CANNON.Quaternion(targetQuat.x, targetQuat.y, targetQuat.z, targetQuat.w);
+  body.targetPos.set(targetPos.x, targetPos.y, targetPos.z);
+  body.targetQuat.set(targetQuat.x, targetQuat.y, targetQuat.z, targetQuat.w);
   if (targetVel) {
-    body.targetVel = new CANNON.Vec3(targetVel.x, targetVel.y, targetVel.z);
+    body.targetVel.set(targetVel.x, targetVel.y, targetVel.z);
   } else {
-    body.targetVel = new CANNON.Vec3(0, 0, 0);
+    body.targetVel.set(0, 0, 0);
   }
 }
 

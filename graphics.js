@@ -138,7 +138,8 @@ export function updateMinimap(players, localPlayer) {
   }
 
   // Draw players
-  Object.entries(players).forEach(([id, p]) => {
+  for (const id in players) {
+    const p = players[id];
     const isLocal = p.isLocal;
     const x = ((p.position.x - minimapBounds.minX) / (minimapBounds.maxX - minimapBounds.minX)) * w;
     const z = ((p.position.z - minimapBounds.minZ) / (minimapBounds.maxZ - minimapBounds.minZ)) * h;
@@ -147,7 +148,7 @@ export function updateMinimap(players, localPlayer) {
     ctx.beginPath();
     ctx.arc(x, z, isLocal ? 4 : 3, 0, Math.PI * 2);
     ctx.fill();
-  });
+  }
 }
 
 // ── Environment ────────────────────────────────────────────────────────────
@@ -556,11 +557,13 @@ export function createRocketMesh() {
   return mesh;
 }
 
+const _tmpRocketTarget = new THREE.Vector3();
+
 export function updateRocketMesh(mesh, pos, vel, dt) {
   mesh.position.set(pos.x, pos.y, pos.z);
   if (vel.length() > 0.1) {
-    const target = new THREE.Vector3(pos.x + vel.x, pos.y + vel.y, pos.z + vel.z);
-    mesh.lookAt(target);
+    _tmpRocketTarget.set(pos.x + vel.x, pos.y + vel.y, pos.z + vel.z);
+    mesh.lookAt(_tmpRocketTarget);
   }
 
   mesh.userData.smokeTimer = (mesh.userData.smokeTimer || 0) + dt;

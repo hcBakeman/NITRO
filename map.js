@@ -26,6 +26,38 @@ export const ROAD_HALF = 6;
 const WALL_H = 2.5;
 const WALL_T = 0.5; // wall half-thickness
 
+function _addChunkedPhysics(world, geo, material, maxFacesPerChunk = 60) {
+  const posAttr = geo.attributes.position;
+  const indices = geo.index.array;
+  
+  for (let i = 0; i < indices.length; i += maxFacesPerChunk * 3) {
+    const chunkVerts = [];
+    const chunkIndices = [];
+    const vertMap = new Map();
+    
+    const end = Math.min(i + maxFacesPerChunk * 3, indices.length);
+    for (let j = i; j < end; j++) {
+      const globalIdx = indices[j];
+      if (!vertMap.has(globalIdx)) {
+        vertMap.set(globalIdx, chunkVerts.length / 3);
+        chunkVerts.push(posAttr.getX(globalIdx), posAttr.getY(globalIdx), posAttr.getZ(globalIdx));
+      }
+      chunkIndices.push(vertMap.get(globalIdx));
+    }
+    
+    // Make the wall double-sided for physics to prevent high-speed tunneling
+    const numIndices = chunkIndices.length;
+    for (let j = 0; j < numIndices; j += 3) {
+      chunkIndices.push(chunkIndices[j], chunkIndices[j + 2], chunkIndices[j + 1]);
+    }
+    
+    const chunkShape = new CANNON.Trimesh(chunkVerts, chunkIndices);
+    const chunkBody = new CANNON.Body({ mass: 0, material });
+    chunkBody.addShape(chunkShape);
+    world.addBody(chunkBody);
+  }
+}
+
 export function generateMap(seed, world, groundMat, wallMat) {
   const isTest = Number(seed) === 0;
   let rng = mulberry32(seed);
@@ -187,27 +219,9 @@ export function generateMap(seed, world, groundMat, wallMat) {
   rightMesh.receiveShadow = false;
   wallMeshes.push(rightMesh);
 
-  // Wall Physics (Static Boxes, skipping gaps)
-  const WALL_STEP_M = 2.0;
-  const wallSamplesPhys = Math.ceil(length / WALL_STEP_M);
-  for (let i = 0; i < wallSamplesPhys; i++) {
-    const t = i / wallSamplesPhys;
-    const isInGap = jumpZones.some(z => t >= z.startT && t <= z.endT);
-    if (isInGap) continue;
-
-    const pt = spline.getPointAt(t);
-    const tan = spline.getTangentAt(t).normalize();
-    const perp = new THREE.Vector3(-tan.z, 0, tan.x);
-    [-1, 1].forEach(side => {
-      const pos = pt.clone().addScaledVector(perp, side * (ROAD_HALF + WALL_T));
-      const angle = Math.atan2(tan.x, tan.z);
-      const wBody = new CANNON.Body({ mass: 0, material: wallMat });
-      wBody.addShape(new CANNON.Box(new CANNON.Vec3(WALL_T, WALL_H / 2, (WALL_STEP_M + 0.5) / 2)));
-      wBody.position.set(pos.x, pt.y + WALL_H / 2, pos.z);
-      wBody.quaternion.setFromEuler(0, angle, 0);
-      world.addBody(wBody);
-    });
-  }
+  // Wall Physics (Chunked Trimeshes instead of thousands of Boxes)
+  _addChunkedPhysics(world, leftGeo, wallMat);
+  _addChunkedPhysics(world, rightGeo, wallMat);
 
   // ── Modular Ramps (Seed 0000 only) ───────────────────────────────────────
   if (isTest) {
@@ -482,7 +496,7 @@ function _buildGrassMaterial() {
   const tex = new THREE.TextureLoader().load('textures/textures/coast_sand_rocks_02_diff_1k.jpg');
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(80, 80);
-  return new THREE.MeshLambertMaterial({ map: tex, color: 0x66cc66 });
+  return new THREE.MeshBasicMaterial({ map: tex, color: 0x66cc66 });
 }
 
 function _buildIndexArray(vertCount) {

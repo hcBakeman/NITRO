@@ -10,6 +10,9 @@ let stickRight = null;
 let leftTouchId = null;
 let rightTouchId = null;
 
+let cachedLeftRect = null;
+let cachedRightRect = null;
+
 // Joystick constraints
 const MAX_RADIUS = 50;
 
@@ -70,21 +73,25 @@ export function initMobileControls() {
 function handleTouchStart(e) {
   e.preventDefault(); // Prevent scrolling
   
-  const leftRect = joystickLeft.getBoundingClientRect();
-  const rightRect = joystickRight.getBoundingClientRect();
+  if (!cachedLeftRect) cachedLeftRect = joystickLeft.getBoundingClientRect();
+  if (!cachedRightRect) cachedRightRect = joystickRight.getBoundingClientRect();
+  
+  // Re-check just in case layout changed
+  if (leftTouchId === null) cachedLeftRect = joystickLeft.getBoundingClientRect();
+  if (rightTouchId === null) cachedRightRect = joystickRight.getBoundingClientRect();
   
   for (let i = 0; i < e.changedTouches.length; i++) {
     const touch = e.changedTouches[i];
     
     // Check if touch is near left joystick
-    if (leftTouchId === null && isInside(touch, leftRect)) {
+    if (leftTouchId === null && isInside(touch, cachedLeftRect)) {
       leftTouchId = touch.identifier;
-      updateJoystick(joystickLeft, stickLeft, touch, 'left');
+      updateJoystick(joystickLeft, stickLeft, touch, 'left', cachedLeftRect);
     }
     // Check if touch is near right joystick
-    else if (rightTouchId === null && isInside(touch, rightRect)) {
+    else if (rightTouchId === null && isInside(touch, cachedRightRect)) {
       rightTouchId = touch.identifier;
-      updateJoystick(joystickRight, stickRight, touch, 'right');
+      updateJoystick(joystickRight, stickRight, touch, 'right', cachedRightRect);
     }
   }
 }
@@ -94,9 +101,9 @@ function handleTouchMove(e) {
   for (let i = 0; i < e.changedTouches.length; i++) {
     const touch = e.changedTouches[i];
     if (touch.identifier === leftTouchId) {
-      updateJoystick(joystickLeft, stickLeft, touch, 'left');
+      updateJoystick(joystickLeft, stickLeft, touch, 'left', cachedLeftRect);
     } else if (touch.identifier === rightTouchId) {
-      updateJoystick(joystickRight, stickRight, touch, 'right');
+      updateJoystick(joystickRight, stickRight, touch, 'right', cachedRightRect);
     }
   }
 }
@@ -129,8 +136,7 @@ function isInside(touch, rect) {
   );
 }
 
-function updateJoystick(base, stick, touch, type) {
-  const rect = base.getBoundingClientRect();
+function updateJoystick(base, stick, touch, type, rect) {
   const centerX = rect.left + rect.width / 2;
   const centerY = rect.top + rect.height / 2;
   
