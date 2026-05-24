@@ -278,7 +278,8 @@ export function updateRace(dt, chassis) {
         const GLOBAL_STEPS = 50;
         for (let i = 0; i <= GLOBAL_STEPS; i++) {
           const t = i / GLOBAL_STEPS;
-          const pt = mapData.spline.getPointAt(t);
+          if (!chassis._tmpWwPoint) chassis._tmpWwPoint = new THREE.Vector3();
+          const pt = mapData.spline.getPointAt(t, chassis._tmpWwPoint);
           const dSq = pt.distanceToSquared(pos);
           if (dSq < minDistSq) {
             minDistSq = dSq;
@@ -292,7 +293,8 @@ export function updateRace(dt, chassis) {
         const range = 0.12;
         for (let i = 0; i <= STEPS; i++) {
           let t = (closestT - range + (i / STEPS) * 2 * range + 1) % 1;
-          const pt = mapData.spline.getPointAt(t);
+          if (!chassis._tmpWwPoint) chassis._tmpWwPoint = new THREE.Vector3();
+          const pt = mapData.spline.getPointAt(t, chassis._tmpWwPoint);
           const dSq = pt.distanceToSquared(pos);
           if (dSq < minDistSq) {
             minDistSq = dSq;
@@ -307,7 +309,8 @@ export function updateRace(dt, chassis) {
            const GLOBAL_STEPS = 30;
            for (let i = 0; i <= GLOBAL_STEPS; i++) {
              const t = i / GLOBAL_STEPS;
-             const pt = mapData.spline.getPointAt(t);
+             if (!chassis._tmpWwPoint) chassis._tmpWwPoint = new THREE.Vector3();
+             const pt = mapData.spline.getPointAt(t, chassis._tmpWwPoint);
              const dSq = pt.distanceToSquared(pos);
              if (dSq < minDistSq) {
                minDistSq = dSq;
@@ -320,7 +323,8 @@ export function updateRace(dt, chassis) {
 
       // 2. Heading Check
       // Use 2D projection (XZ) to ignore vehicle pitch/roll influence
-      const tan = mapData.spline.getTangentAt(closestT).normalize();
+      if (!chassis._tmpWwTan) chassis._tmpWwTan = new THREE.Vector3();
+      const tan = mapData.spline.getTangentAt(closestT, chassis._tmpWwTan).normalize();
       _tmpFwdVec3.set(0, 0, 1);
       chassis.quaternion.vmult(_tmpFwdVec3, _tmpFwdVec3);
       

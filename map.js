@@ -24,37 +24,62 @@ const RING_RADIUS = 150;
 const OFFSET_MAX = 35;
 export const ROAD_HALF = 6;
 const WALL_H = 2.5;
-const WALL_T = 0.5; // wall half-thickness
+const WALL_T = 0.2; // wall half-thickness
 
-function _addChunkedPhysics(world, geo, material, maxFacesPerChunk = 60) {
-  const posAttr = geo.attributes.position;
-  const indices = geo.index.array;
-  
-  for (let i = 0; i < indices.length; i += maxFacesPerChunk * 3) {
-    const chunkVerts = [];
-    const chunkIndices = [];
-    const vertMap = new Map();
+function _buildWallBoxes(spline, samples, side, world, material, jumpZones, frames) {
+  for (let i = 0; i < samples; i++) {
+    const t1 = i / samples;
+    const t2 = (i + 1) / samples;
     
-    const end = Math.min(i + maxFacesPerChunk * 3, indices.length);
-    for (let j = i; j < end; j++) {
-      const globalIdx = indices[j];
-      if (!vertMap.has(globalIdx)) {
-        vertMap.set(globalIdx, chunkVerts.length / 3);
-        chunkVerts.push(posAttr.getX(globalIdx), posAttr.getY(globalIdx), posAttr.getZ(globalIdx));
-      }
-      chunkIndices.push(vertMap.get(globalIdx));
-    }
+    const isInGap = jumpZones && jumpZones.some(z => t1 >= z.startT && t1 <= z.endT);
+    if (isInGap) continue;
+
+    const pt1 = spline.getPointAt(t1);
+    const pt2 = spline.getPointAt(t2);
     
-    // Make the wall double-sided for physics to prevent high-speed tunneling
-    const numIndices = chunkIndices.length;
-    for (let j = 0; j < numIndices; j += 3) {
-      chunkIndices.push(chunkIndices[j], chunkIndices[j + 2], chunkIndices[j + 1]);
-    }
+    const rightDir1 = frames.binormals[i % samples].clone().normalize();
+    const outDir1 = rightDir1.clone().multiplyScalar(side);
+    const center1 = pt1.clone().addScaledVector(outDir1, ROAD_HALF + WALL_T);
     
-    const chunkShape = new CANNON.Trimesh(chunkVerts, chunkIndices);
-    const chunkBody = new CANNON.Body({ mass: 0, material });
-    chunkBody.addShape(chunkShape);
-    world.addBody(chunkBody);
+    const rightDir2 = frames.binormals[(i + 1) % samples].clone().normalize();
+    const outDir2 = rightDir2.clone().multiplyScalar(side);
+    const center2 = pt2.clone().addScaledVector(outDir2, ROAD_HALF + WALL_T);
+    
+    // ── CORRECTED FISH SCALE OVERLAP ──
+    // The previous values were way too large, causing the straight boxes to shoot
+    // like tangents far into the track space on tight curves!
+    // We only need a tiny overlap to hide the seam.
+    const OVERLAP_OFFSET = 0.05; // 5cm shift (front in, rear out)
+    const OVERLAP_EXTEND = 0.2;  // 20cm length extension (10cm per end)
+    
+    center1.addScaledVector(outDir1, OVERLAP_OFFSET);
+    center2.addScaledVector(outDir2, -OVERLAP_OFFSET);
+    
+    const dist = center1.distanceTo(center2);
+    
+    // Box half-extents: width is WALL_T, height is WALL_H/2, length is (dist + OVERLAP_EXTEND)/2
+    const boxShape = new CANNON.Box(new CANNON.Vec3(WALL_T, WALL_H / 2, (dist + OVERLAP_EXTEND) / 2));
+    const boxBody = new CANNON.Body({ mass: 0, material });
+    
+    const midPoint = new THREE.Vector3().addVectors(center1, center2).multiplyScalar(0.5);
+    boxBody.position.set(midPoint.x, midPoint.y + WALL_H / 2, midPoint.z);
+    
+    const forward = new THREE.Vector3().subVectors(center2, center1).normalize();
+    const up = new THREE.Vector3().crossVectors(rightDir1, forward).normalize();
+    if (up.y < 0) up.negate();
+    
+    const m = new THREE.Matrix4();
+    const right = new THREE.Vector3().crossVectors(up, forward).normalize();
+    m.makeBasis(right, up, forward);
+    
+    const quat = new THREE.Quaternion().setFromRotationMatrix(m);
+    boxBody.quaternion.set(quat.x, quat.y, quat.z, quat.w);
+    
+    boxBody.collisionFilterGroup = 1;
+    boxBody.collisionFilterMask = -1; // Allow collision with everything
+    boxBody.addShape(boxShape);
+    
+    world.addBody(boxBody);
   }
 }
 
@@ -199,6 +224,8 @@ export function generateMap(seed, world, groundMat, wallMat) {
 
     const chunkShape = new CANNON.Trimesh(chunkVerts, chunkIndices);
     const chunkBody = new CANNON.Body({ mass: 0, material: groundMat });
+    chunkBody.collisionFilterGroup = 1; // Default
+    chunkBody.collisionFilterMask = -1; // Collide with EVERYTHING (chassis, wheels, rockets)
     chunkBody.addShape(chunkShape);
     world.addBody(chunkBody);
   }
@@ -225,9 +252,9 @@ export function generateMap(seed, world, groundMat, wallMat) {
   rightMesh.receiveShadow = false;
   wallMeshes.push(rightMesh);
 
-  // Wall Physics (Chunked Trimeshes instead of thousands of Boxes)
-  _addChunkedPhysics(world, leftGeo, wallMat);
-  _addChunkedPhysics(world, rightGeo, wallMat);
+  // Wall Physics (Overlapping fish-scale boxes to prevent snagging and tunneling)
+  _buildWallBoxes(spline, samples, -1, world, wallMat, jumpZones, frames);
+  _buildWallBoxes(spline, samples, 1, world, wallMat, jumpZones, frames);
 
   // ── Modular Ramps (Seed 0000 only) ───────────────────────────────────────
   if (isTest) {

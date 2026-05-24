@@ -103,6 +103,7 @@ window.addEventListener('load', async () => {
 // ── Handlers ───────────────────────────────────────────────────────────────
 async function handleHost() {
   try {
+    Audio.init(); // Wake up AudioContext on click
     await setupNetwork();
     Network.hostGame(getName(), 0, AVAILABLE_CARS[currentCarIndex]);
     UI.refreshPlayerList(Network.players, Network.getIsHost());
@@ -113,26 +114,27 @@ async function handleHost() {
   }
 }
 
-
 function handleJoin() {
+  Audio.init(); // Wake up AudioContext on click
   Game.setState(Game.STATE.JOIN_LOBBY);
 }
 
 async function handleConnect(lobbyId) {
   if (!lobbyId) return UI.showMessage('PLEASE ENTER LOBBY NAME', 'error');
   try {
+    Audio.init(); // Wake up AudioContext on click
     await setupNetwork();
     document.getElementById('peer-id-display').textContent = lobbyId;
     await Network.connectToHost(lobbyId, getName(), AVAILABLE_CARS[currentCarIndex]);
     UI.refreshPlayerList(Network.players, Network.getIsHost());
     Game.setState(Game.STATE.LOBBY);
-
   } catch (e) {
     UI.showMessage(e.message, 'error');
   }
 }
 
 function handleStart() {
+  Audio.init(); // Wake up AudioContext on click
   const seed = parseInt(document.getElementById('seed-input').value) || Math.floor(Math.random() * 999999);
   const laps = parseInt(document.getElementById('lap-input').value) || 3;
   const driveMode = document.getElementById('drive-input').value;

@@ -35,8 +35,8 @@ export function initPhysics() {
   );
   world.addContactMaterial(
     new CANNON.ContactMaterial(wallMat, vehicleMat, {
-      friction: 0.15,
-      restitution: 0.35,
+      friction: 0.0,
+      restitution: 0.1,
     })
   );
   world.addContactMaterial(
@@ -166,17 +166,21 @@ const _tmpDriftForce1 = new CANNON.Vec3();
 const _tmpDriftForce2 = new CANNON.Vec3();
 
 function _addVanShapes(body) {
-  // Tightened hitbox: 1.64m wide, 0.9m tall, 3.5m long
-  const chassisShape = new CANNON.Box(new CANNON.Vec3(0.82, 0.45, 1.75));
-  body.addShape(chassisShape, new CANNON.Vec3(0, 0, 0));
+  // Use 3 overlapping spheres to create a perfectly smooth "Capsule" chassis.
+  const r = 0.82; // Half the car's width (1.64m / 2)
+  const zOffset = 1.75 - r; // Push to the front and back
+  
+  const sphereShape = new CANNON.Sphere(r);
+  const sy = 0.2; // ground clearance
+
+  body.addShape(sphereShape, new CANNON.Vec3(0, sy, zOffset));
+  body.addShape(sphereShape, new CANNON.Vec3(0, sy, 0));
+  body.addShape(sphereShape, new CANNON.Vec3(0, sy, -zOffset));
 
   // Cabin is narrower to allow for more lean in corners
   const cabinShape = new CANNON.Box(new CANNON.Vec3(0.65, 0.35, 0.85));
-  body.addShape(cabinShape, new CANNON.Vec3(0, 0.8, 0));
+  body.addShape(cabinShape, new CANNON.Vec3(0, 0.8 + sy, 0));
   
-  // CRITICAL: We MUST update mass properties after adding shapes to a body!
-  // Otherwise the inertia tensor remains at its default (usually 1,1,1), causing
-  // ANY offset forces (like collisions or rockets) to spin the 1400kg car infinitely fast!
   body.updateMassProperties();
 }
 

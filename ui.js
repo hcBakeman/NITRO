@@ -186,7 +186,13 @@ export function updateLoadingPlayerList(players) {
     const statusClass = p.loaded ? 'loading-status-ready' : 'loading-status-loading';
     const item = document.createElement('div');
     item.className = 'loading-player-item';
-    item.innerHTML = `<span>${p.name || 'Anonymous'}</span><span class="${statusClass}">${statusText}</span>`;
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = p.name || 'Anonymous';
+    const statusSpan = document.createElement('span');
+    statusSpan.className = statusClass;
+    statusSpan.textContent = statusText;
+    item.appendChild(nameSpan);
+    item.appendChild(statusSpan);
     list.appendChild(item);
   });
 }
@@ -197,7 +203,9 @@ export function refreshPlayerList(players, isHost) {
   Object.values(players).forEach(p => {
     const li = document.createElement('div');
     li.className = 'player-item';
-    li.innerHTML = `<span>${p.name || 'Anonymous'}</span>`;
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = p.name || 'Anonymous';
+    li.appendChild(nameSpan);
     if (isHost && !p.isLocal) {
       const kickBtn = document.createElement('button');
       kickBtn.className = 'btn btn-small';

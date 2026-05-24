@@ -285,6 +285,13 @@ export function buildRaceMap(mapData, sceneRef = scene) {
     bounds.minZ -= pad; bounds.maxZ += pad;
     initMinimap(minimapCanvas, mapData.spline, bounds);
   }
+
+  // Pre-compile shaders to prevent stuttering when particle effects (tire smoke) appear
+  if (smokeInstanced) smokeInstanced.count = 1;
+  if (tireSmokeInstanced) tireSmokeInstanced.count = 1;
+  renderer.compile(scene, camera);
+  if (smokeInstanced) smokeInstanced.count = 0;
+  if (tireSmokeInstanced) tireSmokeInstanced.count = 0;
 }
 
 export function updateCheckpoints(passedCount) {
@@ -425,40 +432,80 @@ async function loadCarModelGltf(modelName) {
   object.updateMatrixWorld(true);
 
   // Merge into a single mesh for massive draw call reduction
-  const geometries = [];
-  const materials = [];
+  const geometriesByMaterial = new Map();
   object.traverse(child => {
     if (child.isMesh && child.geometry) {
       const geo = child.geometry.clone();
       geo.applyMatrix4(child.matrixWorld);
 
-      let matIndex = materials.indexOf(child.material);
-      if (matIndex === -1) {
-        materials.push(child.material);
-        matIndex = materials.length - 1;
+      // Strip unused attributes to prevent mergeGeometries from failing
+      const validAttributes = ['position', 'normal', 'uv'];
+      for (const key in geo.attributes) {
+        if (!validAttributes.includes(key)) {
+          geo.deleteAttribute(key);
+        }
+      }
+      
+      // Ensure missing essential attributes are populated
+      if (!geo.attributes.normal) geo.computeVertexNormals();
+      if (!geo.attributes.uv) {
+        geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(geo.attributes.position.count * 2), 2));
       }
 
-      if (geo.groups.length === 0) {
-        geo.addGroup(0, geo.attributes.position.count, matIndex);
-      } else {
-        geo.groups.forEach(g => g.materialIndex = matIndex);
+      // Remove existing groups to avoid mergeGeometries confusion
+      geo.groups = [];
+      
+      const mat = child.material;
+      if (!geometriesByMaterial.has(mat)) {
+        geometriesByMaterial.set(mat, []);
       }
-      geometries.push(geo);
+      geometriesByMaterial.get(mat).push(geo);
     }
   });
 
+  const finalGeometries = [];
+  const materials = [];
+  
+  let mergeFailed = false;
+  for (const [mat, geoms] of geometriesByMaterial.entries()) {
+    // Merge all geometries that share this material into a single geometry!
+    // useGroups = false because they all share the same material
+    const mergedForMat = mergeGeometries(geoms, false);
+    if (mergedForMat) {
+      finalGeometries.push(mergedForMat);
+      materials.push(mat);
+    } else {
+      mergeFailed = true;
+      break;
+    }
+  }
+
   const wrapper = new THREE.Group();
-  if (geometries.length > 0) {
-    const mergedGeo = mergeGeometries(geometries, true);
+  if (!mergeFailed && finalGeometries.length > 0) {
+    // Merge the material-specific geometries into one final geometry!
+    // useGroups = true so each material gets its own group!
+    const mergedGeo = mergeGeometries(finalGeometries, true);
     if (mergedGeo) {
       const mergedMesh = new THREE.Mesh(mergedGeo, materials);
       mergedMesh.castShadow = true;
       mergedMesh.receiveShadow = true;
       wrapper.add(mergedMesh);
     } else {
+      object.traverse(child => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
       wrapper.add(object);
     }
   } else {
+    object.traverse(child => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
     wrapper.add(object);
   }
 
@@ -495,9 +542,6 @@ export async function loadVehicle(peerId, colorIndex, modelName) {
 function _buildFallbackCar(color) {
   const grp = new THREE.Group();
   const container = new THREE.Group();
-  
-  const geometries = [];
-  const materials = [];
 
   const mat = new THREE.MeshLambertMaterial({ color, flatShading: true });
   const body = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.9, 3.6), mat);
@@ -512,19 +556,16 @@ function _buildFallbackCar(color) {
   container.add(cabin);
   
   container.updateMatrixWorld(true);
-  
+  const geometriesByMaterial = new Map();
+
   container.traverse(child => {
-    if (child.isMesh) {
+    if (child.isMesh && child.geometry) {
       const geo = child.geometry.clone();
       geo.applyMatrix4(child.matrixWorld);
       
-      let matIndex = materials.indexOf(child.material);
-      if (matIndex === -1) {
-        materials.push(child.material);
-        matIndex = matIndex = materials.length - 1;
-      }
-      geo.addGroup(0, geo.attributes.position.count, matIndex);
-      geometries.push(geo);
+      const mat = child.material;
+      if (!geometriesByMaterial.has(mat)) geometriesByMaterial.set(mat, []);
+      geometriesByMaterial.get(mat).push(geo);
     }
   });
 
@@ -543,22 +584,48 @@ function _buildFallbackCar(color) {
     const geo = w.geometry.clone();
     geo.applyMatrix4(w.matrixWorld);
     
-    let matIndex = materials.indexOf(w.material);
-    if (matIndex === -1) {
-      materials.push(w.material);
-      matIndex = materials.length - 1;
-    }
-    geo.addGroup(0, geo.attributes.position.count, matIndex);
-    geometries.push(geo);
+    if (!geometriesByMaterial.has(wMat)) geometriesByMaterial.set(wMat, []);
+    geometriesByMaterial.get(wMat).push(geo);
   });
 
-  const mergedGeo = mergeGeometries(geometries, true);
-  if (mergedGeo) {
-    const mergedMesh = new THREE.Mesh(mergedGeo, materials);
-    mergedMesh.castShadow = true;
-    mergedMesh.receiveShadow = true;
-    grp.add(mergedMesh);
+  const finalGeometries = [];
+  const materials = [];
+  
+  let mergeFailed = false;
+  for (const [mat, geoms] of geometriesByMaterial.entries()) {
+    const mergedForMat = mergeGeometries(geoms, false);
+    if (mergedForMat) {
+      finalGeometries.push(mergedForMat);
+      materials.push(mat);
+    } else {
+      mergeFailed = true;
+      break;
+    }
+  }
+
+  if (!mergeFailed && finalGeometries.length > 0) {
+    const mergedGeo = mergeGeometries(finalGeometries, true);
+    if (mergedGeo) {
+      const mergedMesh = new THREE.Mesh(mergedGeo, materials);
+      mergedMesh.castShadow = true;
+      mergedMesh.receiveShadow = true;
+      grp.add(mergedMesh);
+    } else {
+      container.traverse(child => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      grp.add(container);
+    }
   } else {
+    container.traverse(child => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
     grp.add(container);
   }
 
