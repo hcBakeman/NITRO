@@ -128,22 +128,31 @@ function _setupEventListeners() {
 }
 
 
+let _lastHUDState = { speed: -1, lap: null, weapon: null, ammo: null };
+
 export function updateHUD(data) {
-  const speedEl = document.getElementById('hud-speed');
-  if (speedEl && data.speed !== undefined) {
-    speedEl.textContent = Math.round(data.speed);
+  if (data.speed !== undefined) {
+    const spd = Math.round(data.speed);
+    if (spd !== _lastHUDState.speed) {
+      const speedEl = document.getElementById('hud-speed');
+      if (speedEl) speedEl.textContent = spd;
+      _lastHUDState.speed = spd;
+    }
   }
-  const lapEl = document.getElementById('hud-lap');
-  if (lapEl && data.lap !== undefined) {
-    lapEl.textContent = data.lap;
+  if (data.lap !== undefined && data.lap !== _lastHUDState.lap) {
+    const lapEl = document.getElementById('hud-lap');
+    if (lapEl) lapEl.textContent = data.lap;
+    _lastHUDState.lap = data.lap;
   }
-  const weaponEl = document.getElementById('hud-weapon');
-  if (weaponEl && data.weapon !== undefined) {
-    weaponEl.textContent = data.weapon;
+  if (data.weapon !== undefined && data.weapon !== _lastHUDState.weapon) {
+    const weaponEl = document.getElementById('hud-weapon');
+    if (weaponEl) weaponEl.textContent = data.weapon;
+    _lastHUDState.weapon = data.weapon;
   }
-  const ammoEl = document.getElementById('hud-ammo');
-  if (ammoEl && data.ammo !== undefined) {
-    ammoEl.textContent = data.ammo > 0 ? data.ammo : '';
+  if (data.ammo !== undefined && data.ammo !== _lastHUDState.ammo) {
+    const ammoEl = document.getElementById('hud-ammo');
+    if (ammoEl) ammoEl.textContent = data.ammo > 0 ? data.ammo : '';
+    _lastHUDState.ammo = data.ammo;
   }
 }
 

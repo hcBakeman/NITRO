@@ -19,6 +19,15 @@ let _smokeTimer = 0;
 let domLightsEl, domTimeEl, domLight1, domLight2, domLight3, domLight4, domFpsCounter, domCrosshair;
 let _framesThisSecond = 0;
 let _lastFpsTime = 0;
+let _lastTimeStr = null;
+let _minimapTimer = 0;
+
+function _setTimeText(str) {
+  if (str !== _lastTimeStr) {
+    if (domTimeEl) domTimeEl.textContent = str;
+    _lastTimeStr = str;
+  }
+}
 
 const _tmpFwd = new CANNON.Vec3(0, 0, 1);
 const _tmpRl = new CANNON.Vec3(-0.7, -0.4, -1.4);
@@ -83,7 +92,7 @@ function _updateRacing(dt) {
   // 2. Race UI (Countdown & Time) & Input & Engine Sound
   if (Game.racePhase === 'WAITING_FOR_PLAYERS' || Game.racePhase === 'INTRO') {
     if (domLightsEl) domLightsEl.classList.add('hidden');
-    if (domTimeEl) domTimeEl.textContent = Game.racePhase === 'WAITING_FOR_PLAYERS' ? 'WAITING FOR PLAYERS...' : 'WARMING UP...';
+    _setTimeText(Game.racePhase === 'WAITING_FOR_PLAYERS' ? 'WAITING FOR PLAYERS...' : 'WARMING UP...');
     Audio.updateEngine(0, false);
     Physics.setVehicleInput({
       forward: false,
@@ -116,7 +125,7 @@ function _updateRacing(dt) {
       }
     }
 
-    if (domTimeEl) domTimeEl.textContent = '00:00.000';
+    _setTimeText('00:00.000');
 
     // Allow input so the user can potentially jump-start
     Physics.setVehicleInput(Game.input);
@@ -144,13 +153,13 @@ function _updateRacing(dt) {
       } else {
         if (domLightsEl) domLightsEl.classList.add('hidden');
       }
-      if (domTimeEl) domTimeEl.textContent = formatTime(Game.currentRaceTime);
+      _setTimeText(formatTime(Game.currentRaceTime));
       Physics.setVehicleInput(Game.input);
       Audio.updateEngine(chassis ? chassis.velocity.length() : 0, Game.input.forward);
     } else {
       // FINISHED
       if (domLightsEl) domLightsEl.classList.add('hidden');
-      if (domTimeEl) domTimeEl.textContent = formatTime(Game.currentRaceTime);
+      _setTimeText(formatTime(Game.currentRaceTime));
       Physics.setVehicleInput({
         forward: false,
         backward: false,
@@ -301,7 +310,11 @@ function _updateRacing(dt) {
   if (chassis) {
     const mapData = Game.getRaceMapData();
     if (mapData) {
-      Graphics.updateMinimap(Network.players, chassis);
+      _minimapTimer += dt;
+      if (_minimapTimer > 0.066) { // Throttled to ~15 FPS
+        Graphics.updateMinimap(Network.players, chassis);
+        _minimapTimer = 0;
+      }
     }
   }
 
