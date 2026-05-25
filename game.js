@@ -291,8 +291,9 @@ export function updateRace(dt, chassis) {
         // Incremental search around previous t (handling wrap-around)
         const STEPS = 14;
         const range = 0.12;
+        const startT = closestT;
         for (let i = 0; i <= STEPS; i++) {
-          let t = (closestT - range + (i / STEPS) * 2 * range + 1) % 1;
+          let t = (startT - range + (i / STEPS) * 2 * range + 1) % 1;
           if (!chassis._tmpWwPoint) chassis._tmpWwPoint = new THREE.Vector3();
           const pt = mapData.spline.getPointAt(t, chassis._tmpWwPoint);
           const dSq = pt.distanceToSquared(pos);
@@ -301,8 +302,6 @@ export function updateRace(dt, chassis) {
             closestT = t;
           }
         }
-        
-        chassis._distToSplineSq = minDistSq; // Store for out-of-bounds detection
         
         // If the closest point found is way too far, do a recovery global search
         if (minDistSq > 100 * 100) {
@@ -316,8 +315,9 @@ export function updateRace(dt, chassis) {
                minDistSq = dSq;
                closestT = t;
              }
-           }
-        }
+         }
+         
+         chassis._distToSplineSq = minDistSq;
       }
       chassis._closestT = closestT;
 
