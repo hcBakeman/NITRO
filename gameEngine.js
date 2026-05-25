@@ -216,11 +216,15 @@ function _updateRacing(dt) {
   if (chassis) {
     if (chassis.position.y < -5) {
       isOutOfBounds = true;
-    } else if (chassis._distToSplineSq > 45 * 45) { // ~3 track widths away
-      // Make sure they aren't mid-air flying over a track piece by checking if their velocity is low
-      // OR if they are comically far away
-      if (chassis.velocity.length() < 2.0 || chassis._distToSplineSq > 100 * 100) {
-        isOutOfBounds = true;
+    } else {
+      const isTest = Game.getRaceMapData()?.isTest;
+      const distLimitSq = isTest ? 100 * 100 : 45 * 45; // Test track is 60m wide, so use 100m limit
+      if (chassis._distToSplineSq > distLimitSq) {
+        // Make sure they aren't mid-air flying over a track piece by checking if their velocity is low
+        // OR if they are comically far away
+        if (chassis.velocity.length() < 2.0 || chassis._distToSplineSq > 150 * 150) {
+          isOutOfBounds = true;
+        }
       }
     }
   }

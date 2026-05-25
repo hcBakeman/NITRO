@@ -109,7 +109,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
     const pts = [];
     for (let i = 0; i < NUM_POINTS; i++) {
       if (isTest) {
-        pts.push(new THREE.Vector3(0, 0, i * 150)); // straight line, 150m spacing
+        pts.push(new THREE.Vector3(0, 0, -i * 150)); // straight line, -150m spacing so it matches car's -Z forward
       } else {
         const angle = (i / NUM_POINTS) * Math.PI * 2;
         const r = RING_RADIUS + (rng() - 0.5) * 2 * OFFSET_MAX;
@@ -132,7 +132,6 @@ export function generateMap(seed, world, groundMat, wallMat) {
   const uvs = [];
   const visualIndices = [];
   const physIndices = [];
-
 
   // Compute stable Frenet frames for smooth, twist-free banking
   const isClosed = isTest ? false : true;
@@ -185,7 +184,12 @@ export function generateMap(seed, world, groundMat, wallMat) {
   roadGeo.computeVertexNormals();
 
   const roadMat = isTest
-    ? new THREE.MeshLambertMaterial({ color: 0x2244ff })
+    ? (() => {
+        const tex = new THREE.TextureLoader().load('textures/textures/asphalt_02_diff_1k.jpg');
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(1, 1);
+        return new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide });
+      })()
     : _buildRoadMaterial();
   const trackMesh = new THREE.Mesh(roadGeo, roadMat);
   trackMesh.matrixAutoUpdate = false;
