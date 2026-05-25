@@ -456,15 +456,25 @@ export function setVehicleHitbox(id, width, height, length) {
   const shapes = [...body.shapes];
   shapes.forEach(s => body.removeShape(s));
 
-  // Add new chassis shape (tightened and raised to prevent scraping the road on suspension compression)
-  // Height changed from 0.45 to 0.25, and Y offset changed from 0 to 0.2. 
-  // This guarantees clearance for the wheels to compress fully without the Box grinding the Trimesh.
-  const chassisShape = new CANNON.Box(new CANNON.Vec3(width * 0.49, 0.25, length * 0.49));
-  body.addShape(chassisShape, new CANNON.Vec3(0, 0.2, 0));
+  // We use overlapping spheres instead of a Box for the chassis.
+  // Cannon-es Box vs Trimesh collision is incredibly slow on mobile.
+  // Sphere vs Trimesh is extremely fast!
+  
+  const r = width * 0.45; // Sphere radius (half width)
+  const zOffset = Math.max(0, (length * 0.45) - r); 
+  const sphereShape = new CANNON.Sphere(r);
+  
+  // Base clearance Y=0.35 ensures the chassis spheres don't constantly grind the floor Trimesh
+  const sy = 0.35; 
 
-  // Add new cabin shape
+  body.addShape(sphereShape, new CANNON.Vec3(0, sy, zOffset));
+  body.addShape(sphereShape, new CANNON.Vec3(0, sy, 0));
+  body.addShape(sphereShape, new CANNON.Vec3(0, sy, -zOffset));
+
+  // The cabin can remain a Box because it sits high up and never touches the road Trimesh.
+  // It only collides with walls (Box vs Box is very fast).
   const cabinShape = new CANNON.Box(new CANNON.Vec3(width * 0.35, 0.35, length * 0.25));
-  body.addShape(cabinShape, new CANNON.Vec3(0, 0.8, 0));
+  body.addShape(cabinShape, new CANNON.Vec3(0, sy + 0.6, 0));
 }
 
 // ── Vehicle Input ─────────────────────────────────────────────────────────
