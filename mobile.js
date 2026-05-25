@@ -26,46 +26,15 @@ export function initMobileControls() {
   const btnFullscreen = document.getElementById('btn-fullscreen');
   if (btnFullscreen) {
     btnFullscreen.style.display = 'block';
-    btnFullscreen.addEventListener('click', (e) => {
-      e.preventDefault();
+    btnFullscreen.addEventListener('click', async () => {
       try {
-        const elem = document.documentElement;
-        let req;
-        
-        // Pass navigationUI: "hide" to ensure URL bar hides on Android
-        if (elem.requestFullscreen) {
-          req = elem.requestFullscreen({ navigationUI: "hide" });
-        } else if (elem.webkitRequestFullscreen) { /* Safari */
-          req = elem.webkitRequestFullscreen();
-        } else if (elem.msRequestFullscreen) { /* IE11 */
-          req = elem.msRequestFullscreen();
-        } else {
-          alert("Selaimesi ei tue Fullscreen-tilaa.");
-          return;
+        await document.documentElement.requestFullscreen();
+        if (screen.orientation && screen.orientation.lock) {
+          await screen.orientation.lock('landscape').catch(() => {});
         }
-        
-        if (req && req.then) {
-          // Modern browsers: wait for fullscreen to complete BEFORE locking orientation
-          req.then(() => {
-            if (screen.orientation && screen.orientation.lock) {
-              screen.orientation.lock('landscape').catch(() => {});
-            }
-          }).catch(err => {
-            alert("Fullscreen estettiin: " + err.message);
-            btnFullscreen.style.display = 'block'; // Show it back if failed
-          });
-        } else {
-          // Older browsers without Promise support: use a short delay
-          setTimeout(() => {
-            if (screen.orientation && screen.orientation.lock) {
-              screen.orientation.lock('landscape').catch(() => {});
-            }
-          }, 500);
-        }
-        
-        btnFullscreen.style.display = 'none'; // hide once we attempted it
+        btnFullscreen.style.display = 'none'; // hide once in fullscreen
       } catch (err) {
-        alert("Fullscreen virhe: " + err.message);
+        console.warn("Fullscreen request failed:", err);
       }
     });
   }
