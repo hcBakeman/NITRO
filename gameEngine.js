@@ -208,6 +208,8 @@ function _updateRacing(dt) {
   // 5. Flip recovery
   const flip = Physics.checkFlip(dt);
   if (flip.recovered) {
+    document.getElementById('hud-msg').textContent = 'DEBUG RESET: FLIP RECOVERED';
+    document.getElementById('hud-msg').classList.remove('hidden');
     _resetToLastCheckpoint();
   }
 
@@ -230,6 +232,8 @@ function _updateRacing(dt) {
   }
 
   if (isOutOfBounds) {
+    document.getElementById('hud-msg').textContent = `DEBUG RESET: OUT OF BOUNDS (Y=${chassis?.position?.y?.toFixed(1)}, DistSq=${chassis?._distToSplineSq?.toFixed(1)})`;
+    document.getElementById('hud-msg').classList.remove('hidden');
     _resetToLastCheckpoint();
   }
 
