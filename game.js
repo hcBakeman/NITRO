@@ -318,6 +318,7 @@ export function updateRace(dt, chassis) {
          }
          
          chassis._distToSplineSq = minDistSq;
+        }
       }
       chassis._closestT = closestT;
 
