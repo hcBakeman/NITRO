@@ -171,7 +171,7 @@ function _addVanShapes(body) {
   const zOffset = 1.75 - r; // Push to the front and back
   
   const sphereShape = new CANNON.Sphere(r);
-  const sy = 0.2; // ground clearance
+  const sy = 0.5; // increased ground clearance (was 0.2) to prevent bottoming out!
 
   body.addShape(sphereShape, new CANNON.Vec3(0, sy, zOffset));
   body.addShape(sphereShape, new CANNON.Vec3(0, sy, 0));
@@ -456,9 +456,11 @@ export function setVehicleHitbox(id, width, height, length) {
   const shapes = [...body.shapes];
   shapes.forEach(s => body.removeShape(s));
 
-  // Add new chassis shape (tightened for better visual-physical alignment)
-  const chassisShape = new CANNON.Box(new CANNON.Vec3(width * 0.49, 0.45, length * 0.49));
-  body.addShape(chassisShape, new CANNON.Vec3(0, 0, 0));
+  // Add new chassis shape (tightened and raised to prevent scraping the road on suspension compression)
+  // Height changed from 0.45 to 0.25, and Y offset changed from 0 to 0.2. 
+  // This guarantees clearance for the wheels to compress fully without the Box grinding the Trimesh.
+  const chassisShape = new CANNON.Box(new CANNON.Vec3(width * 0.49, 0.25, length * 0.49));
+  body.addShape(chassisShape, new CANNON.Vec3(0, 0.2, 0));
 
   // Add new cabin shape
   const cabinShape = new CANNON.Box(new CANNON.Vec3(width * 0.35, 0.35, length * 0.25));
