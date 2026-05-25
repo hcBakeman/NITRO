@@ -456,25 +456,35 @@ export function setVehicleHitbox(id, width, height, length) {
   const shapes = [...body.shapes];
   shapes.forEach(s => body.removeShape(s));
 
-  // We use overlapping spheres instead of a Box for the chassis.
-  // Cannon-es Box vs Trimesh collision is incredibly slow on mobile.
-  // Sphere vs Trimesh is extremely fast!
-  
-  const r = width * 0.45; // Sphere radius (half width)
-  const zOffset = Math.max(0, (length * 0.45) - r); 
-  const sphereShape = new CANNON.Sphere(r);
-  
-  // Base clearance Y=0.35 ensures the chassis spheres don't constantly grind the floor Trimesh
-  const sy = 0.35; 
+  if (id === '__local__') {
+    // ── LOCAL PLAYER: Use Box for perfect wall collisions ──
+    // A Box prevents the "bouncy ball" wall flipping that happens with Spheres.
+    // Box vs Trimesh is slow, but doing it for just 1 car (the player) only takes ~2-3ms,
+    // which is perfectly fine for mobile 60 FPS.
+    
+    // We raise the chassis Box slightly (Y=0.35) so it doesn't drag on the floor during normal driving
+    const chassisShape = new CANNON.Box(new CANNON.Vec3(width * 0.49, 0.25, length * 0.49));
+    body.addShape(chassisShape, new CANNON.Vec3(0, 0.35, 0));
 
-  body.addShape(sphereShape, new CANNON.Vec3(0, sy, zOffset));
-  body.addShape(sphereShape, new CANNON.Vec3(0, sy, 0));
-  body.addShape(sphereShape, new CANNON.Vec3(0, sy, -zOffset));
+    const cabinShape = new CANNON.Box(new CANNON.Vec3(width * 0.35, 0.35, length * 0.25));
+    body.addShape(cabinShape, new CANNON.Vec3(0, 0.95, 0));
+  } else {
+    // ── AI / REMOTE PLAYERS: Use Spheres for maximum performance ──
+    // 8 cars using Box vs Trimesh takes 30+ ms on mobile. 
+    // By using Spheres for the 7 AI cars, we save massive amounts of CPU time!
+    const r = width * 0.45;
+    const zOffset = Math.max(0, (length * 0.45) - r); 
+    const sphereShape = new CANNON.Sphere(r);
+    
+    const sy = 0.35; 
 
-  // The cabin can remain a Box because it sits high up and never touches the road Trimesh.
-  // It only collides with walls (Box vs Box is very fast).
-  const cabinShape = new CANNON.Box(new CANNON.Vec3(width * 0.35, 0.35, length * 0.25));
-  body.addShape(cabinShape, new CANNON.Vec3(0, sy + 0.6, 0));
+    body.addShape(sphereShape, new CANNON.Vec3(0, sy, zOffset));
+    body.addShape(sphereShape, new CANNON.Vec3(0, sy, 0));
+    body.addShape(sphereShape, new CANNON.Vec3(0, sy, -zOffset));
+
+    const cabinShape = new CANNON.Box(new CANNON.Vec3(width * 0.35, 0.35, length * 0.25));
+    body.addShape(cabinShape, new CANNON.Vec3(0, sy + 0.6, 0));
+  }
 }
 
 // ── Vehicle Input ─────────────────────────────────────────────────────────
