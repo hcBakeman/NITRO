@@ -135,7 +135,8 @@ async function handleConnect(lobbyId) {
 
 function handleStart() {
   Audio.init(); // Wake up AudioContext on click
-  const seed = parseInt(document.getElementById('seed-input').value) || Math.floor(Math.random() * 999999);
+  const isTester = getName() === 'TESTER';
+  const seed = isTester ? 0 : (parseInt(document.getElementById('seed-input').value) || Math.floor(Math.random() * 999999));
   const laps = parseInt(document.getElementById('lap-input').value) || 3;
   const driveMode = document.getElementById('drive-input').value;
   const collisionMode = document.getElementById('collision-input').value;
@@ -270,16 +271,24 @@ async function _onGameInit(seed, laps, mode, handlingMode, grid, coll) {
     await Graphics.loadVehicle(id, p.colorIndex, p.carModel);
   }
 
-  // NPC Test Driver — spawn at correct position from the start
-  const testId = '__test_driver__';
-  const testPos = mapData.spline.getPointAt(0.05);
-  const testTan = mapData.spline.getTangentAt(0.05).normalize();
-  const testQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.atan2(testTan.x, testTan.z));
-  Physics.createRemoteVehicle(testId, 1, 'police_car',
-    { x: testPos.x, y: testPos.y + 1, z: testPos.z },
-    { x: testQuat.x, y: testQuat.y, z: testQuat.z, w: testQuat.w }
-  );
-  await Graphics.loadVehicle(testId, 5, 'police_car');
+  // ── NPC Dummy Cars for Testing ──────────────────────────────────────────
+  if (Number(seed) === 0) {
+    for (let i = 0; i < AVAILABLE_CARS.length; i++) {
+      const carName = AVAILABLE_CARS[i];
+      const testId = `__dummy_${carName}__`;
+      const t = 0.05 + (i * 0.02);
+      if (t >= 1.0) break;
+      const testPos = mapData.spline.getPointAt(t);
+      const testTan = mapData.spline.getTangentAt(t).normalize();
+      const testQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.atan2(testTan.x, testTan.z));
+      
+      Physics.createRemoteVehicle(testId, 1, carName,
+        { x: testPos.x, y: testPos.y + 1, z: testPos.z },
+        { x: testQuat.x, y: testQuat.y, z: testQuat.z, w: testQuat.w }
+      );
+      await Graphics.loadVehicle(testId, i % 6, carName);
+    }
+  }
 
   // Snap camera
   const myChassis = Physics.playerChassis;

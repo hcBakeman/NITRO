@@ -26,7 +26,7 @@ export const ROAD_HALF = 6;
 const WALL_H = 2.5;
 const WALL_T = 0.2; // wall half-thickness
 
-function _buildWallBoxes(spline, samples, side, world, material, jumpZones, frames) {
+function _buildWallBoxes(spline, samples, side, world, material, jumpZones, frames, isClosed) {
   // A single Cannon.js world shouldn't have 2000 static bodies if we can avoid it.
   // We chunk the wall boxes into groups of 20 (just like the Trimesh) to dramatically
   // reduce the number of bodies in the SAPBroadphase, significantly speeding up physics!
@@ -54,11 +54,11 @@ function _buildWallBoxes(spline, samples, side, world, material, jumpZones, fram
       const pt1 = spline.getPointAt(t1);
       const pt2 = spline.getPointAt(t2);
       
-      const rightDir1 = frames.binormals[i % samples].clone().normalize();
+      const rightDir1 = frames.binormals[isClosed && i === samples ? 0 : i].clone().normalize();
       const outDir1 = rightDir1.clone().multiplyScalar(side);
       const center1 = pt1.clone().addScaledVector(outDir1, ROAD_HALF + WALL_T);
       
-      const rightDir2 = frames.binormals[(i + 1) % samples].clone().normalize();
+      const rightDir2 = frames.binormals[isClosed && (i + 1) === samples ? 0 : Math.min(i + 1, samples)].clone().normalize();
       const outDir2 = rightDir2.clone().multiplyScalar(side);
       const center2 = pt2.clone().addScaledVector(outDir2, ROAD_HALF + WALL_T);
       
@@ -101,32 +101,26 @@ export function generateMap(seed, world, groundMat, wallMat) {
   let rng = mulberry32(seed);
   let spline, length;
 
+  const ROAD_HALF = isTest ? 30 : 6;
+
   // Retry until track is within target length
   for (let attempt = 0; attempt < 20; attempt++) {
     rng = mulberry32(seed + attempt);
     const pts = [];
     for (let i = 0; i < NUM_POINTS; i++) {
-      const angle = (i / NUM_POINTS) * Math.PI * 2;
-      const r = RING_RADIUS + (isTest ? 0 : (rng() - 0.5) * 2 * OFFSET_MAX);
-      const ox = isTest ? 0 : (rng() - 0.5) * OFFSET_MAX * 0.6;
-      const oz = isTest ? 0 : (rng() - 0.5) * OFFSET_MAX * 0.6;
-
-      // Procedural height: Flat track to prevent geometry collision overlap bugs
-      const t = i / NUM_POINTS;
-      let y = 0;
-
       if (isTest) {
-        y = 0; // Totally flat ground for testing modular ramps
+        pts.push(new THREE.Vector3(0, 0, i * 150)); // straight line, 150m spacing
       } else {
-        // Flat track for all seeds to fix hitboxes
-        y = 0;
+        const angle = (i / NUM_POINTS) * Math.PI * 2;
+        const r = RING_RADIUS + (rng() - 0.5) * 2 * OFFSET_MAX;
+        const ox = (rng() - 0.5) * OFFSET_MAX * 0.6;
+        const oz = (rng() - 0.5) * OFFSET_MAX * 0.6;
+        pts.push(new THREE.Vector3(Math.cos(angle) * r + ox, 0, Math.sin(angle) * r + oz));
       }
-
-      pts.push(new THREE.Vector3(Math.cos(angle) * r + ox, y, Math.sin(angle) * r + oz));
     }
-    spline = new THREE.CatmullRomCurve3(pts, true, 'centripetal');
+    spline = new THREE.CatmullRomCurve3(pts, isTest ? false : true, 'centripetal');
     length = spline.getLength();
-    if (length >= 600 && length <= 1000) break;
+    if (isTest || (length >= 600 && length <= 1000)) break;
   }
 
   const samples = Math.ceil(length / 2.0); // Higher resolution for smoother physics
@@ -139,14 +133,17 @@ export function generateMap(seed, world, groundMat, wallMat) {
   const visualIndices = [];
   const physIndices = [];
 
+
   // Compute stable Frenet frames for smooth, twist-free banking
-  const frames = spline.computeFrenetFrames(samples, true);
+  const isClosed = isTest ? false : true;
+  const frames = spline.computeFrenetFrames(samples, isClosed);
 
   for (let i = 0; i <= samples; i++) {
     const t = i / samples;
     const pt = spline.getPointAt(t);
-    // Use the precomputed binormal (wrapping around for the last vertex)
-    const right = frames.binormals[i % samples].clone().normalize().multiplyScalar(ROAD_HALF);
+    // Use the precomputed binormal (wrapping around for the last vertex if closed)
+    const binormalIdx = (isClosed && i === samples) ? 0 : i;
+    const right = frames.binormals[binormalIdx].clone().normalize().multiplyScalar(ROAD_HALF);
 
     // Three vertices per segment: Left, Center, Right
     vertices.push(pt.x - right.x, pt.y, pt.z - right.z); // Left
@@ -160,7 +157,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
   for (let i = 0; i < samples; i++) {
     const v = i * 3;
     const nvVisual = (i + 1) * 3;
-    const nvPhys = ((i + 1) % samples) * 3; // Weld the seam for physics
+    const nvPhys = isClosed ? ((i + 1) % samples) * 3 : (i + 1) * 3; // Weld the seam for physics only if closed
 
     // Visual Indices (Uses duplicate end-vertices for correct UVs)
     visualIndices.push(v, v + 1, nvVisual);
@@ -196,9 +193,6 @@ export function generateMap(seed, world, groundMat, wallMat) {
   trackMesh.receiveShadow = true;
 
   // --- Physics Trimesh Chunking ---
-  // A single 1000m Trimesh has no internal BVH in Cannon.js, causing ~1 million 
-  // ray-triangle tests per second. We chunk it into 40m sections so the broadphase
-  // completely culls the track sections not directly under the car.
   const CHUNK_SIZE = 20; // 20 segments * 2m = 40m chunks
   for (let chunkStart = 0; chunkStart < samples; chunkStart += CHUNK_SIZE) {
     const chunkVerts = [];
@@ -220,7 +214,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
     const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, samples);
     for (let i = chunkStart; i < chunkEnd; i++) {
       const v = i * 3;
-      const nvPhys = ((i + 1) % samples) * 3;
+      const nvPhys = isClosed ? ((i + 1) % samples) * 3 : (i + 1) * 3;
 
       // Front faces
       chunkIndices.push(getLocalIdx(v), getLocalIdx(v + 1), getLocalIdx(nvPhys));
@@ -248,7 +242,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
   const wallMatVisual = _buildWallMaterial();
 
   // Left wall
-  const leftGeo = _buildContinuousWallGeo(spline, length, samples, -1, jumpZones, frames);
+  const leftGeo = _buildContinuousWallGeo(spline, length, samples, -1, jumpZones, frames, isClosed);
   const leftMesh = new THREE.Mesh(leftGeo, wallMatVisual);
   leftMesh.matrixAutoUpdate = false;
   leftMesh.updateMatrix();
@@ -257,7 +251,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
   wallMeshes.push(leftMesh);
 
   // Right wall
-  const rightGeo = _buildContinuousWallGeo(spline, length, samples, 1, jumpZones, frames);
+  const rightGeo = _buildContinuousWallGeo(spline, length, samples, 1, jumpZones, frames, isClosed);
   const rightMesh = new THREE.Mesh(rightGeo, wallMatVisual);
   rightMesh.matrixAutoUpdate = false;
   rightMesh.updateMatrix();
@@ -266,8 +260,8 @@ export function generateMap(seed, world, groundMat, wallMat) {
   wallMeshes.push(rightMesh);
 
   // Wall Physics (Overlapping fish-scale boxes to prevent snagging and tunneling)
-  _buildWallBoxes(spline, samples, -1, world, wallMat, jumpZones, frames);
-  _buildWallBoxes(spline, samples, 1, world, wallMat, jumpZones, frames);
+  _buildWallBoxes(spline, samples, -1, world, wallMat, jumpZones, frames, isClosed);
+  _buildWallBoxes(spline, samples, 1, world, wallMat, jumpZones, frames, isClosed);
 
   // ── Modular Ramps (Seed 0000 only) ───────────────────────────────────────
   if (isTest) {
@@ -488,7 +482,7 @@ function _buildWallMaterial() {
   return new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide });
 }
 
-function _buildContinuousWallGeo(spline, length, samples, side, jumpZones, frames) {
+function _buildContinuousWallGeo(spline, length, samples, side, jumpZones, frames, isClosed) {
   const geo = new THREE.BufferGeometry();
   const vertices = [];
   const uvs = [];
@@ -498,7 +492,8 @@ function _buildContinuousWallGeo(spline, length, samples, side, jumpZones, frame
     const t = i / samples;
     const pt = spline.getPointAt(t);
     // Use the frenet binormal just like the road
-    const rightDir = frames.binormals[i % samples].clone().normalize();
+    const binormalIdx = (isClosed && i === samples) ? 0 : i;
+    const rightDir = frames.binormals[binormalIdx].clone().normalize();
     const outDir = rightDir.clone().multiplyScalar(side);
 
     const center = pt.clone().addScaledVector(outDir, ROAD_HALF + WALL_T);
