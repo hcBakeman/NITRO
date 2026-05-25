@@ -26,16 +26,26 @@ export function initMobileControls() {
   const btnFullscreen = document.getElementById('btn-fullscreen');
   if (btnFullscreen) {
     btnFullscreen.style.display = 'block';
-    btnFullscreen.addEventListener('click', async () => {
-      try {
-        await document.documentElement.requestFullscreen();
-        if (screen.orientation && screen.orientation.lock) {
-          await screen.orientation.lock('landscape').catch(() => {});
-        }
-        btnFullscreen.style.display = 'none'; // hide once in fullscreen
-      } catch (err) {
-        console.warn("Fullscreen request failed:", err);
+    btnFullscreen.addEventListener('click', function(e) {
+      e.preventDefault();
+      var elem = document.body;
+      
+      var req = null;
+      if (elem.requestFullscreen) {
+        req = elem.requestFullscreen();
+      } else if (elem.webkitRequestFullscreen) {
+        req = elem.webkitRequestFullscreen();
       }
+      
+      if (req && req.catch) {
+         req.catch(function(err){ console.warn(err); });
+      }
+      
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(function(){});
+      }
+      
+      btnFullscreen.style.display = 'none';
     });
   }
 
