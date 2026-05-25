@@ -64,11 +64,11 @@ function _tick(now) {
   }
 
   const state = Game.getState();
-  if (state !== Game.STATE.RACING) {
-    Graphics.renderScene(dt);
-  } else {
+  if (state === Game.STATE.RACING) {
     _updateRacing(dt);
   }
+
+  Graphics.renderScene(dt);
 }
 
 function _updateRacing(dt) {
@@ -324,8 +324,7 @@ function _updateRacing(dt) {
     Graphics.updateRocketMesh(mesh, pos, vel, dt);
   }
 
-  // 16. Render
-  Graphics.renderScene(dt);
+  // 16. Render handled in _tick
 
   // 17. Update Crosshair (throttled to 10Hz to reduce physics raycast overhead)
   if (Game.heldWeapon === 'ROCKET' && chassis && domCrosshair) {

@@ -29,7 +29,7 @@ export function initPhysics() {
 
   world.addContactMaterial(
     new CANNON.ContactMaterial(groundMat, vehicleMat, {
-      friction: 0.4,
+      friction: 0.05, // Lowered friction so remote cars slide when hit
       restitution: 0.0,
     })
   );
@@ -373,6 +373,11 @@ export function updateRemoteVehicles() {
     const rBody = remoteVehicles[id];
     
     if (rBody.targetPos) {
+      // Free-physics NPC car: Don't lerp it to any target position, let CANNON.js simulate it fully locally!
+      if (id === '__test_driver__') {
+        continue;
+      }
+
       // If this car was recently involved in a local collision, suspend network interpolation
       // for 400ms. This allows CANNON.js to seamlessly play out the collision physics locally,
       // making it visually smooth and completely eliminating clipping!
@@ -525,32 +530,54 @@ export function setVehicleInput(input) {
   let currentRearFric = playerCarSpecs.rearFric;
 
   if (handlingMode === 'Rally') {
-    // Looser overall grip for dirt feel
-    currentFrontFric *= 0.8;
-    currentRearFric *= 0.7;
+    // Dirt base multiplier (slightly looser than tarmac)
+    currentFrontFric *= 0.85;
+    currentRearFric *= 0.8;
 
-    if (isTurning && speed > 15) {
-      // Induce drift by dropping rear traction significantly
-      currentRearFric *= 0.6;
-      
-      // Artificial yaw impulse to kick the tail out
-      const driftForce = input.left ? 1 : -1;
-      if (Math.abs(driftForce) > 0.01) {
-        _tmpDriftForce1.set(driftForce * speed * 2, 0, 0);
-        _tmpDriftForce2.set(0, 0, -1.5);
-        playerChassis.applyLocalImpulse(_tmpDriftForce1, _tmpDriftForce2);
+    // Weight transfer approximation & Power Sliding
+    let weightTransferRear = 1.0;
+    let weightTransferFront = 1.0;
+    if (input.backward) {
+      weightTransferRear = 0.55; 
+      weightTransferFront = 1.2; 
+    } else if (input.forward) {
+      weightTransferRear = 1.1; 
+      weightTransferFront = 0.95; 
+
+      if (isTurning && speedRatio > 0.15) {
+         weightTransferRear *= 0.75; // Softer power oversteer
       }
     }
 
-    if (isSliding) {
-      // Counter-steer recovery bonus
-      // sliding right (lateralVel < 0), steering right (steer < 0) -> catch drift!
-      if (lateralVel < -2 && input.right) {
-        currentFrontFric *= 1.8;
+    // Always apply weight transfer
+    currentFrontFric *= weightTransferFront;
+    currentRearFric *= weightTransferRear;
+
+    const isTractionBroken = Math.abs(lateralVel) > 4.0;
+
+    if (isTractionBroken) {
+      // Keep friction high enough so the car doesn't spin like a top!
+      currentFrontFric *= 0.6;
+      currentRearFric *= 0.55;
+      
+      const counterSteering = (lateralVel < -2 && input.right) || (lateralVel > 2 && input.left);
+      if (counterSteering) {
+        currentFrontFric *= 1.8; 
         currentRearFric *= 1.8;
-      } else if (lateralVel > 2 && input.left) {
-        currentFrontFric *= 1.8;
-        currentRearFric *= 1.8;
+        
+        // Active Anti-Spin Assist: physically stop the rotation if counter-steering!
+        playerChassis.angularVelocity.y *= 0.92;
+        
+        if (input.forward) {
+          currentFrontFric *= 1.2;
+          currentRearFric *= 1.2;
+        }
+      }
+    } else {
+      if (isTurning && speedRatio > 0.3) {
+        // Less dramatic centrifugal traction loss
+        currentRearFric *= (1.0 - speedRatio * 0.4); 
+        currentFrontFric *= (1.0 - speedRatio * 0.2); 
       }
     }
   }
