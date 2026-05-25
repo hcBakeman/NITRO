@@ -810,14 +810,21 @@ export function setCameraShake(amount) {
   cameraShake = Math.max(cameraShake, amount);
 }
 
+const _tmpEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+const _tmpYawQuat = new THREE.Quaternion();
+
 export function updateCamera(targetPos, carQuat, dt) {
-  // Rigidly follow the interpolated physics position to prevent 
-  // beat-frequency rubber-banding between 120Hz display and 60Hz physics.
+  // Rigidly follow the interpolated physics position
   cameraTarget.copy(targetPos);
+
+  // Extract pure YAW from the car's quaternion so the camera doesn't roll or pitch
+  // when the car flips over!
+  _tmpEuler.setFromQuaternion(carQuat, 'YXZ');
+  _tmpYawQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), _tmpEuler.y);
 
   const hFactor = 0.35 + (cameraZoom / 60) * 0.5;
   _tmpCamOffset.set(0, cameraZoom * hFactor, -cameraZoom * 0.6);
-  _tmpCamOffset.applyQuaternion(carQuat);
+  _tmpCamOffset.applyQuaternion(_tmpYawQuat); // Apply only Yaw!
 
   _tmpCamIdeal.copy(cameraTarget).add(_tmpCamOffset);
   
@@ -910,9 +917,13 @@ export function updateIntroCamera(targetPos, progress) {
  */
 export function snapCamera(targetPos, carQuat) {
   cameraTarget.copy(targetPos);
+  
+  _tmpEuler.setFromQuaternion(carQuat, 'YXZ');
+  _tmpYawQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), _tmpEuler.y);
 
-  // Initialize at the start of the INTRO sequence (progress 0)
-  const offset = new THREE.Vector3(80, 100, 0); // radius 80, height 100
+  const hFactor = 0.35 + (cameraZoom / 60) * 0.5;
+  const offset = new THREE.Vector3(0, cameraZoom * hFactor, -cameraZoom * 0.6);
+  offset.applyQuaternion(_tmpYawQuat);
   camera.position.copy(targetPos).add(offset);
   camera.lookAt(cameraTarget);
 }
