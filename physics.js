@@ -166,15 +166,16 @@ const _tmpDriftForce1 = new CANNON.Vec3();
 const _tmpDriftForce2 = new CANNON.Vec3();
 
 function _addVanShapes(body) {
-  // Use a Box shape for the chassis to prevent it from rolling/rocking like a sphere
-  const hx = 0.82; // Half the car's width (1.64m / 2)
-  const hy = 0.4;  // Half height
-  const hz = 1.75; // Half length
+  // Use 3 overlapping spheres to create a perfectly smooth "Capsule" chassis.
+  const r = 0.82; // Half the car's width (1.64m / 2)
+  const zOffset = 1.75 - r; // Push to the front and back
   
-  const boxShape = new CANNON.Box(new CANNON.Vec3(hx, hy, hz));
-  const sy = 0.5; // ground clearance offset
+  const sphereShape = new CANNON.Sphere(r);
+  const sy = 0.5; // increased ground clearance (was 0.2) to prevent bottoming out!
 
-  body.addShape(boxShape, new CANNON.Vec3(0, sy, 0));
+  body.addShape(sphereShape, new CANNON.Vec3(0, sy, zOffset));
+  body.addShape(sphereShape, new CANNON.Vec3(0, sy, 0));
+  body.addShape(sphereShape, new CANNON.Vec3(0, sy, -zOffset));
 
   // Cabin is narrower to allow for more lean in corners
   const cabinShape = new CANNON.Box(new CANNON.Vec3(0.65, 0.35, 0.85));
