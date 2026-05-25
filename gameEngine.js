@@ -205,9 +205,14 @@ function _updateRacing(dt) {
     Physics.checkStrictCollisions();
   }
 
-  // 5. Flip recovery
+  // 5. Manual Reset & Flip recovery
   const flip = Physics.checkFlip(dt);
-  if (flip.recovered) {
+  if (Game.input.reset) {
+    Game.input.reset = false; // consume
+    document.getElementById('hud-msg').textContent = 'MANUAL RESET';
+    document.getElementById('hud-msg').classList.remove('hidden');
+    _resetToLastCheckpoint();
+  } else if (flip.recovered) {
     document.getElementById('hud-msg').textContent = 'DEBUG RESET: FLIP RECOVERED';
     document.getElementById('hud-msg').classList.remove('hidden');
     _resetToLastCheckpoint();

@@ -59,7 +59,7 @@ export function setState(s) {
 }
 
 // ── Input ──────────────────────────────────────────────────────────────────
-export const input = { forward: false, backward: false, left: false, right: false, fire: false };
+export const input = { forward: false, backward: false, left: false, right: false, fire: false, reset: false };
 let fireQueued = false;
 
 let domWrongWayMsg, domHudSpeed, domHudRecovery;
@@ -80,6 +80,8 @@ export function initInput() {
     if (['a', 'A', 'ArrowLeft'].includes(e.key)) { input.left = true; e.preventDefault(); }
     if (['d', 'D', 'ArrowRight'].includes(e.key)) { input.right = true; e.preventDefault(); }
     
+    if (['r', 'R'].includes(e.key)) { input.reset = true; e.preventDefault(); }
+    
     if (e.key === ' ' && !input.fire) {
       input.fire = true;
       fireQueued = true;
@@ -93,6 +95,8 @@ export function initInput() {
     if (['s', 'S', 'ArrowDown'].includes(e.key)) { input.backward = false; e.preventDefault(); }
     if (['a', 'A', 'ArrowLeft'].includes(e.key)) { input.left = false; e.preventDefault(); }
     if (['d', 'D', 'ArrowRight'].includes(e.key)) { input.right = false; e.preventDefault(); }
+    
+    if (['r', 'R'].includes(e.key)) { input.reset = false; e.preventDefault(); }
     
     if (e.key === ' ') {
       input.fire = false;
