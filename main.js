@@ -282,7 +282,7 @@ async function _onGameInit(seed, laps, mode, handlingMode, grid, coll) {
       const testTan = mapData.spline.getTangentAt(t).normalize();
       const testQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.atan2(testTan.x, testTan.z));
       
-      Physics.createRemoteVehicle(testId, 1, carName,
+      Physics.createRemoteVehicle(testId, 1000, carName,
         { x: testPos.x, y: testPos.y + 1, z: testPos.z },
         { x: testQuat.x, y: testQuat.y, z: testQuat.z, w: testQuat.w }
       );

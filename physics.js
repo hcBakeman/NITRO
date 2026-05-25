@@ -299,12 +299,15 @@ export function createRemoteVehicle(peerId, mass = 0, carModel, spawnPos = null,
   const spec = VEHICLE_CLASSES[carModel] || VEHICLE_CLASSES['dacia_duster_low_poly'];
   const realMass = spec.mass;
 
+  // High damping for real network players because we manually lerp them.
+  // Dummy cars should use normal physics damping so they slide naturally.
+  const isDummy = peerId.startsWith('__dummy_');
   const body = new CANNON.Body({
     mass: realMass, 
     material: vehicleMat,
     type: CANNON.Body.DYNAMIC,
-    linearDamping: 0.1,
-    angularDamping: 0.1
+    linearDamping: isDummy ? 0.05 : 0.9,
+    angularDamping: isDummy ? 0.05 : 0.9
   });
   // Enable native collisions so they physically push each other apart!
   body.collisionResponse = true; 
@@ -374,7 +377,7 @@ export function updateRemoteVehicles() {
     
     if (rBody.targetPos) {
       // Free-physics NPC car: Don't lerp it to any target position, let CANNON.js simulate it fully locally!
-      if (id === '__test_driver__') {
+      if (id === '__test_driver__' || id.startsWith('__dummy_')) {
         continue;
       }
 
