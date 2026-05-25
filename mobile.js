@@ -31,8 +31,10 @@ export function initMobileControls() {
       try {
         const elem = document.documentElement;
         let req;
+        
+        // Pass navigationUI: "hide" to ensure URL bar hides on Android
         if (elem.requestFullscreen) {
-          req = elem.requestFullscreen();
+          req = elem.requestFullscreen({ navigationUI: "hide" });
         } else if (elem.webkitRequestFullscreen) { /* Safari */
           req = elem.webkitRequestFullscreen();
         } else if (elem.msRequestFullscreen) { /* IE11 */
@@ -42,17 +44,23 @@ export function initMobileControls() {
           return;
         }
         
-        // Catch promise rejection if it returns a promise
-        if (req && req.catch) {
-          req.catch(err => {
+        if (req && req.then) {
+          // Modern browsers: wait for fullscreen to complete BEFORE locking orientation
+          req.then(() => {
+            if (screen.orientation && screen.orientation.lock) {
+              screen.orientation.lock('landscape').catch(() => {});
+            }
+          }).catch(err => {
             alert("Fullscreen estettiin: " + err.message);
             btnFullscreen.style.display = 'block'; // Show it back if failed
           });
-        }
-        
-        // Try orientation lock
-        if (screen.orientation && screen.orientation.lock) {
-          screen.orientation.lock('landscape').catch(() => {});
+        } else {
+          // Older browsers without Promise support: use a short delay
+          setTimeout(() => {
+            if (screen.orientation && screen.orientation.lock) {
+              screen.orientation.lock('landscape').catch(() => {});
+            }
+          }, 500);
         }
         
         btnFullscreen.style.display = 'none'; // hide once we attempted it
