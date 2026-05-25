@@ -315,6 +315,7 @@ export function createRemoteVehicle(peerId, mass = 0, carModel, spawnPos = null,
   // Let them hit EVERYTHING: ground, walls, local cars, rockets
   body.collisionFilterMask = CGROUP_DEFAULT | CGROUP_LOCAL_CAR | CGROUP_ROCKET | CGROUP_REMOTE_CAR;
   body.peerId = peerId;
+  body.carModel = carModel;
   body.isOiled = false;
   _addVanShapes(body);
 
@@ -471,17 +472,17 @@ export function setVehicleHitbox(id, width, height, length) {
   body.addShape(cabinShape, new CANNON.Vec3(0, 0.6, 0));
 
   // Remote cars don't have a RaycastVehicle to hold them up.
-  // We add 4 physical "dummy wheel" spheres so they don't sink into the floor!
-  // This also makes them slide smoothly when pushed, instead of grinding the Trimesh.
+  // Using 4 Spheres causes them to fall through large Trimesh triangles (like on TESTER).
+  // Instead, we use a single Box that extends down to the wheel depth!
   if (id !== '__local__') {
-    const wheelRadius = 0.38;
-    const wheelShape = new CANNON.Sphere(wheelRadius);
-    const wheelY = -0.55; // Matches the suspension rest length of the local player
+    const spec = VEHICLE_CLASSES[body.carModel] || VEHICLE_CLASSES['dacia_duster_low_poly'];
+    const wheelRadius = spec.wheelRadius || 0.38;
+    const wheelY = -(spec.suspensionRestLength || 0.4); 
+    const lowestPoint = wheelY - wheelRadius;
     
-    body.addShape(wheelShape, new CANNON.Vec3(-0.9, wheelY, 1.4));
-    body.addShape(wheelShape, new CANNON.Vec3(0.9, wheelY, 1.4));
-    body.addShape(wheelShape, new CANNON.Vec3(-0.9, wheelY, -1.4));
-    body.addShape(wheelShape, new CANNON.Vec3(0.9, wheelY, -1.4));
+    // Create a box that covers the lower half (from y=0 down to lowestPoint)
+    const lowerHalfBox = new CANNON.Box(new CANNON.Vec3(width * 0.48, Math.abs(lowestPoint) / 2, length * 0.48));
+    body.addShape(lowerHalfBox, new CANNON.Vec3(0, lowestPoint / 2, 0));
   }
 }
 
