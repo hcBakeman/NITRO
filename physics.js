@@ -445,6 +445,10 @@ export function getVehicleBody(id) {
   return remoteVehicles[id];
 }
 
+export function getRemoteVehicles() {
+  return remoteVehicles;
+}
+
 /**
  * Adjusts a vehicle's physics hitbox to match its 3D model dimensions
  */

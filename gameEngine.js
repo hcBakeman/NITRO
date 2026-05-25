@@ -308,6 +308,15 @@ function _updateRacing(dt) {
     }
   }
 
+  // Also update any dummy NPC cars that exist only in physics (like on the test track)
+  const remotes = Physics.getRemoteVehicles();
+  for (const id in remotes) {
+    if (!Network.players[id] && id !== '__local__') {
+      const rb = remotes[id];
+      Graphics.updateVehicleMesh(id, rb.position, rb.quaternion);
+    }
+  }
+
   // 10. Send local network state
   Network.sendLocalState(chassis, Game.input, dt);
 
