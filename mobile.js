@@ -28,13 +28,30 @@ export function initMobileControls() {
     btnFullscreen.style.display = 'block';
     btnFullscreen.addEventListener('click', async () => {
       try {
-        await document.documentElement.requestFullscreen();
+        const elem = document.documentElement;
+        
+        let promise;
+        if (elem.requestFullscreen) {
+          promise = elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) { /* Safari */
+          promise = elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) { /* IE11 */
+          promise = elem.msRequestFullscreen();
+        } else {
+          throw new Error("Selaimesi ei tue Fullscreen-tilaa (esim. iOS Safari).");
+        }
+        
+        if (promise) await promise;
+        
         if (screen.orientation && screen.orientation.lock) {
-          await screen.orientation.lock('landscape').catch(() => {});
+          await screen.orientation.lock('landscape').catch((e) => {
+            console.warn("Orientation lock failed:", e);
+          });
         }
         btnFullscreen.style.display = 'none'; // hide once in fullscreen
       } catch (err) {
         console.warn("Fullscreen request failed:", err);
+        alert("Fullscreen ei onnistunut: " + err.message);
       }
     });
   }
