@@ -28,7 +28,7 @@ export function initMobileControls() {
     btnFullscreen.style.display = 'block';
     btnFullscreen.addEventListener('click', function(e) {
       e.preventDefault();
-      var elem = document.body;
+      var elem = document.documentElement;
       
       var req = null;
       if (elem.requestFullscreen) {
