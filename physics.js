@@ -456,15 +456,26 @@ export function setVehicleHitbox(id, width, height, length) {
   const shapes = [...body.shapes];
   shapes.forEach(s => body.removeShape(s));
 
-  // We use Box for ALL vehicles (player and remote/AI).
-  // By centering the Box vertically around the center of mass (Y=0.0),
-  // we eliminate pitch/roll torques from flat wall impacts,
-  // AND we prevent the Box from dragging on the floor (which caused massive lag).
+  // Core hitbox for wall collisions and body hits (same for local and remote)
   const chassisShape = new CANNON.Box(new CANNON.Vec3(width * 0.49, 0.25, length * 0.49));
   body.addShape(chassisShape, new CANNON.Vec3(0, 0.0, 0));
 
   const cabinShape = new CANNON.Box(new CANNON.Vec3(width * 0.35, 0.35, length * 0.25));
   body.addShape(cabinShape, new CANNON.Vec3(0, 0.6, 0));
+
+  // Remote cars don't have a RaycastVehicle to hold them up.
+  // We add 4 physical "dummy wheel" spheres so they don't sink into the floor!
+  // This also makes them slide smoothly when pushed, instead of grinding the Trimesh.
+  if (id !== '__local__') {
+    const wheelRadius = 0.38;
+    const wheelShape = new CANNON.Sphere(wheelRadius);
+    const wheelY = -0.55; // Matches the suspension rest length of the local player
+    
+    body.addShape(wheelShape, new CANNON.Vec3(-0.9, wheelY, 1.4));
+    body.addShape(wheelShape, new CANNON.Vec3(0.9, wheelY, 1.4));
+    body.addShape(wheelShape, new CANNON.Vec3(-0.9, wheelY, -1.4));
+    body.addShape(wheelShape, new CANNON.Vec3(0.9, wheelY, -1.4));
+  }
 }
 
 // ── Vehicle Input ─────────────────────────────────────────────────────────
