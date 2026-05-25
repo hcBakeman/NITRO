@@ -26,32 +26,38 @@ export function initMobileControls() {
   const btnFullscreen = document.getElementById('btn-fullscreen');
   if (btnFullscreen) {
     btnFullscreen.style.display = 'block';
-    btnFullscreen.addEventListener('click', async () => {
+    btnFullscreen.addEventListener('click', (e) => {
+      e.preventDefault();
       try {
         const elem = document.documentElement;
-        
-        let promise;
+        let req;
         if (elem.requestFullscreen) {
-          promise = elem.requestFullscreen();
+          req = elem.requestFullscreen();
         } else if (elem.webkitRequestFullscreen) { /* Safari */
-          promise = elem.webkitRequestFullscreen();
+          req = elem.webkitRequestFullscreen();
         } else if (elem.msRequestFullscreen) { /* IE11 */
-          promise = elem.msRequestFullscreen();
+          req = elem.msRequestFullscreen();
         } else {
-          throw new Error("Selaimesi ei tue Fullscreen-tilaa (esim. iOS Safari).");
+          alert("Selaimesi ei tue Fullscreen-tilaa.");
+          return;
         }
         
-        if (promise) await promise;
-        
-        if (screen.orientation && screen.orientation.lock) {
-          await screen.orientation.lock('landscape').catch((e) => {
-            console.warn("Orientation lock failed:", e);
+        // Catch promise rejection if it returns a promise
+        if (req && req.catch) {
+          req.catch(err => {
+            alert("Fullscreen estettiin: " + err.message);
+            btnFullscreen.style.display = 'block'; // Show it back if failed
           });
         }
-        btnFullscreen.style.display = 'none'; // hide once in fullscreen
+        
+        // Try orientation lock
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(() => {});
+        }
+        
+        btnFullscreen.style.display = 'none'; // hide once we attempted it
       } catch (err) {
-        console.warn("Fullscreen request failed:", err);
-        alert("Fullscreen ei onnistunut: " + err.message);
+        alert("Fullscreen virhe: " + err.message);
       }
     });
   }
