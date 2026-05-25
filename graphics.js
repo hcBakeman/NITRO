@@ -811,15 +811,18 @@ export function setCameraShake(amount) {
 }
 
 export function updateCamera(targetPos, carQuat, dt) {
-  const alphaTarget = 1 - Math.exp(-8 * dt);
-  cameraTarget.lerp(targetPos, alphaTarget);
+  // Rigidly follow the interpolated physics position to prevent 
+  // beat-frequency rubber-banding between 120Hz display and 60Hz physics.
+  cameraTarget.copy(targetPos);
 
   const hFactor = 0.35 + (cameraZoom / 60) * 0.5;
   _tmpCamOffset.set(0, cameraZoom * hFactor, -cameraZoom * 0.6);
   _tmpCamOffset.applyQuaternion(carQuat);
 
   _tmpCamIdeal.copy(cameraTarget).add(_tmpCamOffset);
-  camera.position.lerp(_tmpCamIdeal, 1 - Math.exp(-10 * dt));
+  
+  // Directly copy instead of lerping
+  camera.position.copy(_tmpCamIdeal);
   camera.lookAt(_tmpCamIdeal.copy(cameraTarget).add(_tmpCamUp));
 
   if (cameraShake > 0.01) {
