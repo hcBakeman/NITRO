@@ -211,18 +211,6 @@ function _updateRacing(dt) {
       // Relaxed threshold: dot < 0.98 means > 11 degrees slip
       if (slipDot < 0.98 || (isTurning && speed > 28)) {
         Audio.setScreech(true);
-        _smokeTimer += dt;
-        if (_smokeTimer > 0.05) {
-          _smokeTimer = 0;
-          const q = chassis.quaternion,
-            p = chassis.position;
-          _tmpRl.set(-0.7, -0.4, -1.4);
-          _tmpRr.set(0.7, -0.4, -1.4);
-          q.vmult(_tmpRl, _tmpRl);
-          q.vmult(_tmpRr, _tmpRr);
-          Graphics.spawnTireSmoke(p.vadd(_tmpRl));
-          Graphics.spawnTireSmoke(p.vadd(_tmpRr));
-        }
       } else {
         Audio.setScreech(false);
       }

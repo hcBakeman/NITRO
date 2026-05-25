@@ -71,11 +71,6 @@ export function initGraphics(canvas) {
   smokeInstanced.count = 0;
   scene.add(smokeInstanced);
 
-  tireSmokeInstanced = new THREE.InstancedMesh(_tireSmokeGeo, _tireSmokeMat, MAX_PARTICLES);
-  tireSmokeInstanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  tireSmokeInstanced.count = 0;
-  scene.add(tireSmokeInstanced);
-
   // Pre-instantiate rocket lights for pooling
   for (let i = 0; i < ROCKET_LIGHT_COUNT; i++) {
     const light = new THREE.PointLight(0xff6600, 0, 20);
@@ -286,12 +281,10 @@ export function buildRaceMap(mapData, sceneRef = scene) {
     initMinimap(minimapCanvas, mapData.spline, bounds);
   }
 
-  // Pre-compile shaders to prevent stuttering when particle effects (tire smoke) appear
+  // Pre-compile shaders to prevent stuttering when particle effects appear
   if (smokeInstanced) smokeInstanced.count = 1;
-  if (tireSmokeInstanced) tireSmokeInstanced.count = 1;
   renderer.compile(scene, camera);
   if (smokeInstanced) smokeInstanced.count = 0;
-  if (tireSmokeInstanced) tireSmokeInstanced.count = 0;
 }
 
 export function updateCheckpoints(passedCount) {
@@ -726,22 +719,23 @@ const _smokeGeo = new THREE.SphereGeometry(0.2, 4, 4);
 const _smokeMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.6 });
 let smokeInstanced;
 
-function _spawnSmoke(pos) {
-  explosionParticles.push({ type: 'smoke', life: 0.6, maxLife: 0.6, pos: pos.clone(), scale: 0.75 + Math.random() * 0.5 });
+function _getFreeParticle() {
+  let ep = explosionParticles.find(p => p.life <= 0);
+  if (!ep) {
+    ep = { pos: new THREE.Vector3() };
+    explosionParticles.push(ep);
+  }
+  return ep;
 }
 
-const _tireSmokeGeo = new THREE.SphereGeometry(0.15, 4, 4);
-const _tireSmokeMat = new THREE.MeshBasicMaterial({
-  color: 0xdddddd,
-  transparent: true,
-  opacity: 0.4,
-});
-let tireSmokeInstanced;
-
-export function spawnTireSmoke(pos) {
-  const isMobile = Math.min(window.innerWidth, window.innerHeight) < 800;
-  if (isMobile) return;
-  explosionParticles.push({ type: 'tireSmoke', life: 0.4, maxLife: 0.4, pos: pos.clone(), scale: 0.8 + Math.random() * 0.4 });
+function _spawnSmoke(pos) {
+  const ep = _getFreeParticle();
+  ep.type = 'smoke';
+  ep.life = 0.6;
+  ep.maxLife = 0.6;
+  ep.pos.copy(pos);
+  ep.scale = 0.75 + Math.random() * 0.5;
+  ep.mesh = null;
 }
 
 export function removeMesh(mesh) {
@@ -790,7 +784,13 @@ export function spawnExplosion(pos) {
   mesh.position.copy(pos);
   mesh.scale.setScalar(0.1);
   scene.add(mesh);
-  explosionParticles.push({ mesh, type: 'explosion', life: 0.8, maxLife: 0.8, pos: pos.clone() });
+  
+  const ep = _getFreeParticle();
+  ep.type = 'explosion';
+  ep.life = 0.8;
+  ep.maxLife = 0.8;
+  ep.pos.copy(pos);
+  ep.mesh = mesh;
 }
 
 export function createOilSlickMesh(position, quaternion) {
@@ -842,18 +842,18 @@ export function renderScene(dt) {
   });
 
   let smokeIdx = 0;
-  let tireSmokeIdx = 0;
 
-  for (let i = explosionParticles.length - 1; i >= 0; i--) {
+  for (let i = 0; i < explosionParticles.length; i++) {
     const ep = explosionParticles[i];
+    if (ep.life <= 0) continue;
+
     ep.life -= dt;
     if (ep.life <= 0) {
       if (ep.type === 'explosion' && ep.mesh) {
         scene.remove(ep.mesh);
         explosionPool.release(ep.mesh);
+        ep.mesh = null;
       }
-      // Note: smoke and tireSmoke have no mesh to release anymore
-      explosionParticles.splice(i, 1);
       continue;
     }
     
@@ -872,26 +872,12 @@ export function renderScene(dt) {
         _dummy.updateMatrix();
         smokeInstanced.setMatrixAt(smokeIdx++, _dummy.matrix);
       }
-    } else if (ep.type === 'tireSmoke') {
-      if (tireSmokeIdx < MAX_PARTICLES && tireSmokeInstanced) {
-        _dummy.position.copy(ep.pos);
-        _dummy.position.y += dt * 1.0;
-        ep.pos.copy(_dummy.position);
-        const scale = ep.scale * (1.0 + t);
-        _dummy.scale.setScalar(scale);
-        _dummy.updateMatrix();
-        tireSmokeInstanced.setMatrixAt(tireSmokeIdx++, _dummy.matrix);
-      }
     }
   }
 
   if (smokeInstanced) {
     smokeInstanced.count = smokeIdx;
     smokeInstanced.instanceMatrix.needsUpdate = true;
-  }
-  if (tireSmokeInstanced) {
-    tireSmokeInstanced.count = tireSmokeIdx;
-    tireSmokeInstanced.instanceMatrix.needsUpdate = true;
   }
 
   renderer.render(scene, camera);
