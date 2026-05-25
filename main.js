@@ -276,7 +276,7 @@ async function _onGameInit(seed, laps, mode, handlingMode, grid, coll) {
     for (let i = 0; i < AVAILABLE_CARS.length; i++) {
       const carName = AVAILABLE_CARS[i];
       const testId = `__dummy_${carName}__`;
-      const t = 0.05 + (i * 0.02);
+      const t = 0.15 + (i * 0.02);
       if (t >= 1.0) break;
       const testPos = mapData.spline.getPointAt(t);
       const testTan = mapData.spline.getTangentAt(t).normalize();

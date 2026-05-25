@@ -185,7 +185,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
 
   const roadMat = isTest
     ? (() => {
-        const tex = new THREE.TextureLoader().load('textures/textures/asphalt_02_diff_1k.jpg');
+        const tex = new THREE.TextureLoader().load('textures/textures/muddy_tracks_diff_1k.jpg');
         tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
         tex.repeat.set(1, 1);
         return new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide });
