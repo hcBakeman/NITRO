@@ -462,12 +462,15 @@ export function setVehicleHitbox(id, width, height, length) {
     // Box vs Trimesh is slow, but doing it for just 1 car (the player) only takes ~2-3ms,
     // which is perfectly fine for mobile 60 FPS.
     
-    // We raise the chassis Box slightly (Y=0.35) so it doesn't drag on the floor during normal driving
+    // We center the Box vertically around the center of mass (Y=0).
+    // If the Box is raised too high, wall impacts apply force above the center of mass,
+    // which acts as a lever and pitches the car's nose up.
+    // By keeping it at Y=0, we eliminate pitch/roll torques from flat wall impacts.
     const chassisShape = new CANNON.Box(new CANNON.Vec3(width * 0.49, 0.25, length * 0.49));
-    body.addShape(chassisShape, new CANNON.Vec3(0, 0.35, 0));
+    body.addShape(chassisShape, new CANNON.Vec3(0, 0.0, 0));
 
     const cabinShape = new CANNON.Box(new CANNON.Vec3(width * 0.35, 0.35, length * 0.25));
-    body.addShape(cabinShape, new CANNON.Vec3(0, 0.95, 0));
+    body.addShape(cabinShape, new CANNON.Vec3(0, 0.6, 0));
   } else {
     // ── AI / REMOTE PLAYERS: Use Spheres for maximum performance ──
     // 8 cars using Box vs Trimesh takes 30+ ms on mobile. 
