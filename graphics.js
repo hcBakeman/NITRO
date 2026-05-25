@@ -810,27 +810,33 @@ export function setCameraShake(amount) {
   cameraShake = Math.max(cameraShake, amount);
 }
 
-const _tmpEuler = new THREE.Euler(0, 0, 0, 'YXZ');
-const _tmpYawQuat = new THREE.Quaternion();
+const _tmpFwd = new THREE.Vector3();
 
 export function updateCamera(targetPos, carQuat, dt) {
-  // Rigidly follow the interpolated physics position
   cameraTarget.copy(targetPos);
 
-  // Extract pure YAW from the car's quaternion so the camera doesn't roll or pitch
-  // when the car flips over!
-  _tmpEuler.setFromQuaternion(carQuat, 'YXZ');
-  _tmpYawQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), _tmpEuler.y);
+  // Extract pure forward vector on the XZ plane
+  _tmpFwd.set(0, 0, 1).applyQuaternion(carQuat);
+  _tmpFwd.y = 0; // Flatten to prevent camera from pitching up/down
+  if (_tmpFwd.lengthSq() > 0.0001) {
+    _tmpFwd.normalize();
+  } else {
+    _tmpFwd.set(0, 0, 1); // Fallback
+  }
 
   const hFactor = 0.35 + (cameraZoom / 60) * 0.5;
-  _tmpCamOffset.set(0, cameraZoom * hFactor, -cameraZoom * 0.6);
-  _tmpCamOffset.applyQuaternion(_tmpYawQuat); // Apply only Yaw!
+  const heightOffset = cameraZoom * hFactor;
+  const backOffset = cameraZoom * 0.6;
 
-  _tmpCamIdeal.copy(cameraTarget).add(_tmpCamOffset);
-  
-  // Directly copy instead of lerping
+  // Position camera behind and above
+  _tmpCamIdeal.copy(cameraTarget);
+  _tmpCamIdeal.addScaledVector(_tmpFwd, -backOffset);
+  _tmpCamIdeal.y += heightOffset;
+
   camera.position.copy(_tmpCamIdeal);
-  camera.lookAt(_tmpCamIdeal.copy(cameraTarget).add(_tmpCamUp));
+  
+  // Look at the car (slightly above it)
+  camera.lookAt(cameraTarget.x, cameraTarget.y + 1.0, cameraTarget.z);
 
   if (cameraShake > 0.01) {
     camera.position.x += (Math.random() - 0.5) * cameraShake;
@@ -918,14 +924,23 @@ export function updateIntroCamera(targetPos, progress) {
 export function snapCamera(targetPos, carQuat) {
   cameraTarget.copy(targetPos);
   
-  _tmpEuler.setFromQuaternion(carQuat, 'YXZ');
-  _tmpYawQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), _tmpEuler.y);
+  _tmpFwd.set(0, 0, 1).applyQuaternion(carQuat);
+  _tmpFwd.y = 0;
+  if (_tmpFwd.lengthSq() > 0.0001) {
+    _tmpFwd.normalize();
+  } else {
+    _tmpFwd.set(0, 0, 1);
+  }
 
   const hFactor = 0.35 + (cameraZoom / 60) * 0.5;
-  const offset = new THREE.Vector3(0, cameraZoom * hFactor, -cameraZoom * 0.6);
-  offset.applyQuaternion(_tmpYawQuat);
-  camera.position.copy(targetPos).add(offset);
-  camera.lookAt(cameraTarget);
+  const heightOffset = cameraZoom * hFactor;
+  const backOffset = cameraZoom * 0.6;
+
+  camera.position.copy(targetPos);
+  camera.position.addScaledVector(_tmpFwd, -backOffset);
+  camera.position.y += heightOffset;
+  
+  camera.lookAt(cameraTarget.x, cameraTarget.y + 1.0, cameraTarget.z);
 }
 
 export function getScreenPosition(pos3d) {
