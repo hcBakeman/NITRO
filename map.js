@@ -357,8 +357,14 @@ export function generateMap(seed, world, groundMat, wallMat) {
   for (let i = 0; i < 8; i++) {
     // Staggered pairs: row 0 at 6m back, then 6m increments per row
     const distBack = 6 + Math.floor(i / 2) * 6;
-    let t = 1.0 - distBack * dtPerMeter;
-    if (t < 0) t += 1.0;
+    let t;
+    if (isClosed) {
+      t = 1.0 - distBack * dtPerMeter;
+      if (t < 0) t += 1.0;
+    } else {
+      // Start 10% into the track (e.g. 270m) so there is road behind us
+      t = 0.1 - distBack * dtPerMeter;
+    }
 
     const pt = spline.getPointAt(t % 1);
     const tan = spline.getTangentAt(t % 1).normalize();
@@ -396,6 +402,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
     spot.position.y = spawnPos.y + 0.06;
     spot.quaternion.copy(quat);
     spot.rotateX(-Math.PI / 2);
+    spot.rotateZ(Math.PI); // Spin 180 so it's readable from behind
     spot.receiveShadow = true;
     spot.matrixAutoUpdate = false;
     spot.updateMatrix();
@@ -454,6 +461,7 @@ export function generateMap(seed, world, groundMat, wallMat) {
   groundMesh.updateMatrix();
 
   return {
+    isTest,
     trackMesh,
     wallMeshes,
     groundMesh,
@@ -462,6 +470,8 @@ export function generateMap(seed, world, groundMat, wallMat) {
     finishLinePt,
     finishTangent,
     startGrid,
+    startGridMeshes,
+    frames,
     spline,
     roadLength: length,
   };

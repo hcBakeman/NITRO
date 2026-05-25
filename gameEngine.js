@@ -384,7 +384,12 @@ function _resetToLastCheckpoint() {
     const length = spline.getLength();
     // Respawn ~15m behind current point
     const offsetT = 15.0 / length;
-    let t = (chassis._closestT - offsetT + 1.0) % 1.0;
+    let t = chassis._closestT - offsetT;
+    if (mapData.isTest) {
+      t = Math.max(0, t);
+    } else {
+      t = (t + 1.0) % 1.0;
+    }
 
     const pt = spline.getPointAt(t);
     const tan = spline.getTangentAt(t).normalize();
