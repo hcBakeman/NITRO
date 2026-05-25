@@ -19,7 +19,7 @@ const AVAILABLE_CARS = [
   'volvo_240',
 ];
 
-let currentCarIndex = 0;
+let currentCarIndex = 3;
 let lobbyPreview = null;
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
