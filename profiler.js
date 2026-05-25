@@ -4,8 +4,8 @@ export const Profiler = {
   frameCount: 0,
   
   // A threshold above which a frame is considered "slow" and recorded
-  // 16.6ms is 60fps. If it takes > 25ms, it means FPS drops below 40.
-  SLOW_FRAME_THRESHOLD: 25, 
+  // 16.6ms is 60fps. If it takes > 18ms, it means FPS drops below 55.
+  SLOW_FRAME_THRESHOLD: 18, 
   MAX_RECORDS: 200,
 
   recordFrame(totalTime, dt, speed, breakdown) {
