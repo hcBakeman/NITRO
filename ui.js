@@ -1,4 +1,5 @@
 import * as Network from './network.js';
+import { Profiler } from './profiler.js';
 
 
 let _onHost = null;
@@ -42,6 +43,10 @@ function _setupEventListeners() {
 
   safeAddListener('btn-join', 'click', () => {
     if (_onJoin) _onJoin();
+  });
+
+  safeAddListener('btn-download-log', 'click', () => {
+    Profiler.downloadLog();
   });
 
   safeAddListener('btn-car-prev', 'click', (e) => {

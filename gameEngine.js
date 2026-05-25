@@ -6,6 +6,7 @@ import * as Graphics from './graphics.js';
 import * as Physics from './physics.js';
 import * as Audio from './audio.js';
 import * as UI from './ui.js';
+import { Profiler } from './profiler.js';
 import { formatTime } from './utils.js';
 
 let _lastTime = performance.now();
@@ -62,6 +63,7 @@ export function startLoop() {
 
 function _tick(now) {
   requestAnimationFrame(_tick);
+  const totalT0 = performance.now();
   const dt = Math.min((now - _lastTime) / 1000, 0.1);
   _lastTime = now;
 
@@ -72,12 +74,34 @@ function _tick(now) {
     _lastFpsTime = now;
   }
 
+  const breakdown = { physics: 0, logic: 0, render: 0, audio: 0, other: 0 };
+  let t1, t2, t3, t4;
+
   const state = Game.getState();
   if (state === Game.STATE.RACING) {
+    t1 = performance.now();
     _updateRacing(dt);
+    t2 = performance.now();
+    // Since physics is inside _updateRacing, we can't easily split it without passing timestamps, 
+    // but we can assume most of logic time IS physics time. Let's call it all physics/logic.
+    breakdown.physics = t2 - t1; 
   }
 
+  t3 = performance.now();
   Graphics.renderScene(dt);
+  t4 = performance.now();
+  breakdown.render = t4 - t3;
+  
+  const totalT1 = performance.now();
+  const totalTime = totalT1 - totalT0;
+  breakdown.other = totalTime - breakdown.physics - breakdown.render;
+
+  let speed = 0;
+  if (Physics.playerChassis) {
+    speed = Physics.playerChassis.velocity.length() * 3.6;
+  }
+
+  Profiler.recordFrame(totalTime, dt, speed, breakdown);
 }
 
 function _updateRacing(dt) {
