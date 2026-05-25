@@ -27,59 +27,72 @@ const WALL_H = 2.5;
 const WALL_T = 0.2; // wall half-thickness
 
 function _buildWallBoxes(spline, samples, side, world, material, jumpZones, frames) {
-  for (let i = 0; i < samples; i++) {
-    const t1 = i / samples;
-    const t2 = (i + 1) / samples;
-    
-    const isInGap = jumpZones && jumpZones.some(z => t1 >= z.startT && t1 <= z.endT);
-    if (isInGap) continue;
+  // A single Cannon.js world shouldn't have 2000 static bodies if we can avoid it.
+  // We chunk the wall boxes into groups of 20 (just like the Trimesh) to dramatically
+  // reduce the number of bodies in the SAPBroadphase, significantly speeding up physics!
+  const CHUNK_SIZE = 20;
 
-    const pt1 = spline.getPointAt(t1);
-    const pt2 = spline.getPointAt(t2);
+  for (let chunkStart = 0; chunkStart < samples; chunkStart += CHUNK_SIZE) {
+    const chunkBody = new CANNON.Body({ mass: 0, material });
+    chunkBody.collisionFilterGroup = 1;
+    chunkBody.collisionFilterMask = -1;
     
-    const rightDir1 = frames.binormals[i % samples].clone().normalize();
-    const outDir1 = rightDir1.clone().multiplyScalar(side);
-    const center1 = pt1.clone().addScaledVector(outDir1, ROAD_HALF + WALL_T);
-    
-    const rightDir2 = frames.binormals[(i + 1) % samples].clone().normalize();
-    const outDir2 = rightDir2.clone().multiplyScalar(side);
-    const center2 = pt2.clone().addScaledVector(outDir2, ROAD_HALF + WALL_T);
-    
-    // ── CORRECTED FISH SCALE OVERLAP ──
-    // The previous values were way too large, causing the straight boxes to shoot
-    // like tangents far into the track space on tight curves!
-    // We only need a tiny overlap to hide the seam.
-    const OVERLAP_OFFSET = 0.05; // 5cm shift (front in, rear out)
-    const OVERLAP_EXTEND = 0.2;  // 20cm length extension (10cm per end)
-    
-    center1.addScaledVector(outDir1, OVERLAP_OFFSET);
-    center2.addScaledVector(outDir2, -OVERLAP_OFFSET);
-    
-    const dist = center1.distanceTo(center2);
-    
-    // Box half-extents: width is WALL_T, height is WALL_H/2, length is (dist + OVERLAP_EXTEND)/2
-    const boxShape = new CANNON.Box(new CANNON.Vec3(WALL_T, WALL_H / 2, (dist + OVERLAP_EXTEND) / 2));
-    const boxBody = new CANNON.Body({ mass: 0, material });
-    
-    const midPoint = new THREE.Vector3().addVectors(center1, center2).multiplyScalar(0.5);
-    boxBody.position.set(midPoint.x, midPoint.y + WALL_H / 2, midPoint.z);
-    
-    const forward = new THREE.Vector3().subVectors(center2, center1).normalize();
-    const up = new THREE.Vector3().crossVectors(rightDir1, forward).normalize();
-    if (up.y < 0) up.negate();
-    
-    const m = new THREE.Matrix4();
-    const right = new THREE.Vector3().crossVectors(up, forward).normalize();
-    m.makeBasis(right, up, forward);
-    
-    const quat = new THREE.Quaternion().setFromRotationMatrix(m);
-    boxBody.quaternion.set(quat.x, quat.y, quat.z, quat.w);
-    
-    boxBody.collisionFilterGroup = 1;
-    boxBody.collisionFilterMask = -1; // Allow collision with everything
-    boxBody.addShape(boxShape);
-    
-    world.addBody(boxBody);
+    // We keep the chunk body at the origin and offset the shapes using their global coordinates
+    chunkBody.position.set(0, 0, 0);
+    chunkBody.quaternion.set(0, 0, 0, 1);
+
+    let hasShapes = false;
+    const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, samples);
+
+    for (let i = chunkStart; i < chunkEnd; i++) {
+      const t1 = i / samples;
+      const t2 = (i + 1) / samples;
+      
+      const isInGap = jumpZones && jumpZones.some(z => t1 >= z.startT && t1 <= z.endT);
+      if (isInGap) continue;
+
+      const pt1 = spline.getPointAt(t1);
+      const pt2 = spline.getPointAt(t2);
+      
+      const rightDir1 = frames.binormals[i % samples].clone().normalize();
+      const outDir1 = rightDir1.clone().multiplyScalar(side);
+      const center1 = pt1.clone().addScaledVector(outDir1, ROAD_HALF + WALL_T);
+      
+      const rightDir2 = frames.binormals[(i + 1) % samples].clone().normalize();
+      const outDir2 = rightDir2.clone().multiplyScalar(side);
+      const center2 = pt2.clone().addScaledVector(outDir2, ROAD_HALF + WALL_T);
+      
+      const OVERLAP_OFFSET = 0.05;
+      const OVERLAP_EXTEND = 0.2;
+      
+      center1.addScaledVector(outDir1, OVERLAP_OFFSET);
+      center2.addScaledVector(outDir2, -OVERLAP_OFFSET);
+      
+      const dist = center1.distanceTo(center2);
+      
+      const boxShape = new CANNON.Box(new CANNON.Vec3(WALL_T, WALL_H / 2, (dist + OVERLAP_EXTEND) / 2));
+      
+      const midPoint = new THREE.Vector3().addVectors(center1, center2).multiplyScalar(0.5);
+      const offset = new CANNON.Vec3(midPoint.x, midPoint.y + WALL_H / 2, midPoint.z);
+      
+      const forward = new THREE.Vector3().subVectors(center2, center1).normalize();
+      const up = new THREE.Vector3().crossVectors(rightDir1, forward).normalize();
+      if (up.y < 0) up.negate();
+      
+      const m = new THREE.Matrix4();
+      const right = new THREE.Vector3().crossVectors(up, forward).normalize();
+      m.makeBasis(right, up, forward);
+      
+      const quat = new THREE.Quaternion().setFromRotationMatrix(m);
+      const orientation = new CANNON.Quaternion(quat.x, quat.y, quat.z, quat.w);
+      
+      chunkBody.addShape(boxShape, offset, orientation);
+      hasShapes = true;
+    }
+
+    if (hasShapes) {
+      world.addBody(chunkBody);
+    }
   }
 }
 
