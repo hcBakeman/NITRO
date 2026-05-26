@@ -360,6 +360,7 @@ export function applyNetworkBump(bumpVel) {
   
   // Apply the velocity bump directly
   playerChassis.velocity.x += bumpVel.x;
+  playerChassis.velocity.y += (bumpVel.y || 0);
   playerChassis.velocity.z += bumpVel.z;
   
   // Lock out our own local collide event for 500ms so we don't bounce twice
@@ -414,22 +415,26 @@ export function checkStrictCollisions() {
         impulseMag = Math.min(impulseMag, 45000);
 
         // Broadcast the hit to the victim (bj) from attacker (bi)
+        const victimMass = bj.mass || 1000;
+        const dvMagJ = impulseMag / victimMass;
         const point = { x: bj.position.x + contact.rj.x, y: bj.position.y + contact.rj.y, z: bj.position.z + contact.rj.z };
-        const impulse = { 
-          x: contact.ni.x * impulseMag, 
-          y: Math.min(contact.ni.y * impulseMag + (impulseMag * 0.1), 5000), 
-          z: contact.ni.z * impulseMag 
+        const bumpVelJ = { 
+          x: contact.ni.x * dvMagJ, 
+          y: Math.min(contact.ni.y * dvMagJ + (dvMagJ * 0.1), 5), // Small upward hop 
+          z: contact.ni.z * dvMagJ 
         };
-        if (_onVehicleImpact) _onVehicleImpact(bj.peerId, impulse, point, bi.peerId);
+        if (_onVehicleImpact) _onVehicleImpact(bj.peerId, bumpVelJ, point, bi.peerId);
         
         // Also broadcast the counter-hit to the attacker (bi) from victim (bj)
+        const attackerMass = bi.mass || 1000;
+        const dvMagI = impulseMag / attackerMass;
         const pointI = { x: bi.position.x + contact.ri.x, y: bi.position.y + contact.ri.y, z: bi.position.z + contact.ri.z };
-        const impulseI = { 
-          x: -contact.ni.x * impulseMag, 
-          y: Math.min(-contact.ni.y * impulseMag + (impulseMag * 0.1), 5000), 
-          z: -contact.ni.z * impulseMag 
+        const bumpVelI = { 
+          x: -contact.ni.x * dvMagI, 
+          y: Math.min(-contact.ni.y * dvMagI + (dvMagI * 0.1), 5), 
+          z: -contact.ni.z * dvMagI 
         };
-        if (_onVehicleImpact) _onVehicleImpact(bi.peerId, impulseI, pointI, bj.peerId);
+        if (_onVehicleImpact) _onVehicleImpact(bi.peerId, bumpVelI, pointI, bj.peerId);
       }
     }
   }
