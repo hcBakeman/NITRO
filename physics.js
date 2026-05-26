@@ -318,6 +318,16 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
               other.updateMassProperties();
             }
 
+            if (window.logCollisionEvent) {
+              window.logCollisionEvent('LOCAL_COLLIDE', { 
+                attackerId: '__local__', 
+                victimId: other.peerId, 
+                bumpVel, 
+                bumpAngVel,
+                impactVel 
+              });
+            }
+
             // Apply it INSTANTLY to the local dummy car so we don't have to wait for the network!
             other.velocity.x += bumpVel.x;
             other.velocity.y += bumpVel.y;
@@ -434,6 +444,10 @@ export function applyCounterBump(attackerId, bumpVel, bumpAngVel = null) {
   const dummy = remoteVehicles[attackerId];
   if (!dummy) return;
   
+  if (window.logCollisionEvent) {
+    window.logCollisionEvent('APPLY_COUNTER_BUMP', { attackerId, bumpVel, bumpAngVel });
+  }
+
   // Suspend network lerp so CANNON can physically simulate the recoil
   dummy._lastHitTime = performance.now();
   
@@ -459,6 +473,10 @@ export function applyCounterBump(attackerId, bumpVel, bumpAngVel = null) {
 export function applyNetworkBump(bumpVel, bumpAngVel = null) {
   if (!playerChassis) return;
   
+  if (window.logCollisionEvent) {
+    window.logCollisionEvent('APPLY_NETWORK_BUMP', { bumpVel, bumpAngVel });
+  }
+
   // Apply the velocity bump directly
   playerChassis.velocity.x += bumpVel.x;
   playerChassis.velocity.y += (bumpVel.y || 0);

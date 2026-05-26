@@ -182,6 +182,29 @@ async function updatePreviews() {
 
 
 // ── Network Setup ──────────────────────────────────────────────────────────
+window.CollisionLogs = [];
+window.logCollisionEvent = function(type, data) {
+  if (GameEngine.getCollisionMode() !== 'smooth') return;
+  // Keep last 1000 events to prevent memory leak (about 15 seconds at 60fps if we log every frame)
+  if (window.CollisionLogs.length > 1000) window.CollisionLogs.shift();
+  
+  window.CollisionLogs.push({
+    time: performance.now().toFixed(1),
+    type,
+    ...data
+  });
+};
+
+document.getElementById('download-log-btn').addEventListener('click', () => {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(window.CollisionLogs, null, 2));
+  const downloadAnchorNode = document.createElement('a');
+  downloadAnchorNode.setAttribute("href", dataStr);
+  downloadAnchorNode.setAttribute("download", "collision_log_" + Network.getMyPeerId() + ".json");
+  document.body.appendChild(downloadAnchorNode); // required for firefox
+  downloadAnchorNode.click();
+  downloadAnchorNode.remove();
+});
+
 async function setupNetwork() {
   const statusElId = Game.getState() === Game.STATE.JOIN_LOBBY ? 'join-lobby-status' : 'menu-status';
   document.getElementById(statusElId).textContent = 'CONNECTING...';
@@ -318,6 +341,9 @@ function _onCratePickup(id, crateIdx, type) {
 
 function _onVehicleHit(victimId, bumpVel, attackerId, bumpAngVel = null) {
   if (victimId === Network.getMyPeerId()) {
+    if (window.logCollisionEvent) {
+      window.logCollisionEvent('RECEIVE_BUMP', { victimId, attackerId, bumpVel, bumpAngVel });
+    }
     Physics.applyNetworkBump(bumpVel, bumpAngVel);
     Audio.playCollision();
     
