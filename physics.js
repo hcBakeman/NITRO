@@ -443,6 +443,9 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
 export function applyCounterBump(attackerId, bumpVel, bumpAngVel = null) {
   const dummy = remoteVehicles[attackerId];
   if (!dummy) return;
+
+  const now = performance.now();
+  if (now - (dummy._lastHitTime || 0) < 400) return;
   
   if (window.logCollisionEvent) {
     window.logCollisionEvent('APPLY_COUNTER_BUMP', { attackerId, bumpVel, bumpAngVel });
