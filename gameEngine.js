@@ -46,9 +46,9 @@ export function init() {
   domFpsCounter = document.getElementById('fps-counter');
   domCrosshair = document.getElementById('crosshair');
 
-  Physics.setOnVehicleImpact((victimId, bumpVel, attackerId) => {
+  Physics.setOnVehicleImpact((victimId, bumpVel, attackerId, bumpAngVel = null) => {
     if (Game.getState() !== Game.STATE.RACING || Game.racePhase !== 'ACTIVE') return;
-    Network.sendVehicleHit(victimId, bumpVel, attackerId);
+    Network.sendVehicleHit(victimId, bumpVel, attackerId, bumpAngVel);
   });
 }
 

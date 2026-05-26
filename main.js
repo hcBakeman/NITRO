@@ -205,7 +205,7 @@ async function setupNetwork() {
     },
     onCarUpdate: (id, model) => { if (Game.getState() === Game.STATE.RACING) Graphics.loadVehicle(id, Network.players[id].colorIndex, model); UI.refreshPlayerList(Network.players, Network.getIsHost()); },
     onKicked: () => location.reload(),
-    onVehicleHit: (vId, bumpVel, aId) => _onVehicleHit(vId, bumpVel, aId),
+    onVehicleHit: (vId, bumpVel, aId, bumpAngVel) => _onVehicleHit(vId, bumpVel, aId, bumpAngVel),
     onPlayerLoaded: (players) => UI.updateLoadingPlayerList(players),
     onStartCountdown: () => {
       UI.setLoading(false);
@@ -232,7 +232,7 @@ async function _onGameInit(seed, laps, mode, handlingMode, grid, coll) {
   UI.setLoading(true);
 
   GameEngine.setCollisionMode(coll);
-
+  Physics.setCollisionMode(coll);
   Physics.setDriveMode(mode);
   Physics.setHandlingMode(handlingMode);
 
@@ -316,9 +316,9 @@ function _onCratePickup(id, crateIdx, type) {
   Audio.playCollect();
 }
 
-function _onVehicleHit(victimId, bumpVel, attackerId) {
+function _onVehicleHit(victimId, bumpVel, attackerId, bumpAngVel = null) {
   if (victimId === Network.getMyPeerId()) {
-    Physics.applyNetworkBump(bumpVel);
+    Physics.applyNetworkBump(bumpVel, bumpAngVel);
     Audio.playCollision();
   }
 }

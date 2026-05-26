@@ -138,8 +138,9 @@ const OIL_FRICTION = 0.1; // frictionSlip while oiled
 export let playerVehicle = null;
 export let playerChassis = null;
 export let playerCarSpecs = null;
-export let driveMode = '4WD'; // 'FWD', 'RWD', '4WD'
+export let driveMode = '4WD'; // '4WD', 'RWD', 'FWD'
 export let handlingMode = 'Arcade'; // 'Arcade', 'Rally'
+export let collisionMode = 'fast';
 
 export function setDriveMode(mode) {
   driveMode = mode;
@@ -147,6 +148,10 @@ export function setDriveMode(mode) {
 
 export function setHandlingMode(mode) {
   handlingMode = mode;
+}
+
+export function setCollisionMode(mode) {
+  collisionMode = mode;
 }
 
 let flipTimer = 0;
@@ -271,19 +276,48 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           _tmpPushDir.set(other.position.x - playerChassis.position.x, 0, other.position.z - playerChassis.position.z);
           _tmpPushDir.normalize();
           
-          // 2. Controlled Arcade Velocity Bump (Networked)
-          // Since collisionResponse is TRUE, CANNON natively pushes the cars apart (no clipping).
-          // However, we still calculate the impact severity to broadcast the bump to the victim,
-          // so the victim's game ALSO reacts perfectly synchronously.
+          // 2. Calculate the velocity bump to send to the victim
           let bumpSpeed = 1.0 + (impactVel * 0.15); 
           bumpSpeed = Math.min(bumpSpeed, 5.0); // Capped at 5 m/s (~18 km/h) velocity change
+          
+          let bumpVel = {x: _tmpPushDir.x * bumpSpeed, y: 0, z: _tmpPushDir.z * bumpSpeed};
+          let bumpAngVel = null;
+          
+          if (collisionMode === 'smooth') {
+            const contact = e.contact;
+            const impulseMag = Math.min(impactVel * playerChassis.mass * 0.8, 45000);
+            const victimMass = other.mass || 1000;
+            const dvMag = impulseMag / victimMass;
+            
+            // Physical Linear Velocity Delta
+            bumpVel = {
+              x: contact.ni.x * dvMag,
+              y: Math.min(contact.ni.y * dvMag + (dvMag * 0.1), 5),
+              z: contact.ni.z * dvMag
+            };
+            
+            // Physical Angular Velocity Delta (Torque = r x F)
+            const rj = contact.rj; // Vector from victim center to contact point
+            // Cross product of rj and ni (normal from attacker to victim)
+            const tx = rj.y * contact.ni.z - rj.z * contact.ni.y;
+            const ty = rj.z * contact.ni.x - rj.x * contact.ni.z;
+            const tz = rj.x * contact.ni.y - rj.y * contact.ni.x;
+            
+            // Scale torque to approximate angular velocity (Inertia ~ mass * 2)
+            const spinFactor = impulseMag / (victimMass * 2.0);
+            bumpAngVel = {
+              x: tx * spinFactor,
+              y: ty * spinFactor,
+              z: tz * spinFactor
+            };
+          }
           
           // Note: We DO NOT manually change our local playerChassis.velocity here anymore!
           // CANNON's native overlap solver already handles our local bounce perfectly without clipping.
           
-          // 5. Broadcast this EXACT velocity bump to the victim so their game applies it perfectly
+          // 5. Broadcast this velocity/angular bump to the victim so their game applies it perfectly
           if (_onVehicleImpact) {
-            _onVehicleImpact(other.peerId, {x: _tmpPushDir.x * bumpSpeed, y: 0, z: _tmpPushDir.z * bumpSpeed}, '__local__');
+            _onVehicleImpact(other.peerId, bumpVel, '__local__', bumpAngVel);
           }
         }
       }
@@ -355,7 +389,7 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
   }
 }
 
-export function applyNetworkBump(bumpVel) {
+export function applyNetworkBump(bumpVel, bumpAngVel = null) {
   if (!playerChassis) return;
   
   // Apply the velocity bump directly
@@ -363,12 +397,21 @@ export function applyNetworkBump(bumpVel) {
   playerChassis.velocity.y += (bumpVel.y || 0);
   playerChassis.velocity.z += bumpVel.z;
   
+  // Apply angular velocity bump if provided (for spins in smooth mode)
+  if (bumpAngVel) {
+    playerChassis.angularVelocity.x += bumpAngVel.x;
+    playerChassis.angularVelocity.y += bumpAngVel.y;
+    playerChassis.angularVelocity.z += bumpAngVel.z;
+  }
+  
   // Lock out our own local collide event for 500ms so we don't bounce twice
   playerChassis._lastHitTime = performance.now();
   
-  // Activate heavy anti-spin assist
-  playerChassis._hitDampTime = performance.now();
-  playerChassis.angularVelocity.y *= 0.1;
+  // Only apply heavy anti-spin assist if NOT in smooth mode
+  if (collisionMode !== 'smooth') {
+    playerChassis._hitDampTime = performance.now();
+    playerChassis.angularVelocity.y *= 0.1;
+  }
 }
 
 export function updateRemoteVehicles() {
@@ -383,10 +426,11 @@ export function updateRemoteVehicles() {
         continue;
       }
 
-      // If this car was recently involved in a local collision, suspend network interpolation
-      // for 400ms. This allows CANNON.js to seamlessly play out the collision physics locally,
-      // making it visually smooth and completely eliminating clipping!
-      if (now - (rBody._lastHitTime || 0) < 400) {
+      // If this car was recently involved in a local collision, suspend network interpolation.
+      // In 'smooth' mode we suspend for 800ms so the cars can fully spin and separate naturally.
+      // In 'fast' mode we suspend for 400ms.
+      const suspensionTime = collisionMode === 'smooth' ? 800 : 400;
+      if (now - (rBody._lastHitTime || 0) < suspensionTime) {
         continue; // Let CANNON's engine simulate it naturally without forcing its position!
       }
       
