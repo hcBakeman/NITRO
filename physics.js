@@ -3,6 +3,7 @@
  * Handles: world, vehicle, weapons (rocket/oil/boost), flip recovery, wall bodies
  */
 import * as CANNON from 'cannon-es';
+import * as Network from './network.js';
 
 // ── World ─────────────────────────────────────────────────────────────────
 export let world;
@@ -345,18 +346,24 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
               other.angularVelocity.z += bumpAngVel.z;
             }
           } else if (collisionMode === 'predict') {
-            // PREDICT: No DYNAMIC switch. Instead, set a predicted target position.
-            // The remote body stays KINEMATIC and lerps toward the predicted position.
-            const predictionTime = 0.5; // 500ms into the future
-            other._predictedPos = new CANNON.Vec3(
-              other.position.x + bumpVel.x * predictionTime,
-              other.position.y + Math.max(0, bumpVel.y * predictionTime * 0.3),
-              other.position.z + bumpVel.z * predictionTime
+            // PREDICT: Ping-based prediction + blend. No DYNAMIC switch.
+            const ping = Network.getPingTo(other.peerId) || 50;
+            const predictDur = Math.max(ping, 50); // min 50ms to prevent glitches
+            
+            // Calculate where it will be at the end of the ping window
+            const predictionTimeSec = predictDur / 1000;
+            other._predictedEndPos = new CANNON.Vec3(
+              other.position.x + bumpVel.x * predictionTimeSec,
+              other.position.y + Math.max(0, bumpVel.y * predictionTimeSec * 0.3),
+              other.position.z + bumpVel.z * predictionTimeSec
             );
-            other._predictAlpha = 0;
             other._predictStartPos = new CANNON.Vec3().copy(other.position);
             other._predictStartTime = now;
-            other._predictDuration = 500; // ms
+            other._predictDuration = predictDur; // Phase 1: Blind prediction
+            other._predictBlendDuration = 200; // Phase 2: Smooth blend back to network
+            
+            // During phase 1, we still calculate live _predictedPos frame by frame
+            other._predictBumpVel = bumpVel;
           } else if (collisionMode === 'authoritative') {
             // AUTHORITATIVE: No CANNON physics on the dummy at all.
             // Set a visual bump animation offset that decays over time.
@@ -435,25 +442,45 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
   const now = performance.now();
 
   // === PREDICT MODE: Interpolate toward predicted collision position, then blend back ===
-  if (collisionMode === 'predict' && body._predictedPos) {
+  if (collisionMode === 'predict' && body._predictStartPos) {
     const elapsed = now - body._predictStartTime;
-    const t = Math.min(elapsed / body._predictDuration, 1.0);
     
-    if (t < 1.0) {
-      // Smoothly interpolate from start to predicted position (ease-out)
+    // Phase 1: Blind prediction (using Ping duration)
+    if (elapsed < body._predictDuration) {
+      // Linearly predict based on velocity
+      const elapsedSec = elapsed / 1000;
+      body._predictedPos = new CANNON.Vec3(
+        body._predictStartPos.x + body._predictBumpVel.x * elapsedSec,
+        body._predictStartPos.y + body._predictBumpVel.y * elapsedSec,
+        body._predictStartPos.z + body._predictBumpVel.z * elapsedSec
+      );
+      body.targetPos.copy(body._predictedPos);
+      body.targetQuat.set(targetQuat.x, targetQuat.y, targetQuat.z, targetQuat.w);
+      return;
+    } 
+    // Phase 2: Smooth blend back to network reality
+    else if (elapsed < body._predictDuration + body._predictBlendDuration) {
+      const blendElapsed = elapsed - body._predictDuration;
+      const t = blendElapsed / body._predictBlendDuration;
+      // Ease-out
       const alpha = 1 - Math.pow(1 - t, 2);
+      
+      // Blend from the EndPos to the real network targetPos
       body.targetPos.set(
-        body._predictStartPos.x + (body._predictedPos.x - body._predictStartPos.x) * alpha,
-        body._predictStartPos.y + (body._predictedPos.y - body._predictStartPos.y) * alpha,
-        body._predictStartPos.z + (body._predictedPos.z - body._predictStartPos.z) * alpha
+        body._predictedEndPos.x + (targetPos.x - body._predictedEndPos.x) * alpha,
+        body._predictedEndPos.y + (targetPos.y - body._predictedEndPos.y) * alpha,
+        body._predictedEndPos.z + (targetPos.z - body._predictedEndPos.z) * alpha
       );
       body.targetQuat.set(targetQuat.x, targetQuat.y, targetQuat.z, targetQuat.w);
       if (targetVel) body.targetVel.set(targetVel.x, targetVel.y, targetVel.z);
       return;
-    } else {
-      // Prediction animation complete - clear state and resume normal lerp
-      body._predictedPos = null;
+    }
+    // Phase 3: Prediction finished
+    else {
       body._predictStartPos = null;
+      body._predictedPos = null;
+      body._predictedEndPos = null;
+      body._predictBumpVel = null;
     }
   }
 
@@ -574,18 +601,21 @@ export function applyCounterBump(attackerId, bumpVel, bumpAngVel = null) {
       dummy.angularVelocity.z -= bumpAngVel.z;
     }
   } else if (collisionMode === 'predict') {
-    // PREDICT: No DYNAMIC switch. Instead, set a predicted target position.
-    // The remote body stays KINEMATIC and lerps toward the predicted position.
-    const predictionTime = 0.5; // 500ms into the future
-    dummy._predictedPos = new CANNON.Vec3(
-      dummy.position.x - bumpVel.x * predictionTime,
-      dummy.position.y - Math.max(0, bumpVel.y * predictionTime * 0.3),
-      dummy.position.z - bumpVel.z * predictionTime
+    // PREDICT: Ping-based prediction + blend. No DYNAMIC switch.
+    const ping = Network.getPingTo(attackerId) || 50;
+    const predictDur = Math.max(ping, 50); // min 50ms
+    
+    const predictionTimeSec = predictDur / 1000;
+    dummy._predictedEndPos = new CANNON.Vec3(
+      dummy.position.x - bumpVel.x * predictionTimeSec,
+      dummy.position.y - Math.max(0, bumpVel.y * predictionTimeSec * 0.3),
+      dummy.position.z - bumpVel.z * predictionTimeSec
     );
-    dummy._predictAlpha = 0;
     dummy._predictStartPos = new CANNON.Vec3().copy(dummy.position);
     dummy._predictStartTime = now;
-    dummy._predictDuration = 500; // ms
+    dummy._predictDuration = predictDur;
+    dummy._predictBlendDuration = 200;
+    dummy._predictBumpVel = { x: -bumpVel.x, y: -bumpVel.y, z: -bumpVel.z };
   } else if (collisionMode === 'authoritative') {
     // AUTHORITATIVE: No CANNON physics on the dummy at all.
     // Set a visual bump animation offset that decays over time.
@@ -643,7 +673,7 @@ export function updateRemoteVehicles() {
       }
 
       // === PREDICT MODE: Managed by syncRemoteBody directly ===
-      if (collisionMode === 'predict' && rBody._predictedPos) {
+      if (collisionMode === 'predict' && rBody._predictStartPos) {
         // Skip normal lerp while prediction animation is playing
         continue;
       }

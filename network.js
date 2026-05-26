@@ -110,6 +110,11 @@ export function getIsHost() {
   return isHost;
 }
 
+export const rttValues = {};
+export function getPingTo(peerId) {
+  return rttValues[peerId] || 50;
+}
+
 // ── Host ───────────────────────────────────────────────────────────────────
 export function hostGame(playerName, colorIndex, carModel = 'dacia_duster_low_poly') {
   isHost = true;
@@ -126,6 +131,11 @@ export function hostGame(playerName, colorIndex, carModel = 'dacia_duster_low_po
     finished: false,
     disqualified: false,
   };
+
+  // Host ping interval
+  setInterval(() => {
+    _broadcastToAll({ type: 'PING', t: Date.now() });
+  }, 1000);
 
   peer.on('connection', conn => {
     conn.on('open', () => {
@@ -245,6 +255,13 @@ function _setupHostConnHandlers(conn) {
           time: data.time,
           bestLap: data.bestLap,
         });
+        break;
+
+      case 'PONG':
+        const rtt = Date.now() - data.t;
+        rttValues[pid] = rtt;
+        // Host broadcasts the known RTTs to everyone so they can predict properly
+        _broadcastToAll({ type: 'RTT_UPDATE', rtts: rttValues });
         break;
 
       case 'RETURN_LOBBY':
@@ -491,6 +508,16 @@ export function connectToHost(hostPeerId, playerName, carModel = 'dacia_duster_l
             players[data.id].finished = true;
             players[data.id].finishTime = data.time;
             players[data.id].bestLap = data.bestLap;
+          }
+          break;
+
+        case 'PING':
+          hostConn.send({ type: 'PONG', t: data.t });
+          break;
+
+        case 'RTT_UPDATE':
+          if (data.rtts) {
+            Object.assign(rttValues, data.rtts);
           }
           break;
 
