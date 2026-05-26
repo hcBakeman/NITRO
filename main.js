@@ -185,8 +185,8 @@ async function updatePreviews() {
 window.CollisionLogs = [];
 window.logCollisionEvent = function(type, data) {
   if (Physics.collisionMode !== 'smooth') return;
-  // Keep last 1000 events to prevent memory leak (about 15 seconds at 60fps if we log every frame)
-  if (window.CollisionLogs.length > 1000) window.CollisionLogs.shift();
+  // Keep last 10000 events to prevent memory leak (about 55 seconds at 180fps if we log every frame)
+  if (window.CollisionLogs.length > 10000) window.CollisionLogs.shift();
   
   window.CollisionLogs.push({
     time: performance.now().toFixed(1),
