@@ -320,16 +320,24 @@ export function sendVehicleHit(targetId, bumpVel, attackerId, bumpAngVel = null)
   if (isHost) {
     // If Host detects a hit, broadcast it to the victim directly
     if (peers[targetId]) {
-      peers[targetId].send({
+      const msg = {
         type: 'VEHICLE_HIT',
         attackerId: attackerId || _myPeerId,
         bumpVel,
         bumpAngVel,
-      });
+      };
+      peers[targetId].send(msg);
+      // Redundant sends to guarantee delivery over unreliable WebRTC DataChannel
+      setTimeout(() => peers[targetId] && peers[targetId].send(msg), 50);
+      setTimeout(() => peers[targetId] && peers[targetId].send(msg), 100);
     }
   } else {
     // Client sends to host for relay
-    hostConn?.send({ type: 'VEHICLE_HIT', targetId, bumpVel, bumpAngVel });
+    const msg = { type: 'VEHICLE_HIT', targetId, bumpVel, bumpAngVel };
+    hostConn?.send(msg);
+    // Redundant sends to guarantee delivery over unreliable WebRTC DataChannel
+    setTimeout(() => hostConn && hostConn.send(msg), 50);
+    setTimeout(() => hostConn && hostConn.send(msg), 100);
   }
 }
 

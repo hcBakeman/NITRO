@@ -53,6 +53,10 @@ function _setupEventListeners() {
     Profiler.downloadLog();
   });
 
+  safeAddListener('btn-download-log-hud', 'click', () => {
+    Profiler.downloadLog();
+  });
+
   safeAddListener('btn-car-prev', 'click', (e) => {
     e.target.blur();
     if (_onCarPrev) _onCarPrev();

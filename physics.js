@@ -473,6 +473,10 @@ export function applyCounterBump(attackerId, bumpVel, bumpAngVel = null) {
 export function applyNetworkBump(bumpVel, bumpAngVel = null) {
   if (!playerChassis) return;
   
+  const now = performance.now();
+  if (now - (playerChassis._lastNetBumpTime || 0) < 400) return;
+  playerChassis._lastNetBumpTime = now;
+  
   if (window.logCollisionEvent) {
     window.logCollisionEvent('APPLY_NETWORK_BUMP', { bumpVel, bumpAngVel });
   }
