@@ -184,7 +184,8 @@ async function updatePreviews() {
 // ── Network Setup ──────────────────────────────────────────────────────────
 window.CollisionLogs = [];
 window.logCollisionEvent = function(type, data) {
-  if (GameEngine.getCollisionMode() !== 'smooth') return;
+  const mapData = Game.getRaceMapData();
+  if (mapData && mapData.collisionMode !== 'smooth') return;
   // Keep last 1000 events to prevent memory leak (about 15 seconds at 60fps if we log every frame)
   if (window.CollisionLogs.length > 1000) window.CollisionLogs.shift();
   
