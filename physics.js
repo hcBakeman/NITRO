@@ -311,6 +311,13 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
               z: tz * spinFactor
             };
 
+            // Make the dummy DYNAMIC so it can physically bounce, fall, and spin!
+            if (other.type !== CANNON.Body.DYNAMIC) {
+              other.type = CANNON.Body.DYNAMIC;
+              other.mass = victimMass;
+              other.updateMassProperties();
+            }
+
             // Apply it INSTANTLY to the local dummy car so we don't have to wait for the network!
             other.velocity.x += bumpVel.x;
             other.velocity.y += bumpVel.y;
@@ -406,6 +413,13 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
     return;
   }
 
+  // Suspension is over, or it's not suspended. Make sure it's KINEMATIC so it acts like a ghost again!
+  if (body.type !== CANNON.Body.KINEMATIC) {
+    body.type = CANNON.Body.KINEMATIC;
+    body.mass = 0;
+    body.updateMassProperties();
+  }
+
   // Normal behavior: Store the targets so the update loop can lerp the body smoothly
   body.targetPos.set(targetPos.x, targetPos.y, targetPos.z);
   body.targetQuat.set(targetQuat.x, targetQuat.y, targetQuat.z, targetQuat.w);
@@ -422,6 +436,13 @@ export function applyCounterBump(attackerId, bumpVel, bumpAngVel = null) {
   
   // Suspend network lerp so CANNON can physically simulate the recoil
   dummy._lastHitTime = performance.now();
+  
+  // Make the dummy DYNAMIC so it can physically bounce, fall, and spin!
+  if (dummy.type !== CANNON.Body.DYNAMIC) {
+    dummy.type = CANNON.Body.DYNAMIC;
+    dummy.mass = 1000;
+    dummy.updateMassProperties();
+  }
   
   // Apply equal and opposite reaction to the dummy car
   dummy.velocity.x -= bumpVel.x;
