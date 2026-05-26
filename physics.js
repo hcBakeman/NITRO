@@ -339,7 +339,7 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           
           // 5. Broadcast this velocity/angular bump to the victim so their game applies it perfectly
           if (_onVehicleImpact) {
-            _onVehicleImpact(other.peerId, bumpVel, '__local__', bumpAngVel);
+            _onVehicleImpact(other.peerId, bumpVel, null, bumpAngVel);
           }
         }
       }
@@ -474,6 +474,8 @@ export function applyNetworkBump(bumpVel, bumpAngVel = null) {
   if (!playerChassis) return;
   
   const now = performance.now();
+  // Prevent double bouncing if we already collided locally within the last 500ms
+  if (now - (playerChassis._lastHitTime || 0) < 500) return;
   if (now - (playerChassis._lastNetBumpTime || 0) < 400) return;
   playerChassis._lastNetBumpTime = now;
   
