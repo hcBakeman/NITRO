@@ -391,8 +391,13 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
     // We are currently simulating this dummy car locally (coasting after a crash).
     // Sync its physical state UP to the network state object to prevent the network lerp
     // from pulling it backwards when suspension ends!
-    targetPos.copy(body.position);
-    targetQuat.copy(body.quaternion);
+    targetPos.x = body.position.x;
+    targetPos.y = body.position.y;
+    targetPos.z = body.position.z;
+    targetQuat.x = body.quaternion.x;
+    targetQuat.y = body.quaternion.y;
+    targetQuat.z = body.quaternion.z;
+    targetQuat.w = body.quaternion.w;
     
     // Keep internal targets matching to prevent snap
     body.targetPos.copy(body.position);
