@@ -270,7 +270,9 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           // Mark BOTH cars as recently hit so we can let the physics engine coast them locally
           other._lastHitTime = now;
           playerChassis._lastHitTime = now;
-          playerChassis._hitDampTime = now; // Activate heavy anti-spin assist!
+          if (collisionMode !== 'smooth') {
+            playerChassis._hitDampTime = now; // Activate heavy anti-spin assist!
+          }
           
           // 1. Calculate the horizontal direction of the impact
           _tmpPushDir.set(other.position.x - playerChassis.position.x, 0, other.position.z - playerChassis.position.z);
@@ -298,22 +300,25 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
             
             // Physical Angular Velocity Delta (Torque = r x F)
             const rj = contact.rj; // Vector from victim center to contact point
-            // Cross product of rj and ni (normal from attacker to victim)
             const tx = rj.y * contact.ni.z - rj.z * contact.ni.y;
             const ty = rj.z * contact.ni.x - rj.x * contact.ni.z;
             const tz = rj.x * contact.ni.y - rj.y * contact.ni.x;
             
-            // Scale torque to approximate angular velocity (Inertia ~ mass * 2)
             const spinFactor = impulseMag / (victimMass * 2.0);
             bumpAngVel = {
               x: tx * spinFactor,
               y: ty * spinFactor,
               z: tz * spinFactor
             };
+
+            // Apply it INSTANTLY to the local dummy car so we don't have to wait for the network!
+            other.velocity.x += bumpVel.x;
+            other.velocity.y += bumpVel.y;
+            other.velocity.z += bumpVel.z;
+            other.angularVelocity.x += bumpAngVel.x;
+            other.angularVelocity.y += bumpAngVel.y;
+            other.angularVelocity.z += bumpAngVel.z;
           }
-          
-          // Note: We DO NOT manually change our local playerChassis.velocity here anymore!
-          // CANNON's native overlap solver already handles our local bounce perfectly without clipping.
           
           // 5. Broadcast this velocity/angular bump to the victim so their game applies it perfectly
           if (_onVehicleImpact) {
