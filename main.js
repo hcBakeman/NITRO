@@ -184,7 +184,8 @@ async function updatePreviews() {
 // ── Network Setup ──────────────────────────────────────────────────────────
 window.CollisionLogs = [];
 window.logCollisionEvent = function(type, data) {
-  if (Physics.collisionMode !== 'smooth') return;
+  const cm = Physics.collisionMode;
+  if (cm !== 'smooth' && cm !== 'predict' && cm !== 'dynamic' && cm !== 'authoritative') return;
   // Keep last 10000 events to prevent memory leak (about 55 seconds at 180fps if we log every frame)
   if (window.CollisionLogs.length > 10000) window.CollisionLogs.shift();
   
@@ -347,9 +348,9 @@ function _onVehicleHit(victimId, bumpVel, attackerId, bumpAngVel = null) {
     Physics.applyNetworkBump(bumpVel, bumpAngVel);
     Audio.playCollision();
     
-    // In smooth mode, we should apply an equal opposite recoil to the attacker's dummy car instantly!
-    // This ensures both cars visibly bounce apart on the victim's screen simultaneously.
-    if (Physics.collisionMode === 'smooth' && attackerId) {
+    // Apply equal opposite recoil to attacker's dummy car for physics modes
+    const cm = Physics.collisionMode;
+    if ((cm === 'smooth' || cm === 'predict' || cm === 'dynamic' || cm === 'authoritative') && attackerId) {
       Physics.applyCounterBump(attackerId, bumpVel, bumpAngVel);
     }
   }

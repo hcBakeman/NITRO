@@ -267,12 +267,9 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
       
       if (impactVel > 1.0) {
         if (now - (other._lastHitTime || 0) > 300) {
-          // Mark BOTH cars as recently hit so we can let the physics engine coast them locally
+          // Mark BOTH cars as recently hit
           other._lastHitTime = now;
           playerChassis._lastHitTime = now;
-          if (collisionMode !== 'smooth') {
-            playerChassis._hitDampTime = now; // Activate heavy anti-spin assist!
-          }
           
           // 1. Calculate the horizontal direction of the impact
           _tmpPushDir.set(other.position.x - playerChassis.position.x, 0, other.position.z - playerChassis.position.z);
@@ -280,12 +277,13 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           
           // 2. Calculate the velocity bump to send to the victim
           let bumpSpeed = 1.0 + (impactVel * 0.15); 
-          bumpSpeed = Math.min(bumpSpeed, 5.0); // Capped at 5 m/s (~18 km/h) velocity change
+          bumpSpeed = Math.min(bumpSpeed, 5.0);
           
           let bumpVel = {x: _tmpPushDir.x * bumpSpeed, y: 0, z: _tmpPushDir.z * bumpSpeed};
           let bumpAngVel = null;
-          
-          if (collisionMode === 'smooth') {
+
+          // === PHYSICS-BASED IMPULSE (used by smooth, predict, dynamic, authoritative) ===
+          if (collisionMode === 'smooth' || collisionMode === 'predict' || collisionMode === 'dynamic' || collisionMode === 'authoritative') {
             const contact = e.contact;
             const impulseMag = Math.min(impactVel * playerChassis.mass * 0.8, 45000);
             const victimMass = other.mass || 1000;
@@ -299,7 +297,7 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
             };
             
             // Physical Angular Velocity Delta (Torque = r x F)
-            const rj = contact.rj; // Vector from victim center to contact point
+            const rj = contact.rj;
             const tx = rj.y * contact.ni.z - rj.z * contact.ni.y;
             const ty = rj.z * contact.ni.x - rj.x * contact.ni.z;
             const tz = rj.x * contact.ni.y - rj.y * contact.ni.x;
@@ -311,33 +309,66 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
               z: tz * spinFactor
             };
 
-            // Make the dummy DYNAMIC so it can physically bounce, fall, and spin!
-            if (other.type !== CANNON.Body.DYNAMIC) {
-              other.type = CANNON.Body.DYNAMIC;
-              other.mass = victimMass;
-              other.updateMassProperties();
-            }
-
             if (window.logCollisionEvent) {
               window.logCollisionEvent('LOCAL_COLLIDE', { 
                 attackerId: '__local__', 
                 victimId: other.peerId, 
                 bumpVel, 
                 bumpAngVel,
-                impactVel 
+                impactVel,
+                mode: collisionMode
               });
             }
+          }
 
-            // Apply it INSTANTLY to the local dummy car so we don't have to wait for the network!
+          // === MODE-SPECIFIC LOCAL DUMMY BEHAVIOR ===
+          if (collisionMode === 'smooth' || collisionMode === 'dynamic') {
+            // SMOOTH & DYNAMIC: Switch remote body to DYNAMIC, apply impulse, let CANNON simulate
+            const victimMass = other.mass || 1000;
+            if (other.type !== CANNON.Body.DYNAMIC) {
+              other.type = CANNON.Body.DYNAMIC;
+              other.mass = victimMass;
+              other.updateMassProperties();
+            }
+            // DYNAMIC mode: use low damping so physics actually works
+            if (collisionMode === 'dynamic') {
+              other.linearDamping = 0.05;
+              other.angularDamping = 0.1;
+            }
+            // Apply forces INSTANTLY to local dummy
             other.velocity.x += bumpVel.x;
             other.velocity.y += bumpVel.y;
             other.velocity.z += bumpVel.z;
-            other.angularVelocity.x += bumpAngVel.x;
-            other.angularVelocity.y += bumpAngVel.y;
-            other.angularVelocity.z += bumpAngVel.z;
+            if (bumpAngVel) {
+              other.angularVelocity.x += bumpAngVel.x;
+              other.angularVelocity.y += bumpAngVel.y;
+              other.angularVelocity.z += bumpAngVel.z;
+            }
+          } else if (collisionMode === 'predict') {
+            // PREDICT: No DYNAMIC switch. Instead, set a predicted target position.
+            // The remote body stays KINEMATIC and lerps toward the predicted position.
+            const predictionTime = 0.5; // 500ms into the future
+            other._predictedPos = new CANNON.Vec3(
+              other.position.x + bumpVel.x * predictionTime,
+              other.position.y + Math.max(0, bumpVel.y * predictionTime * 0.3),
+              other.position.z + bumpVel.z * predictionTime
+            );
+            other._predictAlpha = 0;
+            other._predictStartPos = new CANNON.Vec3().copy(other.position);
+            other._predictStartTime = now;
+            other._predictDuration = 500; // ms
+          } else if (collisionMode === 'authoritative') {
+            // AUTHORITATIVE: No CANNON physics on the dummy at all.
+            // Set a visual bump animation offset that decays over time.
+            other._visualBumpVel = { x: bumpVel.x * 0.3, y: 0, z: bumpVel.z * 0.3 };
+            other._visualBumpStartTime = now;
+            other._visualBumpDuration = 400; // ms
+          } else {
+            // FAST mode: activate anti-spin assist
+            playerChassis._hitDampTime = now;
           }
           
-          // 5. Broadcast this velocity/angular bump to the victim so their game applies it perfectly
+          // Broadcast this velocity/angular bump to the victim so their game applies it
           if (_onVehicleImpact) {
             _onVehicleImpact(other.peerId, bumpVel, null, bumpAngVel);
           }
@@ -402,12 +433,77 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
   if (!body) return;
 
   const now = performance.now();
-  const suspensionTime = collisionMode === 'smooth' ? 800 : 400;
+
+  // === PREDICT MODE: Interpolate toward predicted collision position, then blend back ===
+  if (collisionMode === 'predict' && body._predictedPos) {
+    const elapsed = now - body._predictStartTime;
+    const t = Math.min(elapsed / body._predictDuration, 1.0);
+    
+    if (t < 1.0) {
+      // Smoothly interpolate from start to predicted position (ease-out)
+      const alpha = 1 - Math.pow(1 - t, 2);
+      body.targetPos.set(
+        body._predictStartPos.x + (body._predictedPos.x - body._predictStartPos.x) * alpha,
+        body._predictStartPos.y + (body._predictedPos.y - body._predictStartPos.y) * alpha,
+        body._predictStartPos.z + (body._predictedPos.z - body._predictStartPos.z) * alpha
+      );
+      body.targetQuat.set(targetQuat.x, targetQuat.y, targetQuat.z, targetQuat.w);
+      if (targetVel) body.targetVel.set(targetVel.x, targetVel.y, targetVel.z);
+      return;
+    } else {
+      // Prediction animation complete - clear state and resume normal lerp
+      body._predictedPos = null;
+      body._predictStartPos = null;
+    }
+  }
+
+  // === AUTHORITATIVE MODE: Always follow network state, no suspension ===
+  if (collisionMode === 'authoritative') {
+    body.targetPos.set(targetPos.x, targetPos.y, targetPos.z);
+    body.targetQuat.set(targetQuat.x, targetQuat.y, targetQuat.z, targetQuat.w);
+    if (targetVel) {
+      body.targetVel.set(targetVel.x, targetVel.y, targetVel.z);
+    } else {
+      body.targetVel.set(0, 0, 0);
+    }
+    return;
+  }
+
+  // === SMOOTH & DYNAMIC & FAST & STRICT: Use suspension mechanism ===
+  const suspensionTime = collisionMode === 'dynamic' ? 1000 : (collisionMode === 'smooth' ? 800 : 400);
   
   if (now - (body._lastHitTime || 0) < suspensionTime) {
-    // We are currently simulating this dummy car locally (coasting after a crash).
-    // Sync its physical state UP to the network state object to prevent the network lerp
-    // from pulling it backwards when suspension ends!
+    if (collisionMode === 'dynamic') {
+      // DYNAMIC: Let CANNON simulate freely. Write physics state back to network state.
+      // Also handle soft-landing: blend lerp alpha gradually in the last 300ms
+      const elapsed = now - (body._lastHitTime || 0);
+      const blendStart = suspensionTime - 300;
+      
+      if (elapsed > blendStart) {
+        // SOFT LANDING: gradually blend back toward network target
+        const blendT = (elapsed - blendStart) / 300; // 0 → 1
+        const blendAlpha = blendT * 0.15; // max alpha = 0.15 during blend
+        body.position.lerp(new CANNON.Vec3(targetPos.x, targetPos.y, targetPos.z), blendAlpha, body.position);
+        // Gradually restore high damping
+        body.linearDamping = 0.05 + blendT * 0.85;
+        body.angularDamping = 0.1 + blendT * 0.8;
+      }
+      
+      // Write physics state UP to network state to prevent snap-back
+      targetPos.x = body.position.x;
+      targetPos.y = body.position.y;
+      targetPos.z = body.position.z;
+      targetQuat.x = body.quaternion.x;
+      targetQuat.y = body.quaternion.y;
+      targetQuat.z = body.quaternion.z;
+      targetQuat.w = body.quaternion.w;
+      body.targetPos.copy(body.position);
+      body.targetQuat.copy(body.quaternion);
+      if (targetVel) body.targetVel.copy(body.velocity);
+      return;
+    }
+    
+    // SMOOTH / FAST / STRICT: original suspension behavior (write-back)
     targetPos.x = body.position.x;
     targetPos.y = body.position.y;
     targetPos.z = body.position.z;
@@ -415,8 +511,6 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
     targetQuat.y = body.quaternion.y;
     targetQuat.z = body.quaternion.z;
     targetQuat.w = body.quaternion.w;
-    
-    // Keep internal targets matching to prevent snap
     body.targetPos.copy(body.position);
     body.targetQuat.copy(body.quaternion);
     if (targetVel) body.targetVel.copy(body.velocity);
@@ -428,6 +522,9 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
     body.type = CANNON.Body.KINEMATIC;
     body.mass = 0;
     body.updateMassProperties();
+    // Restore high damping after dynamic mode
+    body.linearDamping = 0.9;
+    body.angularDamping = 0.9;
   }
 
   // Normal behavior: Store the targets so the update loop can lerp the body smoothly
@@ -454,22 +551,47 @@ export function applyCounterBump(attackerId, bumpVel, bumpAngVel = null) {
   // Suspend network lerp so CANNON can physically simulate the recoil
   dummy._lastHitTime = performance.now();
   
-  // Make the dummy DYNAMIC so it can physically bounce, fall, and spin!
-  if (dummy.type !== CANNON.Body.DYNAMIC) {
-    dummy.type = CANNON.Body.DYNAMIC;
-    dummy.mass = 1000;
-    dummy.updateMassProperties();
-  }
-  
-  // Apply equal and opposite reaction to the dummy car
-  dummy.velocity.x -= bumpVel.x;
-  dummy.velocity.y -= (bumpVel.y || 0);
-  dummy.velocity.z -= bumpVel.z;
-  
-  if (bumpAngVel) {
-    dummy.angularVelocity.x -= bumpAngVel.x;
-    dummy.angularVelocity.y -= bumpAngVel.y;
-    dummy.angularVelocity.z -= bumpAngVel.z;
+  // === MODE-SPECIFIC LOCAL DUMMY BEHAVIOR ===
+  if (collisionMode === 'smooth' || collisionMode === 'dynamic') {
+    // SMOOTH & DYNAMIC: Switch remote body to DYNAMIC, apply impulse, let CANNON simulate
+    if (dummy.type !== CANNON.Body.DYNAMIC) {
+      dummy.type = CANNON.Body.DYNAMIC;
+      dummy.mass = 1000;
+      dummy.updateMassProperties();
+    }
+    // DYNAMIC mode: use low damping so physics actually works
+    if (collisionMode === 'dynamic') {
+      dummy.linearDamping = 0.05;
+      dummy.angularDamping = 0.1;
+    }
+    // Apply equal and opposite reaction to the dummy car
+    dummy.velocity.x -= bumpVel.x;
+    dummy.velocity.y -= (bumpVel.y || 0);
+    dummy.velocity.z -= bumpVel.z;
+    if (bumpAngVel) {
+      dummy.angularVelocity.x -= bumpAngVel.x;
+      dummy.angularVelocity.y -= bumpAngVel.y;
+      dummy.angularVelocity.z -= bumpAngVel.z;
+    }
+  } else if (collisionMode === 'predict') {
+    // PREDICT: No DYNAMIC switch. Instead, set a predicted target position.
+    // The remote body stays KINEMATIC and lerps toward the predicted position.
+    const predictionTime = 0.5; // 500ms into the future
+    dummy._predictedPos = new CANNON.Vec3(
+      dummy.position.x - bumpVel.x * predictionTime,
+      dummy.position.y - Math.max(0, bumpVel.y * predictionTime * 0.3),
+      dummy.position.z - bumpVel.z * predictionTime
+    );
+    dummy._predictAlpha = 0;
+    dummy._predictStartPos = new CANNON.Vec3().copy(dummy.position);
+    dummy._predictStartTime = now;
+    dummy._predictDuration = 500; // ms
+  } else if (collisionMode === 'authoritative') {
+    // AUTHORITATIVE: No CANNON physics on the dummy at all.
+    // Set a visual bump animation offset that decays over time.
+    dummy._visualBumpVel = { x: -bumpVel.x * 0.3, y: 0, z: -bumpVel.z * 0.3 };
+    dummy._visualBumpStartTime = now;
+    dummy._visualBumpDuration = 400; // ms
   }
 }
 
@@ -483,7 +605,7 @@ export function applyNetworkBump(bumpVel, bumpAngVel = null) {
   playerChassis._lastNetBumpTime = now;
   
   if (window.logCollisionEvent) {
-    window.logCollisionEvent('APPLY_NETWORK_BUMP', { bumpVel, bumpAngVel });
+    window.logCollisionEvent('APPLY_NETWORK_BUMP', { bumpVel, bumpAngVel, mode: collisionMode });
   }
 
   // Apply the velocity bump directly
@@ -491,7 +613,7 @@ export function applyNetworkBump(bumpVel, bumpAngVel = null) {
   playerChassis.velocity.y += (bumpVel.y || 0);
   playerChassis.velocity.z += bumpVel.z;
   
-  // Apply angular velocity bump if provided (for spins in smooth mode)
+  // Apply angular velocity bump if provided
   if (bumpAngVel) {
     playerChassis.angularVelocity.x += bumpAngVel.x;
     playerChassis.angularVelocity.y += bumpAngVel.y;
@@ -501,8 +623,8 @@ export function applyNetworkBump(bumpVel, bumpAngVel = null) {
   // Lock out our own local collide event for 500ms so we don't bounce twice
   playerChassis._lastHitTime = performance.now();
   
-  // Only apply heavy anti-spin assist if NOT in smooth mode
-  if (collisionMode !== 'smooth') {
+  // Only apply heavy anti-spin assist in fast/strict modes
+  if (collisionMode === 'fast' || collisionMode === 'strict') {
     playerChassis._hitDampTime = performance.now();
     playerChassis.angularVelocity.y *= 0.1;
   }
@@ -520,11 +642,30 @@ export function updateRemoteVehicles() {
         continue;
       }
 
+      // === PREDICT MODE: Managed by syncRemoteBody directly ===
+      if (collisionMode === 'predict' && rBody._predictedPos) {
+        // Skip normal lerp while prediction animation is playing
+        continue;
+      }
+
+      // === AUTHORITATIVE MODE: Visual offset animation ===
+      if (collisionMode === 'authoritative' && rBody._visualBumpVel) {
+        const elapsed = now - rBody._visualBumpStartTime;
+        if (elapsed < rBody._visualBumpDuration) {
+          // Move the target position offset slightly
+          const t = elapsed / rBody._visualBumpDuration;
+          const decay = 1 - t; // Linear decay
+          
+          rBody.position.x += rBody._visualBumpVel.x * decay;
+          rBody.position.z += rBody._visualBumpVel.z * decay;
+        } else {
+          rBody._visualBumpVel = null;
+        }
+      }
+
       // If this car was recently involved in a local collision, suspend network interpolation.
-      // In 'smooth' mode we suspend for 800ms so the cars can fully spin and separate naturally.
-      // In 'fast' mode we suspend for 400ms.
-      const suspensionTime = collisionMode === 'smooth' ? 800 : 400;
-      if (now - (rBody._lastHitTime || 0) < suspensionTime) {
+      const suspensionTime = collisionMode === 'dynamic' ? 1000 : (collisionMode === 'smooth' ? 800 : 400);
+      if (collisionMode !== 'predict' && collisionMode !== 'authoritative' && (now - (rBody._lastHitTime || 0) < suspensionTime)) {
         continue; // Let CANNON's engine simulate it naturally without forcing its position!
       }
       
