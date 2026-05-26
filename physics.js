@@ -403,14 +403,24 @@ export function updateRemoteVehicles() {
   }
 }
 
+const _lastStrictHitMap = new Map();
+
 export function checkStrictCollisions() {
   // Only used by Host in STRICT mode to detect hits between any two vehicles
+  const now = performance.now();
   for (const contact of world.contacts) {
     const bi = contact.bi;
     const bj = contact.bj;
     if (bi.peerId && bj.peerId) {
+      // Prevent multiple contacts in the same frame AND multiple frames per collision from compounding
+      const pairId = bi.peerId < bj.peerId ? `${bi.peerId}_${bj.peerId}` : `${bj.peerId}_${bi.peerId}`;
+      const lastHit = _lastStrictHitMap.get(pairId) || 0;
+      if (now - lastHit < 500) continue;
+
       const impactVel = Math.min(contact.getImpactVelocityAlongNormal(), 30);
       if (impactVel > 3) {
+        _lastStrictHitMap.set(pairId, now);
+        
         let impulseMag = impactVel * bi.mass * 0.8;
         impulseMag = Math.min(impulseMag, 45000);
 
