@@ -320,5 +320,11 @@ function _onVehicleHit(victimId, bumpVel, attackerId, bumpAngVel = null) {
   if (victimId === Network.getMyPeerId()) {
     Physics.applyNetworkBump(bumpVel, bumpAngVel);
     Audio.playCollision();
+    
+    // In smooth mode, we should apply an equal opposite recoil to the attacker's dummy car instantly!
+    // This ensures both cars visibly bounce apart on the victim's screen simultaneously.
+    if (Game.getRaceMapData()?.collisionMode === 'smooth' && attackerId) {
+      Physics.applyCounterBump(attackerId, bumpVel, bumpAngVel);
+    }
   }
 }

@@ -384,13 +384,49 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
   const body = remoteVehicles[id];
   if (!body) return;
 
-  // Store the targets so the update loop can lerp the body smoothly
+  const now = performance.now();
+  const suspensionTime = collisionMode === 'smooth' ? 800 : 400;
+  
+  if (now - (body._lastHitTime || 0) < suspensionTime) {
+    // We are currently simulating this dummy car locally (coasting after a crash).
+    // Sync its physical state UP to the network state object to prevent the network lerp
+    // from pulling it backwards when suspension ends!
+    targetPos.copy(body.position);
+    targetQuat.copy(body.quaternion);
+    
+    // Keep internal targets matching to prevent snap
+    body.targetPos.copy(body.position);
+    body.targetQuat.copy(body.quaternion);
+    if (targetVel) body.targetVel.copy(body.velocity);
+    return;
+  }
+
+  // Normal behavior: Store the targets so the update loop can lerp the body smoothly
   body.targetPos.set(targetPos.x, targetPos.y, targetPos.z);
   body.targetQuat.set(targetQuat.x, targetQuat.y, targetQuat.z, targetQuat.w);
   if (targetVel) {
     body.targetVel.set(targetVel.x, targetVel.y, targetVel.z);
   } else {
     body.targetVel.set(0, 0, 0);
+  }
+}
+
+export function applyCounterBump(attackerId, bumpVel, bumpAngVel = null) {
+  const dummy = remoteVehicles[attackerId];
+  if (!dummy) return;
+  
+  // Suspend network lerp so CANNON can physically simulate the recoil
+  dummy._lastHitTime = performance.now();
+  
+  // Apply equal and opposite reaction to the dummy car
+  dummy.velocity.x -= bumpVel.x;
+  dummy.velocity.y -= (bumpVel.y || 0);
+  dummy.velocity.z -= bumpVel.z;
+  
+  if (bumpAngVel) {
+    dummy.angularVelocity.x -= bumpAngVel.x;
+    dummy.angularVelocity.y -= bumpAngVel.y;
+    dummy.angularVelocity.z -= bumpAngVel.z;
   }
 }
 
