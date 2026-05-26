@@ -184,8 +184,7 @@ async function updatePreviews() {
 // ── Network Setup ──────────────────────────────────────────────────────────
 window.CollisionLogs = [];
 window.logCollisionEvent = function(type, data) {
-  const mapData = Game.getRaceMapData();
-  if (mapData && mapData.collisionMode !== 'smooth') return;
+  if (Physics.collisionMode !== 'smooth') return;
   // Keep last 1000 events to prevent memory leak (about 15 seconds at 60fps if we log every frame)
   if (window.CollisionLogs.length > 1000) window.CollisionLogs.shift();
   
@@ -350,7 +349,7 @@ function _onVehicleHit(victimId, bumpVel, attackerId, bumpAngVel = null) {
     
     // In smooth mode, we should apply an equal opposite recoil to the attacker's dummy car instantly!
     // This ensures both cars visibly bounce apart on the victim's screen simultaneously.
-    if (Game.getRaceMapData()?.collisionMode === 'smooth' && attackerId) {
+    if (Physics.collisionMode === 'smooth' && attackerId) {
       Physics.applyCounterBump(attackerId, bumpVel, bumpAngVel);
     }
   }
