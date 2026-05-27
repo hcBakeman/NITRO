@@ -458,7 +458,7 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
   // === SMOOTH & DYNAMIC & FAST & STRICT: Use suspension mechanism ===
   const suspensionTime = collisionMode === 'dynamic' ? 1000 : (collisionMode === 'smooth' ? 800 : 400);
   
-  if (now - (body._lastHitTime || 0) < suspensionTime) {
+  if (collisionMode !== 'predict' && now - (body._lastHitTime || 0) < suspensionTime) {
     if (collisionMode === 'dynamic') {
       // DYNAMIC: Let CANNON simulate freely. Write physics state back to network state.
       // Also handle soft-landing: blend lerp alpha gradually in the last 300ms
