@@ -441,48 +441,7 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
 
   const now = performance.now();
 
-  // === PREDICT MODE: Interpolate toward predicted collision position, then blend back ===
-  if (collisionMode === 'predict' && body._predictStartPos) {
-    const elapsed = now - body._predictStartTime;
-    
-    // Phase 1: Blind prediction (using Ping duration)
-    if (elapsed < body._predictDuration) {
-      // Linearly predict based on velocity
-      const elapsedSec = elapsed / 1000;
-      body._predictedPos = new CANNON.Vec3(
-        body._predictStartPos.x + body._predictBumpVel.x * elapsedSec,
-        body._predictStartPos.y + body._predictBumpVel.y * elapsedSec,
-        body._predictStartPos.z + body._predictBumpVel.z * elapsedSec
-      );
-      body.targetPos.copy(body._predictedPos);
-      body.targetQuat.set(targetQuat.x, targetQuat.y, targetQuat.z, targetQuat.w);
-      return;
-    } 
-    // Phase 2: Smooth blend back to network reality
-    else if (elapsed < body._predictDuration + body._predictBlendDuration) {
-      const blendElapsed = elapsed - body._predictDuration;
-      const t = blendElapsed / body._predictBlendDuration;
-      // Ease-out
-      const alpha = 1 - Math.pow(1 - t, 2);
-      
-      // Blend from the EndPos to the real network targetPos
-      body.targetPos.set(
-        body._predictedEndPos.x + (targetPos.x - body._predictedEndPos.x) * alpha,
-        body._predictedEndPos.y + (targetPos.y - body._predictedEndPos.y) * alpha,
-        body._predictedEndPos.z + (targetPos.z - body._predictedEndPos.z) * alpha
-      );
-      body.targetQuat.set(targetQuat.x, targetQuat.y, targetQuat.z, targetQuat.w);
-      if (targetVel) body.targetVel.set(targetVel.x, targetVel.y, targetVel.z);
-      return;
-    }
-    // Phase 3: Prediction finished
-    else {
-      body._predictStartPos = null;
-      body._predictedPos = null;
-      body._predictedEndPos = null;
-      body._predictBumpVel = null;
-    }
-  }
+
 
   // === AUTHORITATIVE MODE: Always follow network state, no suspension ===
   if (collisionMode === 'authoritative') {
@@ -672,10 +631,40 @@ export function updateRemoteVehicles() {
         continue;
       }
 
-      // === PREDICT MODE: Managed by syncRemoteBody directly ===
+      // === PREDICT MODE: Interpolate locally every frame ===
       if (collisionMode === 'predict' && rBody._predictStartPos) {
-        // Skip normal lerp while prediction animation is playing
-        continue;
+        const elapsed = now - rBody._predictStartTime;
+        
+        if (elapsed < rBody._predictDuration) {
+          // Phase 1: Blind prediction (using Ping duration)
+          const elapsedSec = elapsed / 1000;
+          const px = rBody._predictStartPos.x + rBody._predictBumpVel.x * elapsedSec;
+          const py = rBody._predictStartPos.y + rBody._predictBumpVel.y * elapsedSec;
+          const pz = rBody._predictStartPos.z + rBody._predictBumpVel.z * elapsedSec;
+          rBody.position.set(px, py, pz);
+          rBody.quaternion.slerp(rBody.targetQuat, 0.3, rBody.quaternion);
+          continue;
+        } 
+        else if (elapsed < rBody._predictDuration + rBody._predictBlendDuration) {
+          // Phase 2: Smooth blend back to network reality
+          const blendElapsed = elapsed - rBody._predictDuration;
+          const t = blendElapsed / rBody._predictBlendDuration;
+          const alpha = 1 - Math.pow(1 - t, 2); // Ease-out
+          
+          const px = rBody._predictedEndPos.x + (rBody.targetPos.x - rBody._predictedEndPos.x) * alpha;
+          const py = rBody._predictedEndPos.y + (rBody.targetPos.y - rBody._predictedEndPos.y) * alpha;
+          const pz = rBody._predictedEndPos.z + (rBody.targetPos.z - rBody._predictedEndPos.z) * alpha;
+          
+          rBody.position.set(px, py, pz);
+          rBody.quaternion.slerp(rBody.targetQuat, 0.3, rBody.quaternion);
+          continue;
+        }
+        else {
+          // Phase 3: Prediction finished
+          rBody._predictStartPos = null;
+          rBody._predictedEndPos = null;
+          rBody._predictBumpVel = null;
+        }
       }
 
       // === AUTHORITATIVE MODE: Visual offset animation ===
