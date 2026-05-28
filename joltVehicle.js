@@ -178,25 +178,25 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     const stepListener = new Jolt.VehicleConstraintStepListener(constraint);
     physicsSystem.AddStepListener(stepListener);
 
-    // Optionally cleanup settings that are no longer needed
-    // (Jolt C++ classes wrapped in JS must be explicitly destroyed to free WASM memory)
-    // Note: Do not destroy constraints, bodies, or settings if they are passed to objects that take ownership.
+    // Cleanup Settings objects we own.
+    // IMPORTANT ownership rules:
+    //   - boxShapeSettings is consumed by carShapeSettings ctor → DO NOT destroy separately
+    //   - vehicleSettings is consumed by VehicleConstraint ctor → DO NOT destroy separately
+    //   - carShapeSettings / carBodySettings are safe to destroy after body creation
+    //     because the body holds a ref-counted pointer to the actual shape.
+    //   - offsetVec and boxVec are copied by value in C++ so we own them and must destroy.
     Jolt.destroy(carShapeSettings);
-    Jolt.destroy(boxShapeSettings);
     Jolt.destroy(carBodySettings);
-    Jolt.destroy(vehicleSettings);
     Jolt.destroy(offsetVec);
     Jolt.destroy(boxVec);
     
+    // Only destroy posVec/rotAxis/rotQuat if we allocated them.
     if (rotAxis) {
         Jolt.destroy(rotAxis);
     }
-    
-    // Destroy posVec if we allocated it
     if (Array.isArray(position)) {
         Jolt.destroy(posVec);
     }
-    // Destroy rotQuat if we allocated it
     if (Array.isArray(rotation) || !rotation) {
         Jolt.destroy(rotQuat);
     }
