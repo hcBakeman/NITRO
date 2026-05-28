@@ -25,8 +25,6 @@ let lobbyPreview = null;
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 window.addEventListener('load', async () => {
   const canvas = document.getElementById('game-canvas');
-  document.getElementById('screen-menu').classList.remove('active');
-  document.getElementById('screen-loading').classList.add('active');
   
   // Init Core Systems
   await Physics.initPhysics();
