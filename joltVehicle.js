@@ -1,4 +1,4 @@
-export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, layer) {
+export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, rotation, layer) {
     // Constants for the vehicle
     const wheelRadius = 0.3;
     const wheelWidth = 0.1;
@@ -41,8 +41,15 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     const shapeResult = carShapeSettings.Create();
     const carShape = shapeResult.Get();
     
-    const rotAxis = new Jolt.Vec3(0, 1, 0);
-    const rotQuat = Jolt.Quat.prototype.sRotation(rotAxis, Math.PI);
+    let rotQuat;
+    if (Array.isArray(rotation)) {
+        rotQuat = new Jolt.Quat(rotation[0], rotation[1], rotation[2], rotation[3]);
+    } else if (rotation) {
+        rotQuat = rotation; // Assume it's already a Jolt.Quat
+    } else {
+        const rotAxis = new Jolt.Vec3(0, 1, 0);
+        rotQuat = Jolt.Quat.prototype.sRotation(rotAxis, Math.PI);
+    }
     
     const carBodySettings = new Jolt.BodyCreationSettings(
         carShape, 
@@ -183,6 +190,9 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     Jolt.destroy(rotQuat);
     if (Array.isArray(position)) {
         Jolt.destroy(posVec);
+    }
+    if (Array.isArray(rotation)) {
+        Jolt.destroy(rotQuat);
     }
 
     // Return the essential objects

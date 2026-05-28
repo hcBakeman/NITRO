@@ -68,15 +68,14 @@ export function clearPhysicsWorld() {
   // Instead, the engine usually handles map replacement cleanly.
 }
 
+export function createLocalVehicle(x, y, z) {
+  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [x, y, z], null, LAYER_MOVING);
+}
+
 export function createPlayerVehicle(startPos, startQuat, carModel) {
   playerCarSpecs = carModel;
   
-  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [startPos.x, startPos.y, startPos.z], LAYER_MOVING);
-  
-  // Set quaternion
-  const q = new jolt.Quat(startQuat.x, startQuat.y, startQuat.z, startQuat.w);
-  bodyInterface.SetRotation(playerVehicle.chassisBody.GetID(), q, jolt.EActivation_Activate);
-  jolt.destroy(q);
+  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [startPos.x, startPos.y, startPos.z], [startQuat.x, startQuat.y, startQuat.z, startQuat.w], LAYER_MOVING);
   
   // Expose Cannon-like wrapper so GameEngine can read .velocity and .position
   playerChassis = {
