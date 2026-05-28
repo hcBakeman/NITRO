@@ -584,7 +584,18 @@ export function applyCounterBump(attackerId, bumpVel, bumpAngVel = null) {
   }
 }
 
-export function applyNetworkBump(bumpVel, bumpAngVel = null) {
+const pendingBumps = [];
+let _onNetworkBumpApplied = null;
+export function setOnNetworkBumpApplied(cb) {
+  _onNetworkBumpApplied = cb;
+}
+
+export function applyNetworkBump(bumpVel, bumpAngVel = null, attackerId = null) {
+  if (!playerChassis) return;
+  pendingBumps.push({ bumpVel, bumpAngVel, attackerId, time: performance.now() });
+}
+
+export function _doApplyNetworkBump(bumpVel, bumpAngVel, attackerId) {
   if (!playerChassis) return;
   
   const now = performance.now();
@@ -616,6 +627,20 @@ export function applyNetworkBump(bumpVel, bumpAngVel = null) {
   if (collisionMode === 'fast' || collisionMode === 'strict') {
     playerChassis._hitDampTime = performance.now();
     playerChassis.angularVelocity.y *= 0.1;
+  }
+
+  // Universal: Apply counter bump to attacker's dummy car
+  if (attackerId) {
+    applyCounterBump(attackerId, bumpVel, bumpAngVel);
+  }
+
+  if (_onNetworkBumpApplied) _onNetworkBumpApplied();
+}
+
+export function processNetworkBumps() {
+  while (pendingBumps.length > 0) {
+    const bump = pendingBumps.shift();
+    _doApplyNetworkBump(bump.bumpVel, bump.bumpAngVel, bump.attackerId);
   }
 }
 
@@ -1109,6 +1134,35 @@ export function raycastForward(body) {
 // ── Physics Step ──────────────────────────────────────────────────────────
 export function stepPhysics(dt) {
   updateRemoteVehicles();
+  
+  // --- Process delayed hit queue ---
+  const now = performance.now();
+  for (let i = pendingBumps.length - 1; i >= 0; i--) {
+    const bump = pendingBumps[i];
+    let shouldApply = false;
+    
+    // Timeout of 200ms to guarantee it gets applied even if visual misses
+    if (now - bump.time > 200) {
+      shouldApply = true;
+    } else if (bump.attackerId && remoteVehicles[bump.attackerId] && playerChassis) {
+      const attackerBody = remoteVehicles[bump.attackerId];
+      const dx = attackerBody.position.x - playerChassis.position.x;
+      const dz = attackerBody.position.z - playerChassis.position.z;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      // Wait until the ghost is visually touching (approx 4.5 units)
+      if (dist < 4.5) {
+        shouldApply = true;
+      }
+    } else {
+      shouldApply = true;
+    }
+    
+    if (shouldApply) {
+      _doApplyNetworkBump(bump.bumpVel, bump.bumpAngVel, bump.attackerId);
+      pendingBumps.splice(i, 1);
+    }
+  }
+  // ---------------------------------
   
   if (playerChassis) {
     // Anti-Spin Assist: If we recently crashed, heavily dampen rotation so tire friction doesn't whip us into a violent spin

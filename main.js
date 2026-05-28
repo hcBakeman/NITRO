@@ -28,6 +28,9 @@ window.addEventListener('load', async () => {
   
   // Init Core Systems
   Physics.initPhysics();
+  Physics.setOnNetworkBumpApplied(() => {
+    Audio.playCollision();
+  });
   Graphics.initGraphics(canvas);
   Game.initInput();
   GameEngine.init();
@@ -345,13 +348,6 @@ function _onVehicleHit(victimId, bumpVel, attackerId, bumpAngVel = null) {
     if (window.logCollisionEvent) {
       window.logCollisionEvent('RECEIVE_BUMP', { victimId, attackerId, bumpVel, bumpAngVel });
     }
-    Physics.applyNetworkBump(bumpVel, bumpAngVel);
-    Audio.playCollision();
-    
-    // Apply equal opposite recoil to attacker's dummy car for physics modes
-    const cm = Physics.collisionMode;
-    if ((cm === 'smooth' || cm === 'predict' || cm === 'dynamic' || cm === 'authoritative') && attackerId) {
-      Physics.applyCounterBump(attackerId, bumpVel, bumpAngVel);
-    }
+    Physics.applyNetworkBump(bumpVel, bumpAngVel, attackerId);
   }
 }
