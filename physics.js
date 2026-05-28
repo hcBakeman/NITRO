@@ -77,23 +77,80 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
   
   playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [startPos.x, startPos.y, startPos.z], [startQuat.x, startQuat.y, startQuat.z, startQuat.w], LAYER_MOVING);
   
-  // Expose Cannon-like wrapper so GameEngine can read .velocity and .position
+  // Cannon-compatible wrapper so gameEngine.js works without modification.
+  // Exposes: position, quaternion (with vmult), velocity (with set/length/copy),
+  //          angularVelocity (with set), interpolatedPosition/Quaternion.
   playerChassis = {
+    _closestT: undefined, // written by game.js checkpoint tracking
+
     get position() {
       const p = playerVehicle.chassisBody.GetPosition();
       return { x: p.GetX(), y: p.GetY(), z: p.GetZ() };
     },
+
+    get interpolatedPosition() { return this.position; },
+    get interpolatedQuaternion() { return this.quaternion; },
+
     get quaternion() {
       const q = playerVehicle.chassisBody.GetRotation();
-      return { x: q.GetX(), y: q.GetY(), z: q.GetZ(), w: q.GetW() };
+      const qx = q.GetX(), qy = q.GetY(), qz = q.GetZ(), qw = q.GetW();
+      return {
+        x: qx, y: qy, z: qz, w: qw,
+        // Rotate a CANNON.Vec3 v by this quaternion and store in target
+        vmult(v, target) {
+          // Standard quaternion-vector rotation: q * v * q^-1
+          const ix =  qw*v.x + qy*v.z - qz*v.y;
+          const iy =  qw*v.y + qz*v.x - qx*v.z;
+          const iz =  qw*v.z + qx*v.y - qy*v.x;
+          const iw = -qx*v.x - qy*v.y - qz*v.z;
+          const rx = ix*qw + iw*(-qx) + iy*(-qz) - iz*(-qy);
+          const ry = iy*qw + iw*(-qy) + iz*(-qx) - ix*(-qz);
+          const rz = iz*qw + iw*(-qz) + ix*(-qy) - iy*(-qx);
+          if (target) { target.x = rx; target.y = ry; target.z = rz; }
+          return target || { x: rx, y: ry, z: rz };
+        }
+      };
     },
+
     get velocity() {
       const v = playerVehicle.chassisBody.GetLinearVelocity();
-      const length = () => Math.sqrt(v.GetX()**2 + v.GetY()**2 + v.GetZ()**2);
-      return { x: v.GetX(), y: v.GetY(), z: v.GetZ(), length };
+      const vx = v.GetX(), vy = v.GetY(), vz = v.GetZ();
+      const chassis = playerVehicle;
+      return {
+        x: vx, y: vy, z: vz,
+        length() { return Math.sqrt(vx*vx + vy*vy + vz*vz); },
+        set(x, y, z) {
+          const newV = new jolt.Vec3(x, y, z);
+          bodyInterface.SetLinearVelocity(chassis.chassisBody.GetID(), newV);
+          jolt.destroy(newV);
+        },
+        copy(src) { this.set(src.x, src.y, src.z); },
+        normalize() {
+          const len = this.length();
+          if (len > 0) { this.x = vx/len; this.y = vy/len; this.z = vz/len; }
+          return this;
+        },
+        dot(other) { return vx*other.x + vy*other.y + vz*other.z; }
+      };
+    },
+
+    get angularVelocity() {
+      const av = playerVehicle.chassisBody.GetAngularVelocity();
+      const avx = av.GetX(), avy = av.GetY(), avz = av.GetZ();
+      const chassis = playerVehicle;
+      return {
+        x: avx, y: avy, z: avz,
+        set(x, y, z) {
+          const newAV = new jolt.Vec3(x, y, z);
+          bodyInterface.SetAngularVelocity(chassis.chassisBody.GetID(), newAV);
+          jolt.destroy(newAV);
+        },
+        length() { return Math.sqrt(avx*avx + avy*avy + avz*avz); }
+      };
     }
   };
 }
+
 
 export function createRemoteVehicle(peerId, mass, carModel, spawnPos, spawnQuat) {
   // Remote vehicles are completely kinematic on the client in Jolt
