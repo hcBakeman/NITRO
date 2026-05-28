@@ -56,6 +56,9 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     carBodySettings.mMassPropertiesOverride.mMass = vehicleMass;
     const chassisBody = bodyInterface.CreateBody(carBodySettings);
 
+    // IMPORTANT: Add body to physics system BEFORE adding constraint!
+    bodyInterface.AddBody(chassisBody.GetID(), Jolt.EActivation_Activate);
+
     // Create vehicle constraint
     const vehicleSettings = new Jolt.VehicleConstraintSettings();
     vehicleSettings.mMaxPitchRollAngle = (Math.PI / 180) * 60.0;

@@ -78,8 +78,6 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
   bodyInterface.SetRotation(playerVehicle.chassisBody.GetID(), q, jolt.EActivation_Activate);
   jolt.destroy(q);
   
-  bodyInterface.AddBody(playerVehicle.chassisBody.GetID(), jolt.EActivation_Activate);
-  
   // Expose Cannon-like wrapper so GameEngine can read .velocity and .position
   playerChassis = {
     get position() {
