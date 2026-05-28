@@ -191,12 +191,3 @@ export function getFlipProgress() { return 0; }
 export function setVehicleHitbox() {}
 export function setOnNetworkBumpApplied() {}
 export function checkStrictCollisions() {}
-
-export let collisionMode = 'fast';
-export function setCollisionMode(mode) {}
-export function setDriveMode(mode) {}
-export function setHandlingMode(mode) {}
-export let world = {};
-export let groundMat = {};
-export let wallMat = {};
-export function applyNetworkBump(vel, ang, id) {}

@@ -5,7 +5,6 @@
  *          checkpoints, weaponCrateSpawns, finishLinePt, spline, startPos }
  */
 import * as THREE from 'three';
-import * as CANNON from 'cannon-es';
 
 // ── PRNG ──────────────────────────────────────────────────────────────────
 export function mulberry32(seed) {
@@ -26,77 +25,61 @@ export const ROAD_HALF = 6;
 const WALL_H = 2.5;
 const WALL_T = 0.2; // wall half-thickness
 
-function _buildWallBoxes(spline, samples, side, world, material, jumpZones, frames, isClosed) {
-  // A single Cannon.js world shouldn't have 2000 static bodies if we can avoid it.
-  // We chunk the wall boxes into groups of 20 (just like the Trimesh) to dramatically
-  // reduce the number of bodies in the SAPBroadphase, significantly speeding up physics!
-  const CHUNK_SIZE = 20;
-
-  for (let chunkStart = 0; chunkStart < samples; chunkStart += CHUNK_SIZE) {
-    const chunkBody = new CANNON.Body({ mass: 0, material });
-    chunkBody.collisionFilterGroup = 1;
-    chunkBody.collisionFilterMask = -1;
+function _buildWallBoxes(jolt, bodyInterface, spline, samples, side, jumpZones, frames, isClosed, layer) {
+  for (let i = 0; i < samples; i++) {
+    const t1 = i / samples;
+    const t2 = (i + 1) / samples;
     
-    // We keep the chunk body at the origin and offset the shapes using their global coordinates
-    chunkBody.position.set(0, 0, 0);
-    chunkBody.quaternion.set(0, 0, 0, 1);
+    if (jumpZones && jumpZones.some(z => t1 >= z.startT && t1 <= z.endT)) continue;
 
-    let hasShapes = false;
-    const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, samples);
-
-    for (let i = chunkStart; i < chunkEnd; i++) {
-      const t1 = i / samples;
-      const t2 = (i + 1) / samples;
-      
-      const isInGap = jumpZones && jumpZones.some(z => t1 >= z.startT && t1 <= z.endT);
-      if (isInGap) continue;
-
-      const pt1 = spline.getPointAt(t1);
-      const pt2 = spline.getPointAt(t2);
-      
-      const rightDir1 = frames.binormals[isClosed && i === samples ? 0 : i].clone().normalize();
-      const outDir1 = rightDir1.clone().multiplyScalar(side);
-      const center1 = pt1.clone().addScaledVector(outDir1, ROAD_HALF + WALL_T);
-      
-      const rightDir2 = frames.binormals[isClosed && (i + 1) === samples ? 0 : Math.min(i + 1, samples)].clone().normalize();
-      const outDir2 = rightDir2.clone().multiplyScalar(side);
-      const center2 = pt2.clone().addScaledVector(outDir2, ROAD_HALF + WALL_T);
-      
-      const OVERLAP_OFFSET = 0.05;
-      const OVERLAP_EXTEND = 0.2;
-      
-      center1.addScaledVector(outDir1, OVERLAP_OFFSET);
-      center2.addScaledVector(outDir2, -OVERLAP_OFFSET);
-      
-      const dist = center1.distanceTo(center2);
-      
-      const boxShape = new CANNON.Box(new CANNON.Vec3(WALL_T, WALL_H / 2, (dist + OVERLAP_EXTEND) / 2));
-      
-      const midPoint = new THREE.Vector3().addVectors(center1, center2).multiplyScalar(0.5);
-      const offset = new CANNON.Vec3(midPoint.x, midPoint.y + WALL_H / 2, midPoint.z);
-      
-      const forward = new THREE.Vector3().subVectors(center2, center1).normalize();
-      const up = new THREE.Vector3().crossVectors(rightDir1, forward).normalize();
-      if (up.y < 0) up.negate();
-      
-      const m = new THREE.Matrix4();
-      const right = new THREE.Vector3().crossVectors(up, forward).normalize();
-      m.makeBasis(right, up, forward);
-      
-      const quat = new THREE.Quaternion().setFromRotationMatrix(m);
-      const orientation = new CANNON.Quaternion(quat.x, quat.y, quat.z, quat.w);
-      
-      chunkBody.addShape(boxShape, offset, orientation);
-      hasShapes = true;
-    }
-
-    if (hasShapes) {
-      world.addBody(chunkBody);
-    }
+    const pt1 = spline.getPointAt(t1);
+    const pt2 = spline.getPointAt(t2);
+    
+    const rightDir1 = frames.binormals[isClosed && i === samples ? 0 : i].clone().normalize();
+    const outDir1 = rightDir1.clone().multiplyScalar(side);
+    const center1 = pt1.clone().addScaledVector(outDir1, ROAD_HALF + WALL_T);
+    
+    const rightDir2 = frames.binormals[isClosed && (i + 1) === samples ? 0 : Math.min(i + 1, samples)].clone().normalize();
+    const outDir2 = rightDir2.clone().multiplyScalar(side);
+    const center2 = pt2.clone().addScaledVector(outDir2, ROAD_HALF + WALL_T);
+    
+    const OVERLAP_OFFSET = 0.05;
+    const OVERLAP_EXTEND = 0.2;
+    
+    center1.addScaledVector(outDir1, OVERLAP_OFFSET);
+    center2.addScaledVector(outDir2, -OVERLAP_OFFSET);
+    
+    const dist = center1.distanceTo(center2);
+    
+    const extents = new jolt.Vec3(WALL_T, WALL_H / 2, (dist + OVERLAP_EXTEND) / 2);
+    const shape = new jolt.BoxShape(extents, 0.05);
+    jolt.destroy(extents);
+    
+    const midPoint = new THREE.Vector3().addVectors(center1, center2).multiplyScalar(0.5);
+    const pos = new jolt.Vec3(midPoint.x, midPoint.y + WALL_H / 2, midPoint.z);
+    
+    const forward = new THREE.Vector3().subVectors(center2, center1).normalize();
+    const up = new THREE.Vector3().crossVectors(rightDir1, forward).normalize();
+    if (up.y < 0) up.negate();
+    
+    const m = new THREE.Matrix4();
+    const right = new THREE.Vector3().crossVectors(up, forward).normalize();
+    m.makeBasis(right, up, forward);
+    
+    const q = new THREE.Quaternion().setFromRotationMatrix(m);
+    const quat = new jolt.Quat(q.x, q.y, q.z, q.w);
+    
+    const creationSettings = new jolt.BodyCreationSettings(shape, pos, quat, jolt.EMotionType_Static, layer);
+    const body = bodyInterface.CreateBody(creationSettings);
+    bodyInterface.AddBody(body.GetID(), jolt.EActivation_DontActivate);
+    
+    jolt.destroy(creationSettings);
+    jolt.destroy(pos);
+    jolt.destroy(quat);
   }
 }
 
-export function generateMap(seed, world, groundMat, wallMat) {
+export function generateMap(jolt, bodyInterface, layerNonMoving, seed) {
   const isTest = Number(seed) === 0;
   let rng = mulberry32(seed);
   let spline, length;
@@ -196,50 +179,32 @@ export function generateMap(seed, world, groundMat, wallMat) {
   trackMesh.updateMatrix();
   trackMesh.receiveShadow = true;
 
-  // --- Physics Trimesh Chunking ---
-  const CHUNK_SIZE = 20; // 20 segments * 2m = 40m chunks
-  for (let chunkStart = 0; chunkStart < samples; chunkStart += CHUNK_SIZE) {
-    const chunkVerts = [];
-    const chunkIndices = [];
-    const vertMap = new Map(); // global_index -> local_index
-
-    const getLocalIdx = (globalVertexIdx) => {
-      if (!vertMap.has(globalVertexIdx)) {
-        vertMap.set(globalVertexIdx, chunkVerts.length / 3);
-        chunkVerts.push(
-          vertices[globalVertexIdx * 3],
-          vertices[globalVertexIdx * 3 + 1],
-          vertices[globalVertexIdx * 3 + 2]
-        );
-      }
-      return vertMap.get(globalVertexIdx);
-    };
-
-    const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, samples);
-    for (let i = chunkStart; i < chunkEnd; i++) {
-      const v = i * 3;
-      const nvPhys = isClosed ? ((i + 1) % samples) * 3 : (i + 1) * 3;
-
-      // Front faces
-      chunkIndices.push(getLocalIdx(v), getLocalIdx(v + 1), getLocalIdx(nvPhys));
-      chunkIndices.push(getLocalIdx(v + 1), getLocalIdx(nvPhys + 1), getLocalIdx(nvPhys));
-      chunkIndices.push(getLocalIdx(v + 1), getLocalIdx(v + 2), getLocalIdx(nvPhys + 1));
-      chunkIndices.push(getLocalIdx(v + 2), getLocalIdx(nvPhys + 2), getLocalIdx(nvPhys + 1));
-
-      // Back faces
-      chunkIndices.push(getLocalIdx(v), getLocalIdx(nvPhys), getLocalIdx(v + 1));
-      chunkIndices.push(getLocalIdx(v + 1), getLocalIdx(nvPhys), getLocalIdx(nvPhys + 1));
-      chunkIndices.push(getLocalIdx(v + 1), getLocalIdx(nvPhys + 1), getLocalIdx(v + 2));
-      chunkIndices.push(getLocalIdx(v + 2), getLocalIdx(nvPhys + 1), getLocalIdx(nvPhys + 2));
-    }
-
-    const chunkShape = new CANNON.Trimesh(chunkVerts, chunkIndices);
-    const chunkBody = new CANNON.Body({ mass: 0, material: groundMat });
-    chunkBody.collisionFilterGroup = 1; // Default
-    chunkBody.collisionFilterMask = -1; // Collide with EVERYTHING (chassis, wheels, rockets)
-    chunkBody.addShape(chunkShape);
-    world.addBody(chunkBody);
+  // --- Physics Jolt Trimesh ---
+  let triangles = new jolt.TriangleList();
+  for (let i = 0; i < samples; i++) {
+    const v = i * 3;
+    const nv = isClosed ? ((i + 1) % samples) * 3 : (i + 1) * 3;
+    const t1 = new jolt.Triangle(new jolt.Float3(vertices[v*3], vertices[v*3+1], vertices[v*3+2]), new jolt.Float3(vertices[(v+1)*3], vertices[(v+1)*3+1], vertices[(v+1)*3+2]), new jolt.Float3(vertices[nv*3], vertices[nv*3+1], vertices[nv*3+2]));
+    const t2 = new jolt.Triangle(new jolt.Float3(vertices[(v+1)*3], vertices[(v+1)*3+1], vertices[(v+1)*3+2]), new jolt.Float3(vertices[(nv+1)*3], vertices[(nv+1)*3+1], vertices[(nv+1)*3+2]), new jolt.Float3(vertices[nv*3], vertices[nv*3+1], vertices[nv*3+2]));
+    const t3 = new jolt.Triangle(new jolt.Float3(vertices[(v+1)*3], vertices[(v+1)*3+1], vertices[(v+1)*3+2]), new jolt.Float3(vertices[(v+2)*3], vertices[(v+2)*3+1], vertices[(v+2)*3+2]), new jolt.Float3(vertices[(nv+1)*3], vertices[(nv+1)*3+1], vertices[(nv+1)*3+2]));
+    const t4 = new jolt.Triangle(new jolt.Float3(vertices[(v+2)*3], vertices[(v+2)*3+1], vertices[(v+2)*3+2]), new jolt.Float3(vertices[(nv+2)*3], vertices[(nv+2)*3+1], vertices[(nv+2)*3+2]), new jolt.Float3(vertices[(nv+1)*3], vertices[(nv+1)*3+1], vertices[(nv+1)*3+2]));
+    triangles.push_back(t1);
+    triangles.push_back(t2);
+    triangles.push_back(t3);
+    triangles.push_back(t4);
   }
+
+  let materials = new jolt.PhysicsMaterialList();
+  let meshShapeSettings = new jolt.MeshShapeSettings(triangles, materials);
+  let meshShape = meshShapeSettings.Create().Get();
+  let creationSettings = new jolt.BodyCreationSettings(meshShape, new jolt.Vec3(0,0,0), new jolt.Quat(0,0,0,1), jolt.EMotionType_Static, layerNonMoving);
+  let trackBody = bodyInterface.CreateBody(creationSettings);
+  bodyInterface.AddBody(trackBody.GetID(), jolt.EActivation_DontActivate);
+  
+  jolt.destroy(triangles);
+  jolt.destroy(materials);
+  jolt.destroy(meshShapeSettings);
+  jolt.destroy(creationSettings);
 
   // ── Wall physics and visual meshes ──────────────────────────────────────
   const wallMeshes = [];
@@ -263,9 +228,9 @@ export function generateMap(seed, world, groundMat, wallMat) {
   rightMesh.receiveShadow = false;
   wallMeshes.push(rightMesh);
 
-  // Wall Physics (Overlapping fish-scale boxes to prevent snagging and tunneling)
-  _buildWallBoxes(spline, samples, -1, world, wallMat, jumpZones, frames, isClosed);
-  _buildWallBoxes(spline, samples, 1, world, wallMat, jumpZones, frames, isClosed);
+  // Wall Physics
+  _buildWallBoxes(jolt, bodyInterface, spline, samples, -1, jumpZones, frames, isClosed, layerNonMoving);
+  _buildWallBoxes(jolt, bodyInterface, spline, samples, 1, jumpZones, frames, isClosed, layerNonMoving);
 
   // ── Modular Ramps (Seed 0000 only) ───────────────────────────────────────
   if (isTest) {
@@ -318,27 +283,8 @@ export function generateMap(seed, world, groundMat, wallMat) {
 
       trackMesh.add(mesh);
 
-      // Physics: Use Trimesh for the tapered wedge to ensure perfect collision
-      let shape;
-      if (style.type === 'ROLLER') {
-        shape = new CANNON.Cylinder(style.size[1], style.size[1], style.size[0], 20);
-      } else {
-        shape = new CANNON.Trimesh(
-          mesh.geometry.attributes.position.array,
-          mesh.geometry.index.array
-        );
-      }
-
-      const body = new CANNON.Body({ mass: 0, material: wallMat });
-      body.addShape(shape);
-      body.position.set(mesh.position.x, mesh.position.y, mesh.position.z);
-      body.quaternion.set(
-        mesh.quaternion.x,
-        mesh.quaternion.y,
-        mesh.quaternion.z,
-        mesh.quaternion.w
-      );
-      world.addBody(body);
+      // Skip ramp physics for now in Jolt migration (only visual)
+      // To do: Add Jolt ConvexHull or MeshShape for ramps
     });
   }
 

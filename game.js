@@ -185,7 +185,7 @@ export function initRace(seed, laps, world, groundMat, wallMat) {
   bestCheckpointTimes = [];
   bestLapTime = Infinity;
 
-  mapData = generateMap(seed, world, groundMat, wallMat);
+  mapData = generateMap(Physics.jolt, Physics.bodyInterface, Physics.LAYER_NON_MOVING, seed);
 
 
   _updateLapHUD();
