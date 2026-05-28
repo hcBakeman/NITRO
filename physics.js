@@ -119,6 +119,7 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
       return {
         x: vx, y: vy, z: vz,
         length() { return Math.sqrt(vx*vx + vy*vy + vz*vz); },
+        lengthSquared() { return vx*vx + vy*vy + vz*vz; },
         set(x, y, z) {
           const newV = new jolt.Vec3(x, y, z);
           bodyInterface.SetLinearVelocity(chassis.chassisBody.GetID(), newV);
