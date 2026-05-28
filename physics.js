@@ -4,6 +4,7 @@ import * as Network from './network.js';
 import { createJoltVehicle } from './joltVehicle.js';
 
 export let jolt;
+export let joltInterface;
 export let physicsSystem;
 export let bodyInterface;
 export let LAYER_NON_MOVING = 0;
@@ -31,21 +32,28 @@ export async function initPhysics() {
   jolt = await Jolt();
   
   const settings = new jolt.JoltSettings();
-  jolt.SetupJS(settings);
-  physicsSystem = new jolt.PhysicsSystem();
   
   // Basic Layer Setup
   const objectFilter = new jolt.ObjectLayerPairFilterTable(2);
   objectFilter.EnableCollision(LAYER_NON_MOVING, LAYER_MOVING);
   objectFilter.EnableCollision(LAYER_MOVING, LAYER_MOVING);
+  settings.mObjectLayerPairFilter = objectFilter;
   
   const bpInterface = new jolt.BroadPhaseLayerInterfaceTable(2, 2);
   bpInterface.MapObjectToBroadPhaseLayer(LAYER_NON_MOVING, 0);
   bpInterface.MapObjectToBroadPhaseLayer(LAYER_MOVING, 1);
+  settings.mBroadPhaseLayerInterface = bpInterface;
   
-  const objVsBpFilter = new jolt.ObjectVsBroadPhaseLayerFilterTable(bpInterface, 2, objectFilter, 2);
+  const objVsBpFilter = new jolt.ObjectVsBroadPhaseLayerFilterTable(
+    settings.mBroadPhaseLayerInterface, 2,
+    settings.mObjectLayerPairFilter, 2
+  );
+  settings.mObjectVsBroadPhaseLayerFilter = objVsBpFilter;
   
-  physicsSystem.Init(1024, 0, 1024, 1024, bpInterface, objVsBpFilter, objectFilter);
+  joltInterface = new jolt.JoltInterface(settings);
+  jolt.destroy(settings);
+  
+  physicsSystem = joltInterface.GetPhysicsSystem();
   bodyInterface = physicsSystem.GetBodyInterface();
   
   console.log('[+] Jolt Physics Client Initialized');
@@ -141,8 +149,9 @@ export function setVehicleInput(input) {
 }
 
 export function stepPhysics(dt) {
-  if (physicsSystem) {
-    physicsSystem.Update(dt, 1, 1, new jolt.TempAllocatorImpl(10 * 1024 * 1024), new jolt.JobSystemThreadPool(jolt.cGetMaxConcurrency(), jolt.cHasAsserts ? 2 : 1, 1024));
+  if (joltInterface) {
+    // Step the simulation using the helper class
+    joltInterface.Step(dt, 1);
   }
 }
 
