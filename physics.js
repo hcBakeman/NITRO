@@ -1146,12 +1146,30 @@ export function stepPhysics(dt) {
       shouldApply = true;
     } else if (bump.attackerId && remoteVehicles[bump.attackerId] && playerChassis) {
       const attackerBody = remoteVehicles[bump.attackerId];
-      const dx = attackerBody.position.x - playerChassis.position.x;
-      const dz = attackerBody.position.z - playerChassis.position.z;
-      const dist = Math.sqrt(dx*dx + dz*dz);
-      // Wait until the ghost is visually touching (approx 4.5 units)
-      if (dist < 4.5) {
+      
+      // Iterate over actual narrow-phase OBB collisions to detect when the 3D models perfectly touch!
+      let isTouching = false;
+      for (let j = 0; j < world.contacts.length; j++) {
+        const c = world.contacts[j];
+        if ((c.bi === playerChassis && c.bj === attackerBody) || 
+            (c.bi === attackerBody && c.bj === playerChassis)) {
+          isTouching = true;
+          break;
+        }
+      }
+
+      // Wait until the ghost's 3D OBB physically touches our 3D OBB
+      if (isTouching) {
         shouldApply = true;
+      } else {
+        // Fallback: If they are extremely close but network interpolation barely misses exact contact
+        const dx = attackerBody.position.x - playerChassis.position.x;
+        const dz = attackerBody.position.z - playerChassis.position.z;
+        const dist = Math.sqrt(dx*dx + dz*dz);
+        // 2.5 distance means the centers are practically inside each other regardless of rotation
+        if (dist < 2.5) {
+          shouldApply = true;
+        }
       }
     } else {
       shouldApply = true;
