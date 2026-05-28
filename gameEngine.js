@@ -297,7 +297,9 @@ function _updateRacing(dt) {
     // Read the visual mesh position from the actual physics body so local collisions look correct
     const rb = Physics.getVehicleBody(id);
     if (rb) {
-      Graphics.updateVehicleMesh(id, rb.position, rb.quaternion);
+      const pos = rb.interpolatedPosition || rb.position;
+      const quat = rb.interpolatedQuaternion || rb.quaternion;
+      Graphics.updateVehicleMesh(id, pos, quat);
     } else {
       Graphics.updateVehicleMesh(id, p.position, p.quaternion);
     }

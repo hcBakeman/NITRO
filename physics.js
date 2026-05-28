@@ -283,8 +283,8 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
           let bumpVel = {x: _tmpPushDir.x * bumpSpeed, y: 0, z: _tmpPushDir.z * bumpSpeed};
           let bumpAngVel = null;
 
-          // === PHYSICS-BASED IMPULSE (used by smooth, predict, dynamic, authoritative) ===
-          if (collisionMode === 'smooth' || collisionMode === 'predict' || collisionMode === 'dynamic' || collisionMode === 'authoritative') {
+          // === PHYSICS-BASED IMPULSE (used by smooth, predict, dynamic, fast, strict) ===
+          if (collisionMode !== 'authoritative') {
             const contact = e.contact;
             const impulseMag = Math.min(impactVel * playerChassis.mass * 0.8, 45000);
             const victimMass = other.mass || 1000;
@@ -310,33 +310,12 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
               z: tz * spinFactor
             };
 
-            if (window.logCollisionEvent) {
-              window.logCollisionEvent('LOCAL_COLLIDE', { 
-                attackerId: '__local__', 
-                victimId: other.peerId, 
-                bumpVel, 
-                bumpAngVel,
-                impactVel,
-                mode: collisionMode
-              });
-            }
-          }
-
-          // === MODE-SPECIFIC LOCAL DUMMY BEHAVIOR ===
-          if (collisionMode === 'smooth' || collisionMode === 'dynamic') {
-            // SMOOTH & DYNAMIC: Switch remote body to DYNAMIC, apply impulse, let CANNON simulate
-            const victimMass = other.mass || 1000;
+            // Switch remote body to DYNAMIC, apply impulse, let CANNON simulate
             if (other.type !== CANNON.Body.DYNAMIC) {
               other.type = CANNON.Body.DYNAMIC;
               other.mass = victimMass;
               other.updateMassProperties();
             }
-            // DYNAMIC mode: use low damping so physics actually works
-            if (collisionMode === 'dynamic') {
-              other.linearDamping = 0.05;
-              other.angularDamping = 0.1;
-            }
-            // Apply forces INSTANTLY to local dummy
             other.velocity.x += bumpVel.x;
             other.velocity.y += bumpVel.y;
             other.velocity.z += bumpVel.z;
@@ -345,34 +324,23 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
               other.angularVelocity.y += bumpAngVel.y;
               other.angularVelocity.z += bumpAngVel.z;
             }
-          } else if (collisionMode === 'predict') {
-            // PREDICT: Ping-based prediction + blend. No DYNAMIC switch.
-            const ping = Network.getPingTo(other.peerId) || 50;
-            const predictDur = Math.max(ping, 50); // min 50ms to prevent glitches
-            
-            // Calculate where it will be at the end of the ping window
-            const predictionTimeSec = predictDur / 1000;
-            other._predictedEndPos = new CANNON.Vec3(
-              other.position.x + bumpVel.x * predictionTimeSec,
-              other.position.y + Math.max(0, bumpVel.y * predictionTimeSec * 0.3),
-              other.position.z + bumpVel.z * predictionTimeSec
-            );
-            other._predictStartPos = new CANNON.Vec3().copy(other.position);
-            other._predictStartTime = now;
-            other._predictDuration = predictDur; // Phase 1: Blind prediction
-            other._predictBlendDuration = 200; // Phase 2: Smooth blend back to network
-            
-            // During phase 1, we still calculate live _predictedPos frame by frame
-            other._predictBumpVel = bumpVel;
-          } else if (collisionMode === 'authoritative') {
+            if (collisionMode === 'fast' || collisionMode === 'strict') {
+              playerChassis._hitDampTime = now;
+            }
+
+            if (collisionMode === 'predict') {
+              // PREDICT: Temporarily ignore network sync to let Cannon naturally bounce the ghost
+              const ping = Network.getPingTo(other.peerId) || 50;
+              other._predictStartPos = true; // flag to disable lerp
+              other._predictStartTime = now;
+              other._predictDuration = Math.max(ping, 50); // let Cannon simulate for ping duration
+            }
+          } else {
             // AUTHORITATIVE: No CANNON physics on the dummy at all.
             // Set a visual bump animation offset that decays over time.
             other._visualBumpVel = { x: bumpVel.x * 0.3, y: 0, z: bumpVel.z * 0.3 };
             other._visualBumpStartTime = now;
             other._visualBumpDuration = 400; // ms
-          } else {
-            // FAST mode: activate anti-spin assist
-            playerChassis._hitDampTime = now;
           }
           
           // Broadcast this velocity/angular bump to the victim so their game applies it
@@ -538,44 +506,30 @@ export function applyCounterBump(attackerId, bumpVel, bumpAngVel = null) {
   dummy._lastHitTime = performance.now();
   
   // === MODE-SPECIFIC LOCAL DUMMY BEHAVIOR ===
-  if (collisionMode === 'smooth' || collisionMode === 'dynamic') {
-    // SMOOTH & DYNAMIC: Switch remote body to DYNAMIC, apply impulse, let CANNON simulate
+  if (collisionMode !== 'authoritative') {
+    // Switch remote body to DYNAMIC, apply impulse, let CANNON simulate
     if (dummy.type !== CANNON.Body.DYNAMIC) {
       dummy.type = CANNON.Body.DYNAMIC;
       dummy.mass = 1000;
       dummy.updateMassProperties();
     }
-    // DYNAMIC mode: use low damping so physics actually works
-    if (collisionMode === 'dynamic') {
-      dummy.linearDamping = 0.05;
-      dummy.angularDamping = 0.1;
-    }
-    // Apply equal and opposite reaction to the dummy car
     dummy.velocity.x -= bumpVel.x;
-    dummy.velocity.y -= (bumpVel.y || 0);
+    dummy.velocity.y -= bumpVel.y;
     dummy.velocity.z -= bumpVel.z;
     if (bumpAngVel) {
       dummy.angularVelocity.x -= bumpAngVel.x;
       dummy.angularVelocity.y -= bumpAngVel.y;
       dummy.angularVelocity.z -= bumpAngVel.z;
     }
-  } else if (collisionMode === 'predict') {
-    // PREDICT: Ping-based prediction + blend. No DYNAMIC switch.
-    const ping = Network.getPingTo(attackerId) || 50;
-    const predictDur = Math.max(ping, 50); // min 50ms
-    
-    const predictionTimeSec = predictDur / 1000;
-    dummy._predictedEndPos = new CANNON.Vec3(
-      dummy.position.x - bumpVel.x * predictionTimeSec,
-      dummy.position.y - Math.max(0, bumpVel.y * predictionTimeSec * 0.3),
-      dummy.position.z - bumpVel.z * predictionTimeSec
-    );
-    dummy._predictStartPos = new CANNON.Vec3().copy(dummy.position);
-    dummy._predictStartTime = now;
-    dummy._predictDuration = predictDur;
-    dummy._predictBlendDuration = 200;
-    dummy._predictBumpVel = { x: -bumpVel.x, y: -bumpVel.y, z: -bumpVel.z };
-  } else if (collisionMode === 'authoritative') {
+
+    if (collisionMode === 'predict') {
+      // PREDICT: Temporarily ignore network sync to let Cannon naturally bounce the ghost
+      const ping = Network.getPingTo(attackerId) || 50;
+      dummy._predictStartPos = true; // flag to disable lerp
+      dummy._predictStartTime = now;
+      dummy._predictDuration = Math.max(ping, 50); // min 50ms
+    }
+  } else {
     // AUTHORITATIVE: No CANNON physics on the dummy at all.
     // Set a visual bump animation offset that decays over time.
     dummy._visualBumpVel = { x: -bumpVel.x * 0.3, y: 0, z: -bumpVel.z * 0.3 };
@@ -656,39 +610,17 @@ export function updateRemoteVehicles() {
         continue;
       }
 
-      // === PREDICT MODE: Interpolate locally every frame ===
+      // === PREDICT MODE: Ignore network lerp temporarily ===
       if (collisionMode === 'predict' && rBody._predictStartPos) {
         const elapsed = now - rBody._predictStartTime;
         
         if (elapsed < rBody._predictDuration) {
-          // Phase 1: Blind prediction (using Ping duration)
-          const elapsedSec = elapsed / 1000;
-          const px = rBody._predictStartPos.x + rBody._predictBumpVel.x * elapsedSec;
-          const py = rBody._predictStartPos.y + rBody._predictBumpVel.y * elapsedSec;
-          const pz = rBody._predictStartPos.z + rBody._predictBumpVel.z * elapsedSec;
-          rBody.position.set(px, py, pz);
-          rBody.quaternion.slerp(rBody.targetQuat, 0.3, rBody.quaternion);
+          // Phase 1: Let Cannon.js natively bounce the body using the impulse we applied!
+          // Just skip lerping to targetPos!
           continue;
-        } 
-        else if (elapsed < rBody._predictDuration + rBody._predictBlendDuration) {
-          // Phase 2: Smooth blend back to network reality
-          const blendElapsed = elapsed - rBody._predictDuration;
-          const t = blendElapsed / rBody._predictBlendDuration;
-          const alpha = 1 - Math.pow(1 - t, 2); // Ease-out
-          
-          const px = rBody._predictedEndPos.x + (rBody.targetPos.x - rBody._predictedEndPos.x) * alpha;
-          const py = rBody._predictedEndPos.y + (rBody.targetPos.y - rBody._predictedEndPos.y) * alpha;
-          const pz = rBody._predictedEndPos.z + (rBody.targetPos.z - rBody._predictedEndPos.z) * alpha;
-          
-          rBody.position.set(px, py, pz);
-          rBody.quaternion.slerp(rBody.targetQuat, 0.3, rBody.quaternion);
-          continue;
-        }
-        else {
-          // Phase 3: Prediction finished
-          rBody._predictStartPos = null;
-          rBody._predictedEndPos = null;
-          rBody._predictBumpVel = null;
+        } else {
+          // Phase 2: Prediction over! Fall through to normal network lerp below.
+          rBody._predictStartPos = false;
         }
       }
 
@@ -803,7 +735,7 @@ export function setVehicleHitbox(id, width, height, length) {
   shapes.forEach(s => body.removeShape(s));
 
   // Core hitbox for wall collisions and body hits (same for local and remote)
-  const chassisShape = new CANNON.Box(new CANNON.Vec3(width * 0.49, 0.25, length * 0.49));
+  const chassisShape = new CANNON.Box(new CANNON.Vec3(width * 0.45, 0.25, length * 0.47));
   body.addShape(chassisShape, new CANNON.Vec3(0, 0.0, 0));
 
   const cabinShape = new CANNON.Box(new CANNON.Vec3(width * 0.35, 0.35, length * 0.25));
