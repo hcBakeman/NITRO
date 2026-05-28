@@ -227,8 +227,11 @@ function _setupHostConnHandlers(conn) {
         break;
 
       case 'VEHICLE_HIT':
-        // Host relays the hit to the target victim
-        if (peers[data.targetId]) {
+        if (data.targetId === _myPeerId) {
+          // Host was hit directly by a guest!
+          _onVehicleHit(_myPeerId, data.bumpVel, pid, data.bumpAngVel);
+        } else if (peers[data.targetId]) {
+          // Host relays the hit to the target guest
           peers[data.targetId].send({
             type: 'VEHICLE_HIT',
             attackerId: pid,
