@@ -42,12 +42,13 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     const carShape = shapeResult.Get();
     
     let rotQuat;
+    let rotAxis = null;
     if (Array.isArray(rotation)) {
         rotQuat = new Jolt.Quat(rotation[0], rotation[1], rotation[2], rotation[3]);
     } else if (rotation) {
         rotQuat = rotation; // Assume it's already a Jolt.Quat
     } else {
-        const rotAxis = new Jolt.Vec3(0, 1, 0);
+        rotAxis = new Jolt.Vec3(0, 1, 0);
         rotQuat = Jolt.Quat.prototype.sRotation(rotAxis, Math.PI);
     }
     
@@ -186,12 +187,17 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     Jolt.destroy(vehicleSettings);
     Jolt.destroy(offsetVec);
     Jolt.destroy(boxVec);
-    Jolt.destroy(rotAxis);
-    Jolt.destroy(rotQuat);
+    
+    if (rotAxis) {
+        Jolt.destroy(rotAxis);
+    }
+    
+    // Destroy posVec if we allocated it
     if (Array.isArray(position)) {
         Jolt.destroy(posVec);
     }
-    if (Array.isArray(rotation)) {
+    // Destroy rotQuat if we allocated it
+    if (Array.isArray(rotation) || !rotation) {
         Jolt.destroy(rotQuat);
     }
 
