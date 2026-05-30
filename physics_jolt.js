@@ -128,18 +128,31 @@ export function setVehicleInput(input) {
   if (!playerVehicle) return;
   
   const controller = playerVehicle.controller;
-  
+  const linVel = bodyInterface.GetLinearVelocity(playerVehicle.chassisBody.GetID());
+  const localForward = new jolt.Vec3(0, 0, 1);
+  const forwardVec = playerVehicle.chassisBody.GetRotation().MulVec3(localForward);
+  const speed = linVel.Dot(forwardVec);
+  jolt.destroy(linVel);
+  jolt.destroy(localForward);
+  jolt.destroy(forwardVec);
+
   let forward = 0.0;
-  if (input.forward) forward = 1.0;
-  if (input.backward) forward = -1.0;
-  
+  let brake = 0.0;
   let right = 0.0;
+
+  if (input.forward) {
+      if (speed < -2.0) brake = 1.0;
+      else forward = 1.0;
+  }
+  if (input.backward) {
+      if (speed > 2.0) brake = 1.0;
+      else forward = -1.0;
+  }
   if (input.right) right = 1.0;
   if (input.left) right = -1.0;
-  
+
   let handbrake = input.drift ? 1.0 : 0.0;
-  
-  controller.SetDriverInput(forward, right, 0.0, handbrake);
+  controller.SetDriverInput(forward, right, brake, handbrake);
 }
 
 export function stepPhysics(dt) {
