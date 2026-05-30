@@ -297,9 +297,24 @@ export function setVehicleInput(input) {
   
   const controller = playerVehicle.controller;
   
+  const linVel = bodyInterface.GetLinearVelocity(playerVehicle.chassisBody.GetID());
+  const localForward = new jolt.Vec3(0, 0, 1);
+  const forwardVec = playerVehicle.chassisBody.GetRotation().MulVec3(localForward);
+  const speed = linVel.Dot(forwardVec);
+  jolt.destroy(linVel);
+  jolt.destroy(localForward);
+  jolt.destroy(forwardVec);
+
   let forward = 0.0;
-  if (input.forward) forward = 1.0;
-  if (input.backward) forward = -1.0;
+  let brake = 0.0;
+  if (input.forward) {
+      if (speed < -2.0) brake = 1.0;
+      else forward = 1.0;
+  }
+  if (input.backward) {
+      if (speed > 2.0) brake = 1.0;
+      else forward = -1.0;
+  }
   
   let right = 0.0;
   if (input.right) right = 1.0;
@@ -308,7 +323,7 @@ export function setVehicleInput(input) {
   let handbrake = input.drift ? 1.0 : 0.0;
   
   controller._currentHandbrake = handbrake;
-  controller.SetDriverInput(forward, right, 0.0, handbrake);
+  controller.SetDriverInput(forward, right, brake, handbrake);
 
   // If the player is providing input, make sure the physics body wakes up from sleep
   if (forward !== 0.0 || right !== 0.0 || handbrake !== 0.0) {
@@ -354,7 +369,36 @@ export function restoreVehicleState(snapshotBuffer, offset = 0) {
   const av = new jolt.Vec3(view[10], view[11], view[12]);
   bodyInterface.SetAngularVelocity(id, av);
   
-  jolt.destroy(p); jolt.destroy(q); jolt.destroy(lv); jolt.destroy(av);
+  jolt.destroy(p);  jolt.destroy(q); jolt.destroy(lv); jolt.destroy(av);
+}
+
+export function getVehicleDebugData() {
+  if (!playerVehicle) return null;
+  const engine = playerVehicle.controller.GetEngine();
+  const trans = playerVehicle.controller.GetTransmission();
+  
+  const mass = 1.0 / bodyInterface.GetInverseMass(playerVehicle.chassisBody.GetID());
+  
+  const wheels = [];
+  for (let i = 0; i < 4; i++) {
+    const w = jolt.castObject(playerVehicle.GetWheel(i), jolt.WheelWV);
+    wheels.push({
+      angVel: w.GetAngularVelocity(),
+      suspension: w.GetSuspensionLength(),
+      longSlip: w.get_mLongitudinalSlip ? w.get_mLongitudinalSlip() : 0,
+      latSlip: w.get_mLateralSlip ? w.get_mLateralSlip() : 0,
+      contact: w.HasContact(),
+      friction: w.get_mCombinedLongitudinalFriction ? w.get_mCombinedLongitudinalFriction() : 0,
+      brakeImpulse: w.get_mBrakeImpulse ? w.get_mBrakeImpulse() : 0
+    });
+  }
+
+  return {
+    mass,
+    engineRPM: engine.GetCurrentRPM(),
+    gear: trans.GetCurrentGear(),
+    wheels
+  };
 }
 
 let flipTimer = 0;
