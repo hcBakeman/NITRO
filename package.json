@@ -1,6 +1,6 @@
 {
   "name": "nitro-seed",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Modular 3D top-down combat racer",
   "type": "module",
   "scripts": {
