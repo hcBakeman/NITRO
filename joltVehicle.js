@@ -21,7 +21,8 @@ export const BASE_VEHICLE_CONFIG = {
     frontBackLimitedSlipRatio: 0.4,
     leftRightLimitedSlipRatio: 1.4,
     antiRollbar: true,
-    clutchStrength: 10.0
+    clutchStrength: 20.0,
+    antiRollStiffness: 3000.0
 };
 
 export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, rotation, layer, handlingMode = 'arcade', carModel = 'dacia_duster_low_poly') {
@@ -29,7 +30,7 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         wheelRadius, wheelWidth, halfVehicleLength, halfVehicleWidth, halfVehicleHeight, 
         wheelOffsetHorizontal, wheelOffsetVertical, suspensionMinLength, suspensionMaxLength, 
         maxSteerAngle, fourWheelDrive, frontBackLimitedSlipRatio, leftRightLimitedSlipRatio, 
-        antiRollbar, clutchStrength 
+        antiRollbar, clutchStrength, antiRollStiffness
     } = BASE_VEHICLE_CONFIG;
 
     const classStats = VEHICLE_CLASSES[carModel] || VEHICLE_CLASSES['dacia_duster_low_poly'];
@@ -124,7 +125,11 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
 
     const controllerSettings = new Jolt.WheeledVehicleControllerSettings();
     controllerSettings.mEngine.mMaxTorque = maxEngineTorque;
+    controllerSettings.mEngine.mMaxRPM = 7000.0;
     controllerSettings.mTransmission.mClutchStrength = clutchStrength;
+    controllerSettings.mTransmission.mSwitchTime = 0.2;
+    controllerSettings.mTransmission.mShiftUpRPM = 6500.0;
+    controllerSettings.mTransmission.mShiftDownRPM = 2500.0;
     vehicleSettings.mController = controllerSettings;
 
     // Front differential
@@ -156,10 +161,12 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         const frontRollBar = new Jolt.VehicleAntiRollBar();
         frontRollBar.mLeftWheel = FL_WHEEL;
         frontRollBar.mRightWheel = FR_WHEEL;
+        frontRollBar.mStiffness = antiRollStiffness;
         
         const rearRollBar = new Jolt.VehicleAntiRollBar();
         rearRollBar.mLeftWheel = BL_WHEEL;
         rearRollBar.mRightWheel = BR_WHEEL;
+        rearRollBar.mStiffness = antiRollStiffness;
         
         vehicleSettings.mAntiRollBars.push_back(frontRollBar);
         vehicleSettings.mAntiRollBars.push_back(rearRollBar);
@@ -220,12 +227,13 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         result = Jolt.wrapPointer(result, Jolt.TireMaxImpulseCallbackResult);
         
         let longFrictionMult = tireFrictionMult;
-        let latFrictionMult = tireFrictionMult; 
+        let latFrictionMult = tireFrictionMult * 1.15; // Simcade sporty grip
         
+        const isRearWheel = (wheelIndex === 2 || wheelIndex === 3);
+        const handbrake = controller._currentHandbrake || 0.0;
+
         if (handlingMode === 'rally' || handlingMode === 'rally (drift)') {
             latFrictionMult = 1.2;
-            const isRearWheel = (wheelIndex === 2 || wheelIndex === 3);
-            const handbrake = controller._currentHandbrake || 0.0;
             
             if (isRearWheel && handbrake > 0.1) {
                 latFrictionMult = 0.3;
@@ -239,6 +247,14 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
             
             if (Math.abs(lateralSlip) < 0.05 && handbrake < 0.1) {
                 latFrictionMult = 1.5; 
+            }
+        } else if (handlingMode === 'drift') {
+            latFrictionMult = 0.8;
+        } else {
+            // Default Arcade/Simcade handling drift behavior
+            const slipAngle = Math.abs(lateralSlip);
+            if (slipAngle > 0.15) {
+                latFrictionMult = isRearWheel ? (tireFrictionMult * 0.8) : (tireFrictionMult * 0.9); 
             }
         }
 
