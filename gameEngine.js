@@ -204,7 +204,18 @@ function _updateRacing(dt) {
 
   // 3. Physics step (Fixed Timestep)
   physicsAccumulator += dt;
+  let loops = 0;
   while (physicsAccumulator >= FIXED_TIME_STEP) {
+    loops++;
+    if (loops > 20) {
+      console.error("INFINITE LOOP CAUGHT! physicsAccumulator:", physicsAccumulator, "FIXED_TIME_STEP:", FIXED_TIME_STEP, "dt:", dt);
+      physicsAccumulator = 0;
+      break;
+    }
+    
+    Physics.setVehicleInput(Game.input);
+    
+    // Step physics with fixed delta
     Physics.stepPhysics(FIXED_TIME_STEP);
 
     if (chassis) {
