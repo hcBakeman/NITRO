@@ -304,6 +304,7 @@ export function setVehicleInput(input) {
   
   let handbrake = input.drift ? 1.0 : 0.0;
   
+  controller._currentHandbrake = handbrake;
   controller.SetDriverInput(forward, right, 0.0, handbrake);
 }
 

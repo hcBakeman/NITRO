@@ -214,7 +214,7 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         if (handlingMode === 'rally' || handlingMode === 'rally (drift)') {
             latFrictionMult = 1.2;
             const isRearWheel = (wheelIndex === 2 || wheelIndex === 3);
-            const handbrake = controller.GetDriverInput().mHandBrake;
+            const handbrake = controller._currentHandbrake || 0.0;
             
             if (isRearWheel && handbrake > 0.1) {
                 latFrictionMult = 0.3;
