@@ -336,14 +336,7 @@ function _updateRacing(dt) {
   // 10. Send local network state
   Network.sendLocalState(chassis, Game.input, dt);
 
-  if (window.logCollisionEvent) {
-    const remotesState = {};
-    for (const id in Network.players) {
-      if (id === Network.getMyPeerId()) continue;
-      const p = Network.players[id];
-      const rb = Physics.getVehicleBody(id);
-      remotesState[id] = {
-        networkPos: { ...p.position },
+
   // 11. Game logic (checkpoints, crates, troll check, HUD)
   Game.updateRace(dt, chassis);
 
