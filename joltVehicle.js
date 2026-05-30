@@ -1,4 +1,4 @@
-export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, rotation, layer) {
+export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, rotation, layer, handlingMode = 'arcade') {
     // Constants for the vehicle
     const wheelRadius = 0.3;
     const wheelWidth = 0.1;
@@ -9,9 +9,9 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     const wheelOffsetVertical = 0.18;
     const suspensionMinLength = 0.3;
     const suspensionMaxLength = 0.5;
-    const maxSteerAngle = (Math.PI / 180) * 30; // 30 degrees
+    const maxSteerAngle = (Math.PI / 180) * 40; // 40 degrees
     const fourWheelDrive = true;
-    const frontBackLimitedSlipRatio = 1.4;
+    const frontBackLimitedSlipRatio = 0.4;
     const leftRightLimitedSlipRatio = 1.4;
     const antiRollbar = true;
 
@@ -21,7 +21,7 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     const BR_WHEEL = 3;
 
     const vehicleMass = 1500.0;
-    const maxEngineTorque = 500.0;
+    const maxEngineTorque = 800.0;
     const clutchStrength = 10.0;
 
     // Handle position array or Jolt.RVec3
@@ -157,7 +157,36 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         body2 = Jolt.wrapPointer(body2, Jolt.Body);
         return Math.sqrt(tireFriction * body2.GetFriction());
     };
-    callbacks.OnPreStepCallback = (vehicle, stepContext) => { };
+    callbacks.OnPreStepCallback = (vehicle, stepContext) => {
+        if (handlingMode !== 'rally' && handlingMode !== 'rally (drift)') return;
+
+        const chassisId = chassisBody.GetID();
+        const linVel = bodyInterface.GetLinearVelocity(chassisId);
+        const quat = bodyInterface.GetRotation(chassisId);
+        
+        const localForward = new Jolt.Vec3(0, 0, 1);
+        const forward = quat.RotateVector3(localForward);
+        
+        const localUp = new Jolt.Vec3(0, 1, 0);
+        const up = quat.RotateVector3(localUp);
+        
+        const forwardSpeed = (linVel.GetX() * forward.GetX()) + (linVel.GetY() * forward.GetY()) + (linVel.GetZ() * forward.GetZ());
+        const downforceCoef = 5.0; 
+        const downforceMagnitude = Math.abs(forwardSpeed) * downforceCoef;
+        
+        if (downforceMagnitude > 0) {
+            const downforce = new Jolt.Vec3(-up.GetX() * downforceMagnitude, -up.GetY() * downforceMagnitude, -up.GetZ() * downforceMagnitude);
+            bodyInterface.AddForce(chassisId, downforce);
+            Jolt.destroy(downforce);
+        }
+        
+        Jolt.destroy(linVel);
+        Jolt.destroy(quat);
+        Jolt.destroy(localForward);
+        Jolt.destroy(forward);
+        Jolt.destroy(localUp);
+        Jolt.destroy(up);
+    };
     callbacks.OnPostCollideCallback = (vehicle, stepContext) => { };
     callbacks.OnPostStepCallback = (vehicle, stepContext) => { };
     callbacks.SetVehicleConstraint(constraint);
@@ -169,8 +198,32 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     const controllerCallbacks = new Jolt.WheeledVehicleControllerCallbacksJS();
     controllerCallbacks.OnTireMaxImpulseCallback = (wheelIndex, result, suspensionImpulse, longitudinalFriction, lateralFriction, longitudinalSlip, lateralSlip, deltaTime) => {
         result = Jolt.wrapPointer(result, Jolt.TireMaxImpulseCallbackResult);
-        result.mLongitudinalImpulse = longitudinalFriction * suspensionImpulse;
-        result.mLateralImpulse = lateralFriction * suspensionImpulse;
+        
+        let longFrictionMult = 1.0;
+        let latFrictionMult = 1.0; 
+        
+        if (handlingMode === 'rally' || handlingMode === 'rally (drift)') {
+            latFrictionMult = 1.2;
+            const isRearWheel = (wheelIndex === 2 || wheelIndex === 3);
+            const handbrake = controller.GetDriverInput().mHandBrake;
+            
+            if (isRearWheel && handbrake > 0.1) {
+                latFrictionMult = 0.3;
+                longFrictionMult = 0.8; 
+            } else {
+                const slipAngle = Math.abs(lateralSlip);
+                if (slipAngle > 0.15) {
+                    latFrictionMult = isRearWheel ? 0.7 : 0.9; 
+                }
+            }
+            
+            if (Math.abs(lateralSlip) < 0.05 && handbrake < 0.1) {
+                latFrictionMult = 1.5; 
+            }
+        }
+
+        result.mLongitudinalImpulse = (longitudinalFriction * longFrictionMult) * suspensionImpulse;
+        result.mLateralImpulse = (lateralFriction * latFrictionMult) * suspensionImpulse;
     };
     controllerCallbacks.SetWheeledVehicleController(controller);
 

@@ -69,13 +69,13 @@ export function clearPhysicsWorld() {
 }
 
 export function createLocalVehicle(x, y, z) {
-  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [x, y, z], null, LAYER_MOVING);
+  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [x, y, z], null, LAYER_MOVING, handlingMode);
 }
 
 export function createPlayerVehicle(startPos, startQuat, carModel) {
   playerCarSpecs = carModel;
   
-  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [startPos.x, startPos.y, startPos.z], [startQuat.x, startQuat.y, startQuat.z, startQuat.w], LAYER_MOVING);
+  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [startPos.x, startPos.y, startPos.z], [startQuat.x, startQuat.y, startQuat.z, startQuat.w], LAYER_MOVING, handlingMode);
   
   // Cannon-compatible wrapper so gameEngine.js works without modification.
   // Exposes: position, quaternion (with vmult), velocity (with set/length/copy),
@@ -203,11 +203,46 @@ export function setVehicleInput(input) {
   controller.SetDriverInput(forward, right, 0.0, handbrake);
 }
 
-export function stepPhysics(dt) {
+export function stepPhysics(fixedDt) {
   if (joltInterface) {
-    // Step the simulation using the helper class
-    joltInterface.Step(dt, 1);
+    // Step the simulation using the helper class with fixed timestep
+    joltInterface.Step(fixedDt, 1);
   }
+}
+
+export function captureVehicleState(snapshotBuffer, offset = 0) {
+  if (!playerVehicle) return;
+  
+  const id = playerVehicle.chassisBody.GetID();
+  const pos = playerVehicle.chassisBody.GetPosition();
+  const quat = playerVehicle.chassisBody.GetRotation();
+  const linVel = playerVehicle.chassisBody.GetLinearVelocity();
+  const angVel = playerVehicle.chassisBody.GetAngularVelocity();
+  
+  const view = new Float32Array(snapshotBuffer, offset, 13);
+  view[0] = pos.GetX(); view[1] = pos.GetY(); view[2] = pos.GetZ();
+  view[3] = quat.GetX(); view[4] = quat.GetY(); view[5] = quat.GetZ(); view[6] = quat.GetW();
+  view[7] = linVel.GetX(); view[8] = linVel.GetY(); view[9] = linVel.GetZ();
+  view[10] = angVel.GetX(); view[11] = angVel.GetY(); view[12] = angVel.GetZ();
+}
+
+export function restoreVehicleState(snapshotBuffer, offset = 0) {
+  if (!playerVehicle) return;
+  
+  const view = new Float32Array(snapshotBuffer, offset, 13);
+  const id = playerVehicle.chassisBody.GetID();
+  
+  const p = new jolt.RVec3(view[0], view[1], view[2]);
+  const q = new jolt.Quat(view[3], view[4], view[5], view[6]);
+  bodyInterface.SetPositionAndRotation(id, p, q, jolt.EActivation_Activate);
+  
+  const lv = new jolt.Vec3(view[7], view[8], view[9]);
+  bodyInterface.SetLinearVelocity(id, lv);
+  
+  const av = new jolt.Vec3(view[10], view[11], view[12]);
+  bodyInterface.SetAngularVelocity(id, av);
+  
+  jolt.destroy(p); jolt.destroy(q); jolt.destroy(lv); jolt.destroy(av);
 }
 
 export function checkFlip(dt) {
@@ -259,7 +294,8 @@ export function checkStrictCollisions() {}
 export let collisionMode = 'fast';
 export function setCollisionMode(mode) {}
 export function setDriveMode(mode) {}
-export function setHandlingMode(mode) {}
+export let handlingMode = 'arcade';
+export function setHandlingMode(mode) { handlingMode = mode; }
 export let world = {};
 export let groundMat = {};
 export let wallMat = {};

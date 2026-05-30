@@ -9,6 +9,8 @@ import * as UI from './ui.js';
 import { Profiler } from './profiler.js';
 import { formatTime } from './utils.js';
 
+export const FIXED_TIME_STEP = 1 / 60;
+let physicsAccumulator = 0;
 let _lastTime = performance.now();
 const activeRocketVisuals = new Map();
 
@@ -197,12 +199,17 @@ function _updateRacing(dt) {
 
   _lastRacePhase = Game.racePhase;
 
-  // 3. Physics step
-  Physics.stepPhysics(dt);
+  // 3. Physics step (Fixed Timestep)
+  physicsAccumulator += dt;
+  while (physicsAccumulator >= FIXED_TIME_STEP) {
+    Physics.stepPhysics(FIXED_TIME_STEP);
 
-  // 4. Host-authoritative collisions in STRICT mode
-  if (Network.getIsHost() && _collisionMode === 'strict') {
-    Physics.checkStrictCollisions();
+    // 4. Host-authoritative collisions in STRICT mode
+    if (Network.getIsHost() && _collisionMode === 'strict') {
+      Physics.checkStrictCollisions();
+    }
+
+    physicsAccumulator -= FIXED_TIME_STEP;
   }
 
   // 5. Manual Reset & Flip recovery

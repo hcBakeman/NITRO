@@ -63,7 +63,7 @@ export function clearPhysicsWorld() {
 export function createPlayerVehicle(startPos, startQuat, carModel) {
   playerCarSpecs = carModel;
   
-  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [startPos.x, startPos.y, startPos.z], LAYER_MOVING);
+  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [startPos.x, startPos.y, startPos.z], LAYER_MOVING, handlingMode);
   
   // Set quaternion
   const q = new jolt.Quat(startQuat.x, startQuat.y, startQuat.z, startQuat.w);
@@ -114,6 +114,8 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
   }
 }
 
+export let handlingMode = 'arcade';
+export function setHandlingMode(mode) { handlingMode = mode; }
 export function getVehicleBody(id) {
   return remoteVehicles[id];
 }

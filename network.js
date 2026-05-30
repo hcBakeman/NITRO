@@ -3,6 +3,7 @@
  * Connects to Node.js backend. The server is the ultimate source of truth.
  */
 import { io } from 'socket.io-client';
+import { pushSnapshot, getInterpolatedState, removeBuffer, clearAll } from './networkInterpolation.js';
 
 // ── State ──────────────────────────────────────────────────────────────────
 let socket = null;
@@ -25,9 +26,54 @@ let _onStartCountdown = () => {};
 let _onLobbyCountdown = (done) => done();
 let _myPeerId = null;
 
+const EVENT_QUEUE = [];
+let _localTick = 0;
+let _tickAccumulator = 0;
+const CLIENT_TICK_RATE = 20;
+const TICK_DURATION = 1 / CLIENT_TICK_RATE;
+
+function _syncTick(serverTick) {
+  if (_localTick === 0) {
+    _localTick = serverTick;
+    return;
+  }
+  const drift = serverTick - _localTick;
+  if (Math.abs(drift) > 10) {
+    _localTick = serverTick;
+  } else if (drift > 0) {
+    _localTick += Math.ceil(drift * 0.1);
+  }
+}
+
+function _executeEvent(event) {
+  switch (event.type) {
+    case 'ROCKET_FIRE':
+      _onRocketFire(event.data.sourceId, event.data.pos, event.data.quat);
+      break;
+    case 'OIL_DROP':
+      _onOilDrop(event.data.sourceId, event.data.pos, event.data.quat);
+      break;
+    case 'CRATE_PICKUP':
+      _onCratePickup(event.data.sourceId, event.data.crateIdx, event.data.weaponType);
+      break;
+    case 'VEHICLE_HIT':
+      _onVehicleHit(_myPeerId, event.data.bumpVel, event.data.attackerId, event.data.bumpAngVel);
+      break;
+  }
+}
+
 const PLAYER_COLOR_COUNT = 6;
 // You can switch this to localhost for local dev if needed
 const SERVER_URL = 'https://nitro-server-05t0.onrender.com';
+
+const _idHashMap = new Map();
+function _registerIdHash(fullId) {
+  let h = 0;
+  for (let i = 0; i < fullId.length; i++) {
+    h = ((h << 5) - h + fullId.charCodeAt(i)) | 0;
+  }
+  _idHashMap.set(h & 0xFFFF, fullId);
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────
 export function initNetwork(callbacks = {}, customId = undefined) {
@@ -98,6 +144,7 @@ function _setupSocketHandlers() {
   socket.on('WELCOME', (data) => {
     // Populate existing players
     Object.entries(data.existingPlayers).forEach(([id, p]) => {
+      _registerIdHash(id);
       if (id !== _myPeerId) {
         players[id] = { ...p, _lerp: { pos: null, quat: null } };
       } else {
@@ -110,26 +157,44 @@ function _setupSocketHandlers() {
   });
 
   socket.on('PLAYER_JOINED', (p) => {
+    _registerIdHash(p.id);
     players[p.id] = { ...p, _lerp: { pos: null, quat: null } };
     _onPlayerJoin(p.id, players[p.id]);
   });
 
   socket.on('PLAYER_LEFT', (data) => {
     delete players[data.id];
+    removeBuffer(data.id);
     _onPlayerLeave(data.id);
   });
 
-  // The server sends STATE_UPDATE containing exact physics coordinates 60 times a second
-  socket.on('STATE_UPDATE', (stateUpdate) => {
-    for (const id in stateUpdate) {
-      if (players[id]) {
-        // If it's remote, we lerp to it. If it's local, we reconcile (client-side prediction)
-        players[id]._lerp = { pos: stateUpdate[id].p, quat: stateUpdate[id].q };
-        players[id].velocity = stateUpdate[id].v;
-        if (id !== _myPeerId) {
-          _onStateUpdate(id, stateUpdate[id].p, stateUpdate[id].q);
-        }
-      }
+  socket.on('STATE_BIN', (buf) => {
+    const arrayBuffer = buf.buffer ? buf.buffer : new Uint8Array(buf).buffer;
+    const view = new DataView(arrayBuffer, buf.byteOffset, buf.byteLength);
+    const count = view.getUint8(0);
+    const serverTick = view.getUint16(1, true);
+    _syncTick(serverTick);
+
+    let offset = 3;
+    for (let i = 0; i < count; i++) {
+      const idHash = view.getUint16(offset, true); offset += 2;
+      const px = view.getFloat32(offset, true); offset += 4;
+      const py = view.getFloat32(offset, true); offset += 4;
+      const pz = view.getFloat32(offset, true); offset += 4;
+      const qx = view.getFloat32(offset, true); offset += 4;
+      const qy = view.getFloat32(offset, true); offset += 4;
+      const qz = view.getFloat32(offset, true); offset += 4;
+      const vx = view.getFloat32(offset, true); offset += 4;
+      const vy = view.getFloat32(offset, true); offset += 4;
+      const vz = view.getFloat32(offset, true); offset += 4;
+
+      const qwSq = 1.0 - qx * qx - qy * qy - qz * qz;
+      const qw = qwSq > 0 ? Math.sqrt(qwSq) : 0;
+
+      const id = _idHashMap.get(idHash);
+      if (!id || !players[id] || id === _myPeerId) continue;
+
+      pushSnapshot(id, serverTick, px, py, pz, qx, qy, qz, qw, vx, vy, vz);
     }
   });
 
@@ -150,13 +215,20 @@ function _setupSocketHandlers() {
 
   socket.on('START_COUNTDOWN', () => _onStartCountdown());
   socket.on('LOBBY_COUNTDOWN', () => _onLobbyCountdown(() => {}));
-  socket.on('RETURN_LOBBY', () => _onReturnLobby());
+  socket.on('RETURN_LOBBY', () => {
+    clearAll();
+    _onReturnLobby();
+  });
 
-  // Game Events
-  socket.on('CRATE_PICKUP', (data) => _onCratePickup(data.id, data.crateIdx, data.weaponType));
-  socket.on('ROCKET_FIRE', (data) => _onRocketFire(data.id, data.pos, data.quat));
-  socket.on('OIL_DROP', (data) => _onOilDrop(data.id, data.pos, data.quat));
-  socket.on('VEHICLE_HIT', (data) => _onVehicleHit(_myPeerId, data.bumpVel, data.attackerId, data.bumpAngVel));
+  // Game Events are now scheduled
+  socket.on('EVENT_SCHEDULED', (event) => {
+    if (event.executeTick <= _localTick) {
+      _executeEvent(event);
+      return;
+    }
+    EVENT_QUEUE.push(event);
+  });
+  
   socket.on('PLAYER_LAP', (data) => { if (players[data.id]) players[data.id].lap = data.lap; });
   socket.on('PLAYER_FINISHED', (data) => {
     if (players[data.id]) {
@@ -175,33 +247,69 @@ function _setupSocketHandlers() {
 
 // ── Interpolation ───────────────────────────────────────────────────────────
 export function lerpRemotePlayers(dt) {
-  const alpha = 1 - Math.exp(-12 * dt); // exponential smoothing
+  _tickAccumulator += dt;
+  while (_tickAccumulator >= TICK_DURATION) {
+    _tickAccumulator -= TICK_DURATION;
+    _localTick++;
+
+    let i = EVENT_QUEUE.length;
+    while (i--) {
+      const evt = EVENT_QUEUE[i];
+      if (evt.executeTick <= _localTick) {
+        _executeEvent(EVENT_QUEUE.splice(i, 1)[0]);
+      }
+    }
+  }
+
   for (const id in players) {
     const p = players[id];
-    if (p.isLocal || !p._lerp?.pos) continue;
-    p.position.x = _lerp(p.position.x, p._lerp.pos.x, alpha);
-    p.position.y = _lerp(p.position.y, p._lerp.pos.y, alpha);
-    p.position.z = _lerp(p.position.z, p._lerp.pos.z, alpha);
-    if (p._lerp.quat) {
-      p.quaternion.x = _lerp(p.quaternion.x, p._lerp.quat.x, alpha);
-      p.quaternion.y = _lerp(p.quaternion.y, p._lerp.quat.y, alpha);
-      p.quaternion.z = _lerp(p.quaternion.z, p._lerp.quat.z, alpha);
-      p.quaternion.w = _lerp(p.quaternion.w, p._lerp.quat.w, alpha);
+    if (p.isLocal) continue;
+
+    const interp = getInterpolatedState(id);
+    if (!interp) continue;
+
+    p.position.x = interp.pos.x;
+    p.position.y = interp.pos.y;
+    p.position.z = interp.pos.z;
+    if (p.quaternion) {
+      p.quaternion.x = interp.quat.x;
+      p.quaternion.y = interp.quat.y;
+      p.quaternion.z = interp.quat.z;
+      p.quaternion.w = interp.quat.w;
     }
+    p.velocity = interp.vel;
   }
 }
 
 // ── Actions ────────────────────────────────────────────────────────────────
 let _sendTimer = 0;
+let _lastInputByte = -1;
+let _inputSeq = 0;
+
 export function sendLocalState(chassis, inputState, dt) {
   _sendTimer += dt;
-  if (_sendTimer < 1 / 60) return; // Send inputs at 60Hz to server
+  if (_sendTimer < 1 / 60) return;
   _sendTimer = 0;
 
-  // We only send INPUTS to the server. The server dictates position.
-  if (socket) {
-    socket.emit('INPUT', inputState);
-  }
+  if (!socket) return;
+
+  let byte = 0;
+  if (inputState.forward)  byte |= 1;
+  if (inputState.backward) byte |= 2;
+  if (inputState.left)     byte |= 4;
+  if (inputState.right)    byte |= 8;
+  if (inputState.fire)     byte |= 16;
+  if (inputState.reset)    byte |= 32;
+
+  if (byte === _lastInputByte) return;
+  _lastInputByte = byte;
+
+  const buf = new ArrayBuffer(3);
+  const view = new DataView(buf);
+  view.setUint16(0, (_inputSeq++) & 0xFFFF, true);
+  view.setUint8(2, byte);
+
+  socket.emit('INPUT_BIN', buf);
 }
 
 export function startRace(seed, lapCount, driveMode, handlingMode, gridAssignments, collisionMode) {
