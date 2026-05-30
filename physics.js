@@ -127,6 +127,11 @@ export function clearPhysicsWorld() {
   // Instead, the engine usually handles map replacement cleanly.
 }
 
+export async function initMap(seed) {
+  // Map static geometry is currently generated separately via Three.js / mapServer.
+  // We can leave this empty or instantiate the map collision here if needed.
+}
+
 export function createLocalVehicle(x, y, z) {
   playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [x, y, z], null, LAYER_MOVING, handlingMode);
 }
