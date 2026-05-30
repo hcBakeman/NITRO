@@ -125,9 +125,10 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
 
     const controllerSettings = new Jolt.WheeledVehicleControllerSettings();
     controllerSettings.mEngine.mMaxTorque = maxEngineTorque;
+    controllerSettings.mEngine.mInertia = 0.2; // Less flywheel energy to prevent ghost launches
     controllerSettings.mEngine.mMinRPM = 1000.0;
     controllerSettings.mEngine.mMaxRPM = 10000.0; // Prevent torque dropping to 0 during wheel slip
-    controllerSettings.mTransmission.mClutchStrength = 10.0; 
+    controllerSettings.mTransmission.mClutchStrength = 40.0; // Stronger clutch to prevent insane RPM disconnects
     controllerSettings.mTransmission.mSwitchTime = 0.2;
     controllerSettings.mTransmission.mShiftUpRPM = 6500.0;
     controllerSettings.mTransmission.mShiftDownRPM = 1000.0;

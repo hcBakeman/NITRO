@@ -105,6 +105,17 @@ export function initInput() {
   };
   window.addEventListener('keydown', down);
   window.addEventListener('keyup', up);
+  
+  // Prevent inputs from getting stuck if window loses focus (causes ghost driving)
+  window.addEventListener('blur', () => {
+    input.forward = false;
+    input.backward = false;
+    input.left = false;
+    input.right = false;
+    input.fire = false;
+    input.reset = false;
+    fireQueued = false;
+  });
 }
 
 export function consumeFire() {
