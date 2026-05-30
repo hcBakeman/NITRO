@@ -319,11 +319,24 @@ export function setVehicleInput(input) {
   let right = 0.0;
   if (input.right) right = 1.0;
   if (input.left) right = -1.0;
-  
+
+  // Speed-sensitive steering for high-speed stability
+  const speedKmh = Math.abs(speed) * 3.6;
+  if (speedKmh > 40.0) {
+      // Reduce steering from 1.0 at 40km/h to 0.4 at 160km/h
+      const steerFactor = Math.max(0.4, 1.0 - ((speedKmh - 40.0) / 120.0) * 0.6);
+      right *= steerFactor;
+  }
+
+  // Smooth steering to prevent instant snaps
+  if (!playerVehicle._currentSteer) playerVehicle._currentSteer = 0;
+  const steerSpeed = speedKmh > 20 ? 0.15 : 0.25; // Slower snap at high speeds
+  playerVehicle._currentSteer += (right - playerVehicle._currentSteer) * steerSpeed;
+
   let handbrake = input.drift ? 1.0 : 0.0;
   
   controller._currentHandbrake = handbrake;
-  controller.SetDriverInput(forward, right, brake, handbrake);
+  controller.SetDriverInput(forward, playerVehicle._currentSteer, brake, handbrake);
 
   // If the player is providing input, make sure the physics body wakes up from sleep
   if (forward !== 0.0 || right !== 0.0 || handbrake !== 0.0) {

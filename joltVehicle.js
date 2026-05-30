@@ -130,8 +130,8 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     controllerSettings.mEngine.mMaxRPM = 10000.0; // Prevent torque dropping to 0 during wheel slip
     controllerSettings.mTransmission.mClutchStrength = 400.0; // MUST be > maxEngineTorque (250) or engine will endlessly over-rev and dump energy!
     controllerSettings.mTransmission.mSwitchTime = 0.2;
-    controllerSettings.mTransmission.mShiftUpRPM = 6500.0;
-    controllerSettings.mTransmission.mShiftDownRPM = 1000.0;
+    controllerSettings.mTransmission.mShiftUpRPM = 8000.0;
+    controllerSettings.mTransmission.mShiftDownRPM = 3000.0;
     vehicleSettings.mController = controllerSettings;
 
     // Front differential
@@ -141,7 +141,7 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     frontWheelDrive.mRightWheel = FR_WHEEL;
     frontWheelDrive.mLimitedSlipRatio = leftRightLimitedSlipRatio;
     if (fourWheelDrive) {
-        frontWheelDrive.mEngineTorqueRatio = 0.5; // Split engine torque when 4WD
+        frontWheelDrive.mEngineTorqueRatio = 0.35; // 35% torque to front to prevent understeer during acceleration
     }
     controllerSettings.mDifferentials.push_back(frontWheelDrive);
     controllerSettings.mDifferentialLimitedSlipRatio = frontBackLimitedSlipRatio;
@@ -152,7 +152,7 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         rearWheelDrive.mLeftWheel = BL_WHEEL;
         rearWheelDrive.mRightWheel = BR_WHEEL;
         rearWheelDrive.mLimitedSlipRatio = leftRightLimitedSlipRatio;
-        rearWheelDrive.mEngineTorqueRatio = 0.5;
+        rearWheelDrive.mEngineTorqueRatio = 0.65; // 65% torque to rear for sporty acceleration
         controllerSettings.mDifferentials.push_back(rearWheelDrive);
     }
 
@@ -228,35 +228,35 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     controllerCallbacks.OnTireMaxImpulseCallback = (wheelIndex, result, suspensionImpulse, longitudinalFriction, lateralFriction, longitudinalSlip, lateralSlip, deltaTime) => {
         result = Jolt.wrapPointer(result, Jolt.TireMaxImpulseCallbackResult);
         
-        let longFrictionMult = tireFrictionMult;
-        let latFrictionMult = tireFrictionMult * 1.15; // Simcade sporty grip
+        let longFrictionMult = tireFrictionMult * 1.5; // Base straight line grip
+        let latFrictionMult = tireFrictionMult * 1.6;  // Base cornering grip
         
         const isRearWheel = (wheelIndex === 2 || wheelIndex === 3);
         const handbrake = controller._currentHandbrake || 0.0;
 
         if (handlingMode === 'rally' || handlingMode === 'rally (drift)') {
-            latFrictionMult = 1.2;
-            
             if (isRearWheel && handbrake > 0.1) {
-                latFrictionMult = 0.3;
+                // Handbrake initiated drift
+                latFrictionMult = 0.4;
                 longFrictionMult = 0.8; 
             } else {
-                const slipAngle = Math.abs(lateralSlip);
-                if (slipAngle > 0.15) {
-                    latFrictionMult = isRearWheel ? 0.7 : 0.9; 
+                // Power slide / high slip velocity drop-off
+                const slipVelocity = Math.abs(lateralSlip);
+                if (slipVelocity > 4.0) { 
+                    latFrictionMult = isRearWheel ? 0.9 : 1.2; // Rear slides more than front
+                } else if (slipVelocity < 1.0 && handbrake < 0.1) {
+                    // Planted grip
+                    latFrictionMult = 1.9;
                 }
             }
-            
-            if (Math.abs(lateralSlip) < 0.05 && handbrake < 0.1) {
-                latFrictionMult = 1.5; 
-            }
         } else if (handlingMode === 'drift') {
-            latFrictionMult = 0.8;
+            latFrictionMult = 0.9;
+            if (isRearWheel) longFrictionMult = 0.8;
         } else {
             // Default Arcade/Simcade handling drift behavior
-            const slipAngle = Math.abs(lateralSlip);
-            if (slipAngle > 0.15) {
-                latFrictionMult = isRearWheel ? (tireFrictionMult * 0.8) : (tireFrictionMult * 0.9); 
+            const slipVelocity = Math.abs(lateralSlip);
+            if (slipVelocity > 3.0) {
+                latFrictionMult = isRearWheel ? (tireFrictionMult * 1.0) : (tireFrictionMult * 1.1); 
             }
         }
 
