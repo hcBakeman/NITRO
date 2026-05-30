@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import Jolt from 'jolt-physics';
 import * as Network from './network.js';
-import { createJoltVehicle, VEHICLE_CONFIG } from './joltVehicle.js';
+import { createJoltVehicle, BASE_VEHICLE_CONFIG } from './joltVehicle.js';
 
 export let jolt;
 export let joltInterface;
@@ -142,10 +142,10 @@ export function createLocalVehicle(x, y, z) {
 export function createPlayerVehicle(startPos, startQuat, carModel) {
   playerCarSpecs = carModel;
   
-  const spawnYOffset = VEHICLE_CONFIG.halfVehicleHeight + VEHICLE_CONFIG.suspensionMaxLength + VEHICLE_CONFIG.wheelRadius + 0.1;
+  const spawnYOffset = BASE_VEHICLE_CONFIG.halfVehicleHeight + BASE_VEHICLE_CONFIG.suspensionMaxLength + BASE_VEHICLE_CONFIG.wheelRadius + 0.1;
   const py = startPos.y + spawnYOffset;
   
-  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [startPos.x, py, startPos.z], [startQuat.x, startQuat.y, startQuat.z, startQuat.w], LAYER_MOVING, handlingMode);
+  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [startPos.x, py, startPos.z], [startQuat.x, startQuat.y, startQuat.z, startQuat.w], LAYER_MOVING, handlingMode, carModel);
   
   // Cannon-compatible wrapper so gameEngine.js works without modification.
   // Exposes: position, quaternion (with vmult), velocity (with set/length/copy),

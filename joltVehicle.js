@@ -1,4 +1,12 @@
-export const VEHICLE_CONFIG = {
+export const VEHICLE_CLASSES = {
+    'dacia_duster_low_poly': { mass: 1400.0, maxEngineTorque: 770.0, frictionMult: 1.0 },
+    'police_car': { mass: 1800.0, maxEngineTorque: 990.0, frictionMult: 1.0 },
+    'retro_anime_suzuki_alto': { mass: 700.0, maxEngineTorque: 420.0, frictionMult: 0.9 },
+    'volkswagen_golf_gti_1976': { mass: 900.0, maxEngineTorque: 540.0, frictionMult: 0.95 },
+    'volvo_240': { mass: 1300.0, maxEngineTorque: 715.0, frictionMult: 1.0 }
+};
+
+export const BASE_VEHICLE_CONFIG = {
     wheelRadius: 0.3,
     wheelWidth: 0.1,
     halfVehicleLength: 2.0,
@@ -13,18 +21,21 @@ export const VEHICLE_CONFIG = {
     frontBackLimitedSlipRatio: 0.4,
     leftRightLimitedSlipRatio: 1.4,
     antiRollbar: true,
-    vehicleMass: 1500.0,
-    maxEngineTorque: 800.0,
     clutchStrength: 10.0
 };
 
-export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, rotation, layer, handlingMode = 'arcade') {
+export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, rotation, layer, handlingMode = 'arcade', carModel = 'dacia_duster_low_poly') {
     const { 
         wheelRadius, wheelWidth, halfVehicleLength, halfVehicleWidth, halfVehicleHeight, 
         wheelOffsetHorizontal, wheelOffsetVertical, suspensionMinLength, suspensionMaxLength, 
         maxSteerAngle, fourWheelDrive, frontBackLimitedSlipRatio, leftRightLimitedSlipRatio, 
-        antiRollbar, vehicleMass, maxEngineTorque, clutchStrength 
-    } = VEHICLE_CONFIG;
+        antiRollbar, clutchStrength 
+    } = BASE_VEHICLE_CONFIG;
+
+    const classStats = VEHICLE_CLASSES[carModel] || VEHICLE_CLASSES['dacia_duster_low_poly'];
+    const vehicleMass = classStats.mass;
+    const maxEngineTorque = classStats.maxEngineTorque;
+    const tireFrictionMult = classStats.frictionMult || 1.0;
 
     const FL_WHEEL = 0;
     const FR_WHEEL = 1;
@@ -208,8 +219,8 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     controllerCallbacks.OnTireMaxImpulseCallback = (wheelIndex, result, suspensionImpulse, longitudinalFriction, lateralFriction, longitudinalSlip, lateralSlip, deltaTime) => {
         result = Jolt.wrapPointer(result, Jolt.TireMaxImpulseCallbackResult);
         
-        let longFrictionMult = 1.0;
-        let latFrictionMult = 1.0; 
+        let longFrictionMult = tireFrictionMult;
+        let latFrictionMult = tireFrictionMult; 
         
         if (handlingMode === 'rally' || handlingMode === 'rally (drift)') {
             latFrictionMult = 1.2;

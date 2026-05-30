@@ -69,8 +69,9 @@ function _buildWallBoxes(jolt, bodyInterface, spline, samples, side, jumpZones, 
     const q = new THREE.Quaternion().setFromRotationMatrix(m);
     const quat = new jolt.Quat(q.x, q.y, q.z, q.w);
     
-    const creationSettings = new jolt.BodyCreationSettings(shape, pos, quat, jolt.EMotionType_Static, layer);
-    const body = bodyInterface.CreateBody(creationSettings);
+    let creationSettings = new jolt.BodyCreationSettings(shape, pos, quat, jolt.EMotionType_Static, layer);
+    creationSettings.mFriction = 1.0;
+    let body = bodyInterface.CreateBody(creationSettings);
     bodyInterface.AddBody(body.GetID(), jolt.EActivation_DontActivate);
     
     jolt.destroy(creationSettings);
@@ -197,6 +198,7 @@ export function generateMap(jolt, bodyInterface, layerNonMoving, seed) {
   let meshShapeSettings = new jolt.MeshShapeSettings(triangles, materials);
   let meshShape = meshShapeSettings.Create().Get();
   let creationSettings = new jolt.BodyCreationSettings(meshShape, new jolt.Vec3(0,0,0), new jolt.Quat(0,0,0,1), jolt.EMotionType_Static, layerNonMoving);
+  creationSettings.mFriction = 1.0;
   let trackBody = bodyInterface.CreateBody(creationSettings);
   bodyInterface.AddBody(trackBody.GetID(), jolt.EActivation_DontActivate);
   
