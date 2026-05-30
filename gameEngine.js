@@ -204,10 +204,7 @@ function _updateRacing(dt) {
   while (physicsAccumulator >= FIXED_TIME_STEP) {
     Physics.stepPhysics(FIXED_TIME_STEP);
 
-    // 4. Host-authoritative collisions in STRICT mode
-    if (Network.getIsHost() && _collisionMode === 'strict') {
-      Physics.checkStrictCollisions();
-    }
+
 
     physicsAccumulator -= FIXED_TIME_STEP;
   }

@@ -23,6 +23,9 @@ let rockets = [];
 let oilSlicks = [];
 let remoteVehicles = {};
 let _onVehicleImpact = null;
+let _remoteBodyIdMap = new Map();
+let _lastHitTimes = new Map();
+let _contactListener = null;
 
 export function setOnVehicleImpact(cb) {
   _onVehicleImpact = cb;
@@ -55,6 +58,62 @@ export async function initPhysics() {
   
   physicsSystem = joltInterface.GetPhysicsSystem();
   bodyInterface = physicsSystem.GetBodyInterface();
+  
+  _contactListener = new jolt.ContactListenerJS();
+  _contactListener.OnContactValidate = (body1, body2, collideShapeResult) => jolt.ValidateResult_AcceptAllContactsForThisBodyPair;
+  _contactListener.OnContactPersisted = (body1, body2, manifold, settings) => {};
+  _contactListener.OnContactRemoved = (subShapePair) => {};
+  
+  _contactListener.OnContactAdded = (body1, body2, manifold, settings) => {
+    if (!playerVehicle || !playerVehicle.chassisBody) return;
+    
+    const id1 = body1.GetID().GetIndexAndSequenceNumber();
+    const id2 = body2.GetID().GetIndexAndSequenceNumber();
+    const myBodyId = playerVehicle.chassisBody.GetID().GetIndexAndSequenceNumber();
+    
+    let remoteId = null;
+    let otherBody = null;
+    if (id1 === myBodyId && _remoteBodyIdMap.has(id2)) {
+      remoteId = _remoteBodyIdMap.get(id2);
+      otherBody = body2;
+    } else if (id2 === myBodyId && _remoteBodyIdMap.has(id1)) {
+      remoteId = _remoteBodyIdMap.get(id1);
+      otherBody = body1;
+    }
+    
+    if (remoteId) {
+      const now = performance.now();
+      const lastHit = _lastHitTimes.get(remoteId) || 0;
+      if (now - lastHit > 500) {
+        _lastHitTimes.set(remoteId, now);
+        
+        // Calculate relative bump velocity to send to network
+        const myVel = bodyInterface.GetLinearVelocity(playerVehicle.chassisBody.GetID());
+        const theirVel = bodyInterface.GetLinearVelocity(otherBody.GetID());
+        
+        const bumpVel = {
+          x: myVel.GetX() - theirVel.GetX(),
+          y: Math.abs(myVel.GetY() - theirVel.GetY()) * 0.5 + 2, // Slight upward pop
+          z: myVel.GetZ() - theirVel.GetZ()
+        };
+        
+        const bumpAng = {
+          x: (Math.random() - 0.5) * 4,
+          y: (Math.random() - 0.5) * 4,
+          z: (Math.random() - 0.5) * 4
+        };
+        
+        if (window.Network && window.Network.sendVehicleHit) {
+          window.Network.sendVehicleHit(remoteId, bumpVel, window.Network.myPeerId, bumpAng);
+        }
+        
+        jolt.destroy(myVel);
+        jolt.destroy(theirVel);
+      }
+    }
+  };
+  
+  physicsSystem.SetContactListener(_contactListener);
   
   console.log('[+] Jolt Physics Client Initialized');
 }
@@ -154,18 +213,47 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
 
 
 export function createRemoteVehicle(peerId, mass, carModel, spawnPos, spawnQuat) {
-  // Remote vehicles are completely kinematic on the client in Jolt
-  // Actually, we don't even need a Jolt body! The network perfectly syncs visuals.
-  // We just return a dummy.
-  const dummy = {
+  const halfVehicleLength = 2.0;
+  const halfVehicleWidth = 0.9;
+  const halfVehicleHeight = 0.2;
+
+  const boxVec = new jolt.Vec3(halfVehicleWidth, halfVehicleHeight, halfVehicleLength);
+  const boxShapeSettings = new jolt.BoxShapeSettings(boxVec);
+  const shapeResult = boxShapeSettings.Create();
+  const carShape = shapeResult.Get();
+  
+  const pos = new jolt.RVec3(spawnPos ? spawnPos.x : 0, spawnPos ? spawnPos.y : 2, spawnPos ? spawnPos.z : 0);
+  const quat = new jolt.Quat(spawnQuat ? spawnQuat.x : 0, spawnQuat ? spawnQuat.y : 0, spawnQuat ? spawnQuat.z : 0, spawnQuat ? spawnQuat.w : 1);
+  
+  const bodyCreationSettings = new jolt.BodyCreationSettings(carShape, pos, quat, jolt.EMotionType_Kinematic, LAYER_MOVING);
+  if (collisionMode === 'perfect-sensor') {
+    bodyCreationSettings.mIsSensor = true;
+  }
+  
+  const body = bodyInterface.CreateBody(bodyCreationSettings);
+  bodyInterface.AddBody(body.GetID(), jolt.EActivation_DontActivate);
+
+  const vehicleWrapper = {
+    bodyId: body.GetID(),
     position: spawnPos ? { ...spawnPos } : { x: 0, y: 0, z: 0 },
     quaternion: spawnQuat ? { ...spawnQuat } : { x: 0, y: 0, z: 0, w: 1 },
     velocity: { x: 0, y: 0, z: 0 }
   };
-  remoteVehicles[peerId] = dummy;
+  remoteVehicles[peerId] = vehicleWrapper;
+  _remoteBodyIdMap.set(body.GetID().GetIndexAndSequenceNumber(), peerId);
+  
+  jolt.destroy(boxVec);
+  jolt.destroy(pos);
+  jolt.destroy(quat);
+  jolt.destroy(bodyCreationSettings);
 }
 
 export function removeRemoteVehicle(peerId) {
+  if (remoteVehicles[peerId] && remoteVehicles[peerId].bodyId) {
+    _remoteBodyIdMap.delete(remoteVehicles[peerId].bodyId.GetIndexAndSequenceNumber());
+    bodyInterface.RemoveBody(remoteVehicles[peerId].bodyId);
+    bodyInterface.DestroyBody(remoteVehicles[peerId].bodyId);
+  }
   delete remoteVehicles[peerId];
 }
 
@@ -174,6 +262,14 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
     remoteVehicles[id].position = targetPos;
     remoteVehicles[id].quaternion = targetQuat;
     remoteVehicles[id].velocity = targetVel;
+    
+    if (remoteVehicles[id].bodyId) {
+      const pos = new jolt.RVec3(targetPos.x, targetPos.y, targetPos.z);
+      const quat = new jolt.Quat(targetQuat.x, targetQuat.y, targetQuat.z, targetQuat.w);
+      bodyInterface.SetPositionAndRotation(remoteVehicles[id].bodyId, pos, quat, jolt.EActivation_DontActivate);
+      jolt.destroy(pos);
+      jolt.destroy(quat);
+    }
   }
 }
 
@@ -299,4 +395,32 @@ export function setHandlingMode(mode) { handlingMode = mode; }
 export let world = {};
 export let groundMat = {};
 export let wallMat = {};
-export function applyNetworkBump(vel, ang, id) {}
+export function applyNetworkBump(vel, ang, id) {
+  if (!playerVehicle || !playerVehicle.chassisBody) return;
+  const chassisId = playerVehicle.chassisBody.GetID();
+  
+  // vel and ang are relative velocity. We need to convert it into an impulse.
+  // We apply a massive instantaneous impulse based on vel
+  const forceMultiplier = 2000.0;
+  
+  let ix = vel.x * forceMultiplier;
+  let iy = vel.y * forceMultiplier + 1000; // Extra vertical pop
+  let iz = vel.z * forceMultiplier;
+  
+  // Cap it
+  const maxImp = 30000;
+  if (ix > maxImp) ix = maxImp; if (ix < -maxImp) ix = -maxImp;
+  if (iy > maxImp) iy = maxImp; if (iy < -maxImp) iy = -maxImp;
+  if (iz > maxImp) iz = maxImp; if (iz < -maxImp) iz = -maxImp;
+  
+  const imp = new jolt.Vec3(ix, iy, iz);
+  bodyInterface.AddImpulse(chassisId, imp);
+  jolt.destroy(imp);
+  
+  // Sound
+  const speed = Math.sqrt(vel.x*vel.x + vel.y*vel.y + vel.z*vel.z);
+  let intensity = speed > 10 ? 'hard' : (speed > 5 ? 'medium' : 'soft');
+  if (window.Audio && window.Audio.playCrash) {
+    window.Audio.playCrash(intensity);
+  }
+}
