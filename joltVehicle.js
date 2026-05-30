@@ -174,10 +174,10 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         const quat = bodyInterface.GetRotation(chassisId);
         
         const localForward = new Jolt.Vec3(0, 0, 1);
-        const forward = quat.RotateVector3(localForward);
+        const forward = quat.MulVec3(localForward);
         
         const localUp = new Jolt.Vec3(0, 1, 0);
-        const up = quat.RotateVector3(localUp);
+        const up = quat.MulVec3(localUp);
         
         const forwardSpeed = (linVel.GetX() * forward.GetX()) + (linVel.GetY() * forward.GetY()) + (linVel.GetZ() * forward.GetZ());
         const downforceCoef = 5.0; 

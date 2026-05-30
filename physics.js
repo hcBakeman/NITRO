@@ -352,8 +352,9 @@ export function restoreVehicleState(snapshotBuffer, offset = 0) {
 
 let flipTimer = 0;
 export function checkFlip(dt) {
-  if (!playerVehicle || !playerVehicle.chassisBody) return { flipped: false, recovered: false };
-  const upVec = playerVehicle.chassisBody.GetRotation().RotateVector3(new jolt.Vec3(0, 1, 0));
+  if (!playerVehicle) return { flipped: false, recovered: false };
+
+  const upVec = playerVehicle.chassisBody.GetRotation().MulVec3(new jolt.Vec3(0, 1, 0));
   const isFlipped = upVec.GetY() < 0.2;
   jolt.destroy(upVec);
   
@@ -368,7 +369,7 @@ export function checkFlip(dt) {
 
 export function applyBoost() {
   if (!playerVehicle) return;
-  const fwd = playerVehicle.chassisBody.GetRotation().RotateVector3(new jolt.Vec3(0, 0, 1));
+  const fwd = playerVehicle.chassisBody.GetRotation().MulVec3(new jolt.Vec3(0, 0, 1));
   const boostVel = new jolt.Vec3(fwd.GetX() * 50, fwd.GetY() * 50, fwd.GetZ() * 50);
   bodyInterface.AddLinearVelocity(playerVehicle.chassisBody.GetID(), boostVel);
   jolt.destroy(fwd);
