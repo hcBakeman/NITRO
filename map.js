@@ -181,17 +181,16 @@ export function generateMap(jolt, bodyInterface, layerNonMoving, seed) {
 
   // --- Physics Jolt Trimesh ---
   let triangles = new jolt.TriangleList();
-  for (let i = 0; i < samples; i++) {
-    const v = i * 3;
-    const nv = isClosed ? ((i + 1) % samples) * 3 : (i + 1) * 3;
-    const t1 = new jolt.Triangle(new jolt.Float3(vertices[v*3], vertices[v*3+1], vertices[v*3+2]), new jolt.Float3(vertices[(v+1)*3], vertices[(v+1)*3+1], vertices[(v+1)*3+2]), new jolt.Float3(vertices[nv*3], vertices[nv*3+1], vertices[nv*3+2]));
-    const t2 = new jolt.Triangle(new jolt.Float3(vertices[(v+1)*3], vertices[(v+1)*3+1], vertices[(v+1)*3+2]), new jolt.Float3(vertices[(nv+1)*3], vertices[(nv+1)*3+1], vertices[(nv+1)*3+2]), new jolt.Float3(vertices[nv*3], vertices[nv*3+1], vertices[nv*3+2]));
-    const t3 = new jolt.Triangle(new jolt.Float3(vertices[(v+1)*3], vertices[(v+1)*3+1], vertices[(v+1)*3+2]), new jolt.Float3(vertices[(v+2)*3], vertices[(v+2)*3+1], vertices[(v+2)*3+2]), new jolt.Float3(vertices[(nv+1)*3], vertices[(nv+1)*3+1], vertices[(nv+1)*3+2]));
-    const t4 = new jolt.Triangle(new jolt.Float3(vertices[(v+2)*3], vertices[(v+2)*3+1], vertices[(v+2)*3+2]), new jolt.Float3(vertices[(nv+2)*3], vertices[(nv+2)*3+1], vertices[(nv+2)*3+2]), new jolt.Float3(vertices[(nv+1)*3], vertices[(nv+1)*3+1], vertices[(nv+1)*3+2]));
-    triangles.push_back(t1);
-    triangles.push_back(t2);
-    triangles.push_back(t3);
-    triangles.push_back(t4);
+  for (let i = 0; i < physIndices.length; i += 3) {
+    const i1 = physIndices[i] * 3;
+    const i2 = physIndices[i+1] * 3;
+    const i3 = physIndices[i+2] * 3;
+    const t = new jolt.Triangle(
+      new jolt.Float3(vertices[i1], vertices[i1+1], vertices[i1+2]),
+      new jolt.Float3(vertices[i2], vertices[i2+1], vertices[i2+2]),
+      new jolt.Float3(vertices[i3], vertices[i3+1], vertices[i3+2])
+    );
+    triangles.push_back(t);
   }
 
   let materials = new jolt.PhysicsMaterialList();
