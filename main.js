@@ -7,6 +7,7 @@ import * as Audio from './audio.js';
 import * as UI from './ui.js';
 import * as GameEngine from './gameEngine.js';
 import { initMobileControls } from './mobile.js';
+import { VEHICLE_CLASSES } from './joltVehicle.js';
 
 initMobileControls();
 
@@ -189,6 +190,13 @@ function getName() {
 async function updatePreviews() {
   const car = AVAILABLE_CARS[currentCarIndex];
   document.getElementById('car-name-display').textContent = car.replace(/_/g, ' ').toUpperCase();
+  
+  const specs = VEHICLE_CLASSES[car];
+  if (specs) {
+    const hp = Math.round((specs.maxEngineTorque * 8000) / 9548);
+    document.getElementById('car-specs-display').textContent = `${specs.mass} KG | ${specs.maxEngineTorque} NM | ~${hp} HP`;
+  }
+  
   UI.setLoading(true);
   if (lobbyPreview) await lobbyPreview.setCar(car);
   UI.setLoading(false);
