@@ -18,7 +18,7 @@ export const BASE_VEHICLE_CONFIG = {
     suspensionMaxLength: 0.5,
     maxSteerAngle: (Math.PI / 180) * 40,
     fourWheelDrive: true,
-    frontBackLimitedSlipRatio: 0.4,
+    frontBackLimitedSlipRatio: 1.4,
     leftRightLimitedSlipRatio: 1.4,
     antiRollbar: true,
     clutchStrength: 20.0,
@@ -94,24 +94,24 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     vehicleSettings.mWheels.clear();
 
     const fl = new Jolt.WheelSettingsWV();
-    fl.mPosition = new Jolt.Vec3(halfVehicleWidth, -wheelOffsetVertical, wheelOffsetHorizontal);
+    fl.mPosition = new Jolt.Vec3(-halfVehicleWidth, -wheelOffsetVertical, wheelOffsetHorizontal);
     fl.mMaxSteerAngle = maxSteerAngle;
     fl.mMaxHandBrakeTorque = 0.0;
     vehicleSettings.mWheels.push_back(fl);
 
     const fr = new Jolt.WheelSettingsWV();
-    fr.mPosition = new Jolt.Vec3(-halfVehicleWidth, -wheelOffsetVertical, wheelOffsetHorizontal);
+    fr.mPosition = new Jolt.Vec3(halfVehicleWidth, -wheelOffsetVertical, wheelOffsetHorizontal);
     fr.mMaxSteerAngle = maxSteerAngle;
     fr.mMaxHandBrakeTorque = 0.0; // Front wheel doesn't have hand brake
     vehicleSettings.mWheels.push_back(fr);
 
     const bl = new Jolt.WheelSettingsWV();
-    bl.mPosition = new Jolt.Vec3(halfVehicleWidth, -wheelOffsetVertical, -wheelOffsetHorizontal);
+    bl.mPosition = new Jolt.Vec3(-halfVehicleWidth, -wheelOffsetVertical, -wheelOffsetHorizontal);
     bl.mMaxSteerAngle = 0.0;
     vehicleSettings.mWheels.push_back(bl);
 
     const br = new Jolt.WheelSettingsWV();
-    br.mPosition = new Jolt.Vec3(-halfVehicleWidth, -wheelOffsetVertical, -wheelOffsetHorizontal);
+    br.mPosition = new Jolt.Vec3(halfVehicleWidth, -wheelOffsetVertical, -wheelOffsetHorizontal);
     br.mMaxSteerAngle = 0.0;
     vehicleSettings.mWheels.push_back(br);
 
