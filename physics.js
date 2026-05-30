@@ -377,7 +377,7 @@ export function getVehicleDebugData() {
   const engine = playerVehicle.controller.GetEngine();
   const trans = playerVehicle.controller.GetTransmission();
   
-  const mass = 1.0 / bodyInterface.GetInverseMass(playerVehicle.chassisBody.GetID());
+  const mass = 1400.0; // Hardcoded for now
   
   const wheels = [];
   for (let i = 0; i < 4; i++) {
