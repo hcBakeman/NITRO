@@ -64,8 +64,11 @@ export async function initPhysics() {
   _contactListener.OnContactPersisted = (body1, body2, manifold, settings) => {};
   _contactListener.OnContactRemoved = (subShapePair) => {};
   
-  _contactListener.OnContactAdded = (body1, body2, manifold, settings) => {
+  _contactListener.OnContactAdded = (body1Ptr, body2Ptr, manifold, settings) => {
     if (!playerVehicle || !playerVehicle.chassisBody) return;
+    
+    const body1 = jolt.wrapPointer(body1Ptr, jolt.Body);
+    const body2 = jolt.wrapPointer(body2Ptr, jolt.Body);
     
     const id1 = body1.GetID().GetIndexAndSequenceNumber();
     const id2 = body2.GetID().GetIndexAndSequenceNumber();
