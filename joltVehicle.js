@@ -126,10 +126,12 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     const controllerSettings = new Jolt.WheeledVehicleControllerSettings();
     controllerSettings.mEngine.mMaxTorque = maxEngineTorque;
     controllerSettings.mEngine.mMaxRPM = 7000.0;
-    controllerSettings.mTransmission.mClutchStrength = clutchStrength;
+    // We increase clutch strength from 20.0 to 40.0 so the engine locks to wheels better
+    controllerSettings.mTransmission.mClutchStrength = 40.0; 
     controllerSettings.mTransmission.mSwitchTime = 0.2;
     controllerSettings.mTransmission.mShiftUpRPM = 6500.0;
-    controllerSettings.mTransmission.mShiftDownRPM = 2500.0;
+    // Lowered ShiftDownRPM to 1200 so it doesn't downshift to neutral while driving 25 km/h
+    controllerSettings.mTransmission.mShiftDownRPM = 1200.0;
     vehicleSettings.mController = controllerSettings;
 
     // Front differential
