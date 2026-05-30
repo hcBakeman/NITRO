@@ -13,6 +13,7 @@
   "dependencies": {
     "cannon-es": "^0.20.0",
     "jolt-physics": "^1.0.0",
+    "playwright": "^1.60.0",
     "socket.io-client": "^4.8.3",
     "three": "^0.165.0"
   },
