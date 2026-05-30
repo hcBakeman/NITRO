@@ -21,6 +21,7 @@ let _onReturnLobby = () => {};
 let _onCarUpdate = () => {};
 let _onKicked = () => { location.reload(); };
 let _onVehicleHit = () => {};
+let _onVehicleReset = () => {};
 let _onPlayerLoaded = () => {};
 let _onStartCountdown = () => {};
 let _onLobbyCountdown = (done) => done();
@@ -59,6 +60,9 @@ function _executeEvent(event) {
     case 'VEHICLE_HIT':
       _onVehicleHit(_myPeerId, event.data.bumpVel, event.data.attackerId, event.data.bumpAngVel);
       break;
+    case 'VEHICLE_RESET':
+      if (_onVehicleReset) _onVehicleReset(event.data.targetId, event.data.pos, event.data.quat);
+      break;
   }
 }
 
@@ -88,6 +92,7 @@ export function initNetwork(callbacks = {}, customId = undefined) {
   _onCarUpdate = callbacks.onCarUpdate || _onCarUpdate;
   _onKicked = callbacks.onKicked || _onKicked;
   _onVehicleHit = callbacks.onVehicleHit || _onVehicleHit;
+  _onVehicleReset = callbacks.onVehicleReset || _onVehicleReset;
   _onPlayerLoaded = callbacks.onPlayerLoaded || _onPlayerLoaded;
   _onStartCountdown = callbacks.onStartCountdown || _onStartCountdown;
   _onLobbyCountdown = callbacks.onLobbyCountdown || _onLobbyCountdown;
@@ -336,12 +341,16 @@ export function sendCratePickup(crateIdx, weaponType) {
   socket.emit('CRATE_PICKUP', { crateIdx, weaponType });
 }
 
-export function sendRocketFire(pos, quat) {
-  socket.emit('ROCKET_FIRE', { pos, quat });
+export function sendRocketFire(pos, quat, crateIdx) {
+  socket.emit('ROCKET_FIRE', { pos, quat, crateIdx });
 }
 
-export function sendOilDrop(pos, quat) {
-  socket.emit('OIL_DROP', { pos, quat });
+export function sendOilDrop(pos, quat, crateIdx) {
+  socket.emit('OIL_DROP', { pos, quat, crateIdx });
+}
+
+export function requestReset(closestT) {
+  socket.emit('REQUEST_RESET', { closestT });
 }
 
 export function sendLapComplete(lap) {

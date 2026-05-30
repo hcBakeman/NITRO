@@ -19,6 +19,9 @@ let _crosshairTimer = 0;
 let _collisionMode = 'fast';
 let _smokeTimer = 0;
 
+export const STATE_HASH_LOG = [];
+let _tickCounter = 0;
+
 let domLightsEl, domTimeEl, domLight1, domLight2, domLight3, domLight4, domFpsCounter, domCrosshair;
 let _framesThisSecond = 0;
 let _lastFpsTime = 0;
@@ -204,7 +207,15 @@ function _updateRacing(dt) {
   while (physicsAccumulator >= FIXED_TIME_STEP) {
     Physics.stepPhysics(FIXED_TIME_STEP);
 
-
+    if (chassis) {
+      const p = chassis.position;
+      const q = chassis.quaternion;
+      const v = chassis.velocity;
+      // Simple checksum
+      const hash = ((p.x + p.y + p.z + q.x + q.y + q.z + q.w + v.x + v.y + v.z) * 1000) | 0;
+      STATE_HASH_LOG.push({ tick: _tickCounter, hash });
+    }
+    _tickCounter++;
 
     physicsAccumulator -= FIXED_TIME_STEP;
   }
@@ -215,11 +226,14 @@ function _updateRacing(dt) {
     Game.input.reset = false; // consume
     document.getElementById('hud-msg').textContent = 'MANUAL RESET';
     document.getElementById('hud-msg').classList.remove('hidden');
-    _resetToLastCheckpoint();
+    Network.requestReset(chassis ? chassis._closestT : 0);
   } else if (flip.recovered) {
     document.getElementById('hud-msg').textContent = 'DEBUG RESET: FLIP RECOVERED';
     document.getElementById('hud-msg').classList.remove('hidden');
-    _resetToLastCheckpoint();
+    Network.requestReset(chassis ? chassis._closestT : 0);
+  } else if (flip.flipped) {
+    document.getElementById('hud-msg').textContent = 'Recovering...';
+    document.getElementById('hud-msg').classList.remove('hidden');
   }
 
   // 6. Out of bounds reset (only if falling off the map)
@@ -233,7 +247,7 @@ function _updateRacing(dt) {
   if (isOutOfBounds) {
     document.getElementById('hud-msg').textContent = `DEBUG RESET: OUT OF BOUNDS (Y=${chassis?.position?.y?.toFixed(1)}, DistSq=${chassis?._distToSplineSq?.toFixed(1)})`;
     document.getElementById('hud-msg').classList.remove('hidden');
-    _resetToLastCheckpoint();
+    Network.requestReset(chassis ? chassis._closestT : 0);
   }
 
   // 7. Weapon fire & audio
@@ -262,19 +276,20 @@ function _updateRacing(dt) {
   }
 
   if (Game.consumeFire() && Game.heldWeapon) {
-    const weapon = Game.consumeWeapon();
+    const wData = Game.consumeWeapon();
+    const weapon = wData.type;
     if (weapon === 'ROCKET') {
       if (chassis) {
         const pos = chassis.position;
         const quat = chassis.quaternion;
-        Network.sendRocketFire(pos, quat);
+        Network.sendRocketFire(pos, quat, wData.crateIdx);
         fireRocket('__local__', pos, quat);
       }
     } else if (weapon === 'OIL_SLICK') {
       if (chassis) {
         const pos = chassis.position;
         const quat = chassis.quaternion;
-        Network.sendOilDrop(pos, quat);
+        Network.sendOilDrop(pos, quat, wData.crateIdx);
         deployOilSlick('__local__', pos, quat);
       }
     } else if (weapon === 'BOOST') {
@@ -329,20 +344,6 @@ function _updateRacing(dt) {
       const rb = Physics.getVehicleBody(id);
       remotesState[id] = {
         networkPos: { ...p.position },
-        networkVel: { ...p.velocity },
-        physicsPos: rb ? { ...rb.position } : null,
-        physicsVel: rb ? { ...rb.velocity } : null,
-        lastHitTime: rb ? rb._lastHitTime : null,
-        isDynamic: rb ? rb.type === 1 : false // 1 is DYNAMIC, 4 is KINEMATIC
-      };
-    }
-    window.logCollisionEvent('FRAME_STATE', {
-      localPos: chassis ? { ...chassis.position } : null,
-      localVel: chassis ? { ...chassis.velocity } : null,
-      remotes: remotesState
-    });
-  }
-
   // 11. Game logic (checkpoints, crates, troll check, HUD)
   Game.updateRace(dt, chassis);
 
@@ -411,54 +412,7 @@ function _updateRacing(dt) {
   }
 }
 
-function _resetToLastCheckpoint() {
-  const mapData = Game.getRaceMapData();
-  if (!mapData) return;
-  const chassis = Physics.playerChassis;
 
-  let target;
-
-  // Use current track progress for a more localized respawn
-  if (chassis && chassis._closestT !== undefined) {
-    const spline = mapData.spline;
-    const length = spline.getLength();
-    // Respawn ~15m behind current point
-    const offsetT = 15.0 / length;
-    let t = chassis._closestT - offsetT;
-    if (mapData.isTest) {
-      t = Math.max(0, t);
-    } else {
-      t = (t + 1.0) % 1.0;
-    }
-
-    const pt = spline.getPointAt(t);
-    const tan = spline.getTangentAt(t).normalize();
-    target = {
-      pos: pt,
-      quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan),
-    };
-  } else {
-    // Fallback to last passed checkpoint
-    const passed = mapData.checkpoints.filter(cp => cp.passed).sort((a, b) => b.index - a.index);
-    if (passed.length > 0) {
-      const cp = passed[0];
-      target = {
-        pos: cp.position,
-        quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), cp.tangent),
-      };
-    } else {
-      // Default to start grid
-      const myId = Network.getMyPeerId();
-      const playerIds = Object.keys(Network.players).sort();
-      const myIdx = Math.max(0, playerIds.indexOf(myId));
-      target = mapData.startGrid[myIdx % mapData.startGrid.length] || mapData.startGrid[0];
-    }
-  }
-
-  const respawnPos = target.pos.clone();
-  respawnPos.y += 2.0; // Drop from air
-  Physics.resetVehicle(respawnPos, target.quat);
-}
 
 export function fireRocket(id, pos, quat) {
   if (!pos || !quat) return;

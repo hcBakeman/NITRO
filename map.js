@@ -384,9 +384,11 @@ export function generateMap(jolt, bodyInterface, layerNonMoving, seed) {
 
   for (let i = 0; i < crateCount; i++) {
     let ct;
+    let attempts = 0;
     do {
       ct = 0.05 + rng() * 0.9;
-    } while ([...usedTs].some(u => Math.abs(u - ct) < 0.06));
+      attempts++;
+    } while (attempts < 50 && [...usedTs].some(u => Math.abs(u - ct) < 0.03));
     usedTs.add(ct);
     const cratePos = spline.getPointAt(ct);
     cratePos.y += 0.8; // Floating above hills

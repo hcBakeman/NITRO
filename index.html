@@ -31,7 +31,7 @@
       <div class="menu-box">
         <h1 class="game-title">NITRO<br /><span class="title-seed">SEED</span></h1>
         <p class="subtitle">COMBAT RACER</p>
-        <p class="version-label">v1.4.1</p>
+        <p class="version-label">v1.4.2</p>
         <div class="field-row">
           <div class="field-group half">
             <label for="player-name">YOUR NAME</label>
@@ -49,7 +49,6 @@
           <button id="btn-host" class="btn btn-primary">HOST GAME</button>
           <button id="btn-join" class="btn btn-secondary">JOIN GAME</button>
           <button id="btn-fullscreen" class="btn btn-secondary full-width" style="margin-top: 10px; display: none;">PLAY FULLSCREEN</button>
-          <button id="btn-download-log" class="btn btn-secondary full-width" style="margin-top: 10px;">DOWNLOAD PROFILE LOG</button>
         </div>
         <div id="join-panel" class="hidden">
           <div class="field-group">
@@ -240,7 +239,7 @@
           <span class="unit">KM/H</span>
         </div>
       </div>
-      <button id="btn-download-log-hud" class="btn btn-secondary" style="position: absolute; bottom: 20px; left: 20px; font-size: 10px; padding: 5px 10px; z-index: 100;">DOWNLOAD COLLISION LOG</button>
+
       <div id="hud-recovery" class="hidden">⚠ RECOVERY...</div>
 
       <!-- Wrong Way Alert -->
@@ -266,7 +265,7 @@
       <div id="hud-msg" class="hud-flash hidden"></div>
       <div id="split-time-msg" class="hud-flash hidden"></div>
 
-      <button id="download-log-btn" style="position: absolute; top: 120px; right: 20px; z-index: 9999; padding: 5px 10px; background: rgba(255,0,0,0.5); color: white; border: 1px solid white; cursor: pointer; font-family: 'Space Mono', monospace; font-size: 12px; pointer-events: auto;">DOWNLOAD COLLISION LOG</button>
+
       
       <div id="speedometer">
         <div id="speed-value">0</div>
@@ -328,7 +327,6 @@
         <h2 class="panel-title">RACE OVER!</h2>
         <ol id="results-list"></ol>
         <button id="btn-lobby" class="btn btn-primary">BACK TO LOBBY</button>
-        <button id="btn-download-log-finished" class="btn btn-secondary full-width" style="margin-top: 10px;">DOWNLOAD PROFILE LOG</button>
       </div>
     </div>
 
@@ -342,6 +340,8 @@
       <div style="font-size:18px;margin-bottom:24px;letter-spacing:3px;">RETURNING TO LOBBY</div>
       <div id="return-lobby-countdown" style="font-size:72px;text-shadow:0 0 20px #ff4444;"></div>
     </div>
+
+    <button id="btn-dev-log" class="btn hidden" style="position:fixed;bottom:10px;right:10px;z-index:9999;font-size:10px;padding:5px;">DEV LOG</button>
 
     <script type="module" src="main.js"></script>
   </body>

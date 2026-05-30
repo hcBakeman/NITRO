@@ -1,28 +1,37 @@
+export const VEHICLE_CONFIG = {
+    wheelRadius: 0.3,
+    wheelWidth: 0.1,
+    halfVehicleLength: 2.0,
+    halfVehicleWidth: 0.9,
+    halfVehicleHeight: 0.2,
+    wheelOffsetHorizontal: 1.4,
+    wheelOffsetVertical: 0.18,
+    suspensionMinLength: 0.3,
+    suspensionMaxLength: 0.5,
+    maxSteerAngle: (Math.PI / 180) * 40,
+    fourWheelDrive: true,
+    frontBackLimitedSlipRatio: 0.4,
+    leftRightLimitedSlipRatio: 1.4,
+    antiRollbar: true,
+    vehicleMass: 1500.0,
+    maxEngineTorque: 800.0,
+    clutchStrength: 10.0
+};
+
 export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, rotation, layer, handlingMode = 'arcade') {
-    // Constants for the vehicle
-    const wheelRadius = 0.3;
-    const wheelWidth = 0.1;
-    const halfVehicleLength = 2.0;
-    const halfVehicleWidth = 0.9;
-    const halfVehicleHeight = 0.2;
-    const wheelOffsetHorizontal = 1.4;
-    const wheelOffsetVertical = 0.18;
-    const suspensionMinLength = 0.3;
-    const suspensionMaxLength = 0.5;
-    const maxSteerAngle = (Math.PI / 180) * 40; // 40 degrees
-    const fourWheelDrive = true;
-    const frontBackLimitedSlipRatio = 0.4;
-    const leftRightLimitedSlipRatio = 1.4;
-    const antiRollbar = true;
+    const { 
+        wheelRadius, wheelWidth, halfVehicleLength, halfVehicleWidth, halfVehicleHeight, 
+        wheelOffsetHorizontal, wheelOffsetVertical, suspensionMinLength, suspensionMaxLength, 
+        maxSteerAngle, fourWheelDrive, frontBackLimitedSlipRatio, leftRightLimitedSlipRatio, 
+        antiRollbar, vehicleMass, maxEngineTorque, clutchStrength 
+    } = VEHICLE_CONFIG;
 
     const FL_WHEEL = 0;
     const FR_WHEEL = 1;
     const BL_WHEEL = 2;
     const BR_WHEEL = 3;
 
-    const vehicleMass = 1500.0;
-    const maxEngineTorque = 800.0;
-    const clutchStrength = 10.0;
+
 
     // Handle position array or Jolt.RVec3
     let posVec;

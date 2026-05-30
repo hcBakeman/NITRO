@@ -92,6 +92,21 @@ window.addEventListener('load', async () => {
     document.getElementById(id).addEventListener('change', broadcastSettings);
   });
   
+  document.getElementById('btn-host-return-lobby').addEventListener('click', () => {
+    Network.returnToLobby();
+  });
+
+  const btnDevLog = document.getElementById('btn-dev-log');
+  if (btnDevLog) {
+    btnDevLog.addEventListener('click', () => {
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(GameEngine.STATE_HASH_LOG, null, 2));
+      const dlAnchorElem = document.createElement('a');
+      dlAnchorElem.setAttribute('href', dataStr);
+      dlAnchorElem.setAttribute('download', 'state_hash_log.json');
+      dlAnchorElem.click();
+    });
+  }
+
   window._updateGuestLobbySettings = (settings) => {
     if (settings.seed) document.getElementById('seed-input').value = settings.seed;
     if (settings.laps) document.getElementById('lap-input').value = settings.laps;
@@ -185,30 +200,6 @@ async function updatePreviews() {
 
 
 // ── Network Setup ──────────────────────────────────────────────────────────
-window.CollisionLogs = [];
-window.logCollisionEvent = function(type, data) {
-  const cm = Physics.collisionMode;
-  if (cm !== 'smooth' && cm !== 'predict' && cm !== 'dynamic' && cm !== 'authoritative') return;
-  // Keep last 10000 events to prevent memory leak (about 55 seconds at 180fps if we log every frame)
-  if (window.CollisionLogs.length > 10000) window.CollisionLogs.shift();
-  
-  window.CollisionLogs.push({
-    time: performance.now().toFixed(1),
-    type,
-    ...data
-  });
-};
-
-document.getElementById('download-log-btn').addEventListener('click', () => {
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(window.CollisionLogs, null, 2));
-  const downloadAnchorNode = document.createElement('a');
-  downloadAnchorNode.setAttribute("href", dataStr);
-  downloadAnchorNode.setAttribute("download", "collision_log_" + Network.getMyPeerId() + ".json");
-  document.body.appendChild(downloadAnchorNode); // required for firefox
-  downloadAnchorNode.click();
-  downloadAnchorNode.remove();
-});
-
 async function setupNetwork() {
   const statusElId = Game.getState() === Game.STATE.JOIN_LOBBY ? 'join-lobby-status' : 'menu-status';
   document.getElementById(statusElId).textContent = 'CONNECTING...';
@@ -233,12 +224,15 @@ async function setupNetwork() {
     onCarUpdate: (id, model) => { if (Game.getState() === Game.STATE.RACING) Graphics.loadVehicle(id, Network.players[id].colorIndex, model); UI.refreshPlayerList(Network.players, Network.getIsHost()); },
     onKicked: () => location.reload(),
     onVehicleHit: (vId, bumpVel, aId, bumpAngVel) => _onVehicleHit(vId, bumpVel, aId, bumpAngVel),
+    onVehicleReset: (tId, pos, quat) => _onVehicleReset(tId, pos, quat),
     onPlayerLoaded: (players) => UI.updateLoadingPlayerList(players),
     onStartCountdown: () => {
       UI.setLoading(false);
       Game.startIntro();
       // Show the host lobby button during race
       if (Network.getIsHost()) UI.showHostReturnButton(true);
+      const btnDevLog = document.getElementById('btn-dev-log');
+      if (btnDevLog) btnDevLog.classList.remove('hidden');
     },
     onLobbyCountdown: (done) => {
       // Show 3-2-1 overlay on ALL players (host and clients)
@@ -345,9 +339,18 @@ function _onCratePickup(id, crateIdx, type) {
 
 function _onVehicleHit(victimId, bumpVel, attackerId, bumpAngVel = null) {
   if (victimId === Network.getMyPeerId()) {
-    if (window.logCollisionEvent) {
-      window.logCollisionEvent('RECEIVE_BUMP', { victimId, attackerId, bumpVel, bumpAngVel });
-    }
+
     Physics.applyNetworkBump(bumpVel, bumpAngVel, attackerId);
+  }
+}
+
+function _onVehicleReset(targetId, pos, quat) {
+  if (targetId === Network.getMyPeerId()) {
+    const hudMsg = document.getElementById('hud-msg');
+    if (hudMsg) hudMsg.classList.add('hidden');
+    const respawnPos = new THREE.Vector3(pos.x, pos.y + 2.0, pos.z);
+    Physics.resetVehicle(respawnPos, quat);
+  } else {
+    Physics.syncRemoteBody(targetId, pos, quat, {x:0, y:0, z:0}, 0);
   }
 }

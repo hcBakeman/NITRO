@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import Jolt from 'jolt-physics';
 import * as Network from './network.js';
-import { createJoltVehicle } from './joltVehicle.js';
+import { createJoltVehicle, VEHICLE_CONFIG } from './joltVehicle.js';
 
 export let jolt;
 export let joltInterface;
@@ -134,7 +134,10 @@ export function createLocalVehicle(x, y, z) {
 export function createPlayerVehicle(startPos, startQuat, carModel) {
   playerCarSpecs = carModel;
   
-  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [startPos.x, startPos.y, startPos.z], [startQuat.x, startQuat.y, startQuat.z, startQuat.w], LAYER_MOVING, handlingMode);
+  const spawnYOffset = VEHICLE_CONFIG.halfVehicleHeight + VEHICLE_CONFIG.suspensionMaxLength + VEHICLE_CONFIG.wheelRadius + 0.1;
+  const py = startPos.y + spawnYOffset;
+  
+  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [startPos.x, py, startPos.z], [startQuat.x, startQuat.y, startQuat.z, startQuat.w], LAYER_MOVING, handlingMode);
   
   // Cannon-compatible wrapper so gameEngine.js works without modification.
   // Exposes: position, quaternion (with vmult), velocity (with set/length/copy),
@@ -341,8 +344,20 @@ export function restoreVehicleState(snapshotBuffer, offset = 0) {
   jolt.destroy(p); jolt.destroy(q); jolt.destroy(lv); jolt.destroy(av);
 }
 
+let flipTimer = 0;
 export function checkFlip(dt) {
-  return false;
+  if (!playerVehicle || !playerVehicle.chassisBody) return { flipped: false, recovered: false };
+  const upVec = playerVehicle.chassisBody.GetRotation().RotateVector3(new jolt.Vec3(0, 1, 0));
+  const isFlipped = upVec.GetY() < 0.2;
+  jolt.destroy(upVec);
+  
+  if (isFlipped) {
+    flipTimer += dt;
+    return { flipped: true, recovered: flipTimer > 2.5 };
+  } else {
+    flipTimer = 0;
+    return { flipped: false, recovered: false };
+  }
 }
 
 export function applyBoost() {

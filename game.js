@@ -121,13 +121,15 @@ export function triggerFire(state) {
 // ── Weapon ─────────────────────────────────────────────────────────────────
 const AMMO = { ROCKET: 2, OIL_SLICK: 2, BOOST: 1 };
 export let heldWeapon = null;
+export let heldCrateIdx = null;
 export let heldAmmo = 0;
 export function getHeldWeapon() { return heldWeapon; }
+export function getHeldCrateIdx() { return heldCrateIdx; }
 export function getHeldAmmo() { return heldAmmo; }
 
-
-export function pickupWeapon(type) {
+export function pickupWeapon(type, crateIdx) {
   heldWeapon = type;
+  heldCrateIdx = crateIdx;
   heldAmmo = AMMO[type] || 1;
   _updateWeaponHUD();
 }
@@ -135,10 +137,14 @@ export function pickupWeapon(type) {
 export function consumeWeapon() {
   if (!heldWeapon || heldAmmo <= 0) return null;
   const w = heldWeapon;
+  const cId = heldCrateIdx;
   heldAmmo--;
-  if (heldAmmo <= 0) heldWeapon = null;
+  if (heldAmmo <= 0) {
+    heldWeapon = null;
+    heldCrateIdx = null;
+  }
   _updateWeaponHUD();
-  return w;
+  return { type: w, crateIdx: cId };
 }
 
 function _updateWeaponHUD() {}
@@ -174,6 +180,7 @@ export function initRace(seed, laps, world, groundMat, wallMat) {
   winnerFinishedAt = null;
 
   heldWeapon = null;
+  heldCrateIdx = null;
   heldAmmo = 0;
   lastPos = null;
   stuckTimer = 0;
@@ -355,8 +362,8 @@ export function updateRace(dt, chassis) {
     const idx = mapData.weaponCrateSpawns.indexOf(hitCrate);
     hitCrate.active = false;
     hitCrate.respawnTimer = 20;
-    hitCrate._dirty = true; // Signal mesh update needed
-    pickupWeapon(hitCrate.type);
+    hitCrate._dirty = true;
+    pickupWeapon(hitCrate.type, idx);
     Network.sendCratePickup(idx, hitCrate.type);
     _showHUDMsg(`PICKED UP ${hitCrate.type.replace('_', ' ')}!`);
   }
