@@ -353,8 +353,21 @@ function _updateRacing(dt) {
 
   // 12. Sync HUD
   if (chassis) {
+    const speed = chassis.velocity.length() * 3.6; // km/h
+    
+    // DEBUG LOGGER (Every ~0.5s)
+    if (!window._debugFrames) window._debugFrames = 0;
+    window._debugFrames++;
+    if (window._debugFrames % 30 === 0 && Physics.playerVehicle && Physics.playerVehicle.controller) {
+      const engine = Physics.playerVehicle.controller.GetEngine();
+      const trans = Physics.playerVehicle.controller.GetTransmission();
+      const gear = trans.GetCurrentGear();
+      const rpm = engine.GetCurrentRPM();
+      console.log(`[CLIENT DEBUG] Speed: ${speed.toFixed(1)} km/h | Gear: ${gear} | RPM: ${rpm.toFixed(0)}`);
+    }
+
     UI.updateHUD({
-      speed: speed * 3.6,
+      speed: speed,
       lap: `${Game.getCurrentLap()}/${Game.getLapCount()}`,
       weapon: Game.getHeldWeapon(),
       ammo: Game.getHeldAmmo()
