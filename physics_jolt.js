@@ -217,3 +217,28 @@ export function getFlipProgress() { return 0; }
 export function setVehicleHitbox() {}
 export function setOnNetworkBumpApplied() {}
 export function checkStrictCollisions() {}
+
+export function getVehicleDebugData() {
+  if (!playerVehicle) return null;
+  const engine = playerVehicle.controller.GetEngine();
+  const trans = playerVehicle.controller.GetTransmission();
+  
+  const wheels = [];
+  for (let i = 0; i < 4; i++) {
+    const w = Jolt.castObject(playerVehicle.GetWheel(i), Jolt.WheelWV);
+    wheels.push({
+      angVel: w.GetAngularVelocity(),
+      suspension: w.GetSuspensionLength(),
+      longSlip: w.get_mLongitudinalSlip ? w.get_mLongitudinalSlip() : 0,
+      latSlip: w.get_mLateralSlip ? w.get_mLateralSlip() : 0,
+      contact: w.HasContact(),
+      friction: w.get_mCombinedLongitudinalFriction ? w.get_mCombinedLongitudinalFriction() : 0
+    });
+  }
+
+  return {
+    engineRPM: engine.GetCurrentRPM(),
+    gear: trans.GetCurrentGear(),
+    wheels
+  };
+}

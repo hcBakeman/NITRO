@@ -51,6 +51,8 @@ export function init() {
   domFpsCounter = document.getElementById('fps-counter');
   domCrosshair = document.getElementById('crosshair');
 
+  window.__STATE_HASH_LOG__ = STATE_HASH_LOG;
+
   Physics.setOnVehicleImpact((victimId, bumpVel, attackerId, bumpAngVel = null) => {
     if (Game.getState() !== Game.STATE.RACING || Game.racePhase !== 'ACTIVE') return;
     Network.sendVehicleHit(victimId, bumpVel, attackerId, bumpAngVel);
@@ -224,7 +226,19 @@ function _updateRacing(dt) {
       const v = chassis.velocity;
       // Simple checksum
       const hash = ((p.x + p.y + p.z + q.x + q.y + q.z + q.w + v.x + v.y + v.z) * 1000) | 0;
-      STATE_HASH_LOG.push({ tick: _tickCounter, hash });
+      
+      const debugData = Physics.getVehicleDebugData ? Physics.getVehicleDebugData() : null;
+      STATE_HASH_LOG.push({ 
+        tick: _tickCounter, 
+        hash, 
+        input: { ...Game.input }, 
+        speed: v.length() * 3.6,
+        pos: { x: p.x, y: p.y, z: p.z },
+        debugData 
+      });
+      
+      // Prevent infinite memory leak
+      if (STATE_HASH_LOG.length > 3600) STATE_HASH_LOG.shift(); // keep 60 seconds
     }
     _tickCounter++;
 

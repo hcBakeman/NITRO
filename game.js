@@ -103,6 +103,21 @@ export function initInput() {
       e.preventDefault();
     }
   };
+  
+  // Download logs when 'L' is pressed
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'l' || e.key === 'L') {
+       console.log('Downloading state_hash_log.json...');
+       const logData = window.__STATE_HASH_LOG__ || [];
+       const blob = new Blob([JSON.stringify(logData, null, 2)], { type: 'application/json' });
+       const url = URL.createObjectURL(blob);
+       const a = document.createElement('a');
+       a.href = url;
+       a.download = 'state_hash_log.json';
+       a.click();
+       URL.revokeObjectURL(url);
+    }
+  });
   window.addEventListener('keydown', down);
   window.addEventListener('keyup', up);
   
