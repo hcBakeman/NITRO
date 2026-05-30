@@ -174,32 +174,46 @@ function _setupSocketHandlers() {
   });
 
   socket.on('STATE_BIN', (buf) => {
-    const arrayBuffer = buf.buffer ? buf.buffer : new Uint8Array(buf).buffer;
-    const view = new DataView(arrayBuffer, buf.byteOffset, buf.byteLength);
-    const count = view.getUint8(0);
-    const serverTick = view.getUint16(1, true);
-    _syncTick(serverTick);
+    if (!buf) return;
+    try {
+      const arrayBuffer = buf.buffer ? buf.buffer : new Uint8Array(buf).buffer;
+      // If buf is an array-like object without byteOffset/byteLength, they will be undefined
+      const view = new DataView(arrayBuffer, buf.byteOffset, buf.byteLength);
+      
+      if (view.byteLength < 3) return; // Header requires 3 bytes
 
-    let offset = 3;
-    for (let i = 0; i < count; i++) {
-      const idHash = view.getUint16(offset, true); offset += 2;
-      const px = view.getFloat32(offset, true); offset += 4;
-      const py = view.getFloat32(offset, true); offset += 4;
-      const pz = view.getFloat32(offset, true); offset += 4;
-      const qx = view.getFloat32(offset, true); offset += 4;
-      const qy = view.getFloat32(offset, true); offset += 4;
-      const qz = view.getFloat32(offset, true); offset += 4;
-      const vx = view.getFloat32(offset, true); offset += 4;
-      const vy = view.getFloat32(offset, true); offset += 4;
-      const vz = view.getFloat32(offset, true); offset += 4;
+      const count = view.getUint8(0);
+      const serverTick = view.getUint16(1, true);
+      _syncTick(serverTick);
 
-      const qwSq = 1.0 - qx * qx - qy * qy - qz * qz;
-      const qw = qwSq > 0 ? Math.sqrt(qwSq) : 0;
+      let offset = 3;
+      for (let i = 0; i < count; i++) {
+        if (offset + 38 > view.byteLength) {
+          console.error(`[STATE_BIN] Truncated buffer! Length: ${view.byteLength}, Count: ${count}, Expected: ${3 + count * 38}`);
+          break; // Stop parsing this packet to avoid RangeError
+        }
+        
+        const idHash = view.getUint16(offset, true); offset += 2;
+        const px = view.getFloat32(offset, true); offset += 4;
+        const py = view.getFloat32(offset, true); offset += 4;
+        const pz = view.getFloat32(offset, true); offset += 4;
+        const qx = view.getFloat32(offset, true); offset += 4;
+        const qy = view.getFloat32(offset, true); offset += 4;
+        const qz = view.getFloat32(offset, true); offset += 4;
+        const vx = view.getFloat32(offset, true); offset += 4;
+        const vy = view.getFloat32(offset, true); offset += 4;
+        const vz = view.getFloat32(offset, true); offset += 4;
 
-      const id = _idHashMap.get(idHash);
-      if (!id || !players[id] || id === _myPeerId) continue;
+        const qwSq = 1.0 - qx * qx - qy * qy - qz * qz;
+        const qw = qwSq > 0 ? Math.sqrt(qwSq) : 0;
 
-      pushSnapshot(id, serverTick, px, py, pz, qx, qy, qz, qw, vx, vy, vz);
+        const id = _idHashMap.get(idHash);
+        if (!id || !players[id] || id === _myPeerId) continue;
+
+        pushSnapshot(id, serverTick, px, py, pz, qx, qy, qz, qw, vx, vy, vz);
+      }
+    } catch (e) {
+      console.error("[STATE_BIN] Parse error:", e, buf);
     }
   });
 
