@@ -381,7 +381,7 @@ export function getVehicleDebugData() {
   
   const wheels = [];
   for (let i = 0; i < 4; i++) {
-    const w = jolt.castObject(playerVehicle.GetWheel(i), jolt.WheelWV);
+    const w = jolt.castObject(playerVehicle.constraint.GetWheel(i), jolt.WheelWV);
     wheels.push({
       angVel: w.GetAngularVelocity(),
       suspension: w.GetSuspensionLength(),
