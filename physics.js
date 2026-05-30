@@ -309,6 +309,11 @@ export function setVehicleInput(input) {
   
   controller._currentHandbrake = handbrake;
   controller.SetDriverInput(forward, right, 0.0, handbrake);
+
+  // If the player is providing input, make sure the physics body wakes up from sleep
+  if (forward !== 0.0 || right !== 0.0 || handbrake !== 0.0) {
+    bodyInterface.ActivateBody(playerVehicle.chassisBody.GetID());
+  }
 }
 
 export function stepPhysics(fixedDt) {
