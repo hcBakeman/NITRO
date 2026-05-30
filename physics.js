@@ -19,6 +19,8 @@ export let playerVehicle = null;
 export let playerChassis = null;
 export let playerCarSpecs = null;
 
+let debugFrame = 0;
+
 let rockets = [];
 let oilSlicks = [];
 let remoteVehicles = {};
@@ -318,8 +320,19 @@ export function setVehicleInput(input) {
 
 export function stepPhysics(fixedDt) {
   if (joltInterface) {
-    // Step the simulation using the helper class with fixed timestep
     joltInterface.Step(fixedDt, 1);
+    
+    if (playerVehicle && playerVehicle.controller) {
+      debugFrame++;
+      if (debugFrame % 30 === 0) {
+        const engine = playerVehicle.controller.GetEngine();
+        const trans = playerVehicle.controller.GetTransmission();
+        const gear = trans.GetCurrentGear();
+        const rpm = engine.GetCurrentRPM();
+        const speed = playerChassis.velocity.length() * 3.6;
+        console.log(`[PHYSICS DEBUG] Speed: ${speed.toFixed(1)} km/h | Gear: ${gear} | RPM: ${rpm.toFixed(0)}`);
+      }
+    }
   }
 }
 
