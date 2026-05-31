@@ -9,6 +9,15 @@ export const PLAYER_COLORS = [0xff2222, 0x22aaff, 0x22ff44, 0xffee22, 0xff8800, 
 let renderer, scene, camera;
 let cameraYaw = 0;
 let cameraZoom = 35;
+
+export function scrollCamera(delta) {
+  cameraZoom += delta * 0.05;
+  if (cameraZoom < 5.0) {
+    cameraZoom = 0; // snap to in-car
+  } else if (cameraZoom > 100) {
+    cameraZoom = 100;
+  }
+}
 let cameraTarget = new THREE.Vector3();
 const _tmpCamOffset = new THREE.Vector3();
 const _tmpCamIdeal = new THREE.Vector3();
@@ -824,19 +833,35 @@ export function updateCamera(targetPos, carQuat, dt) {
     _tmpFwd.set(0, 0, 1); // Fallback
   }
 
-  const hFactor = 0.35 + (cameraZoom / 60) * 0.5;
-  const heightOffset = cameraZoom * hFactor;
-  const backOffset = cameraZoom * 0.6;
+  if (cameraZoom === 0) {
+    // In-car view
+    _tmpCamIdeal.copy(cameraTarget);
+    // Approximate driver position (left side, eye level, slightly forward)
+    const driverOffset = new THREE.Vector3(-0.3, 0.8, 0.5);
+    driverOffset.applyQuaternion(carQuat);
+    _tmpCamIdeal.add(driverOffset);
+    
+    camera.position.copy(_tmpCamIdeal);
+    
+    // Look ahead
+    const lookOffset = new THREE.Vector3(0, 0.8, 10);
+    lookOffset.applyQuaternion(carQuat);
+    camera.lookAt(cameraTarget.x + lookOffset.x, cameraTarget.y + lookOffset.y, cameraTarget.z + lookOffset.z);
+  } else {
+    const hFactor = 0.35 + (cameraZoom / 60) * 0.5;
+    const heightOffset = cameraZoom * hFactor;
+    const backOffset = cameraZoom * 0.6;
 
-  // Position camera behind and above
-  _tmpCamIdeal.copy(cameraTarget);
-  _tmpCamIdeal.addScaledVector(_tmpFwd, -backOffset);
-  _tmpCamIdeal.y += heightOffset;
+    // Position camera behind and above
+    _tmpCamIdeal.copy(cameraTarget);
+    _tmpCamIdeal.addScaledVector(_tmpFwd, -backOffset);
+    _tmpCamIdeal.y += heightOffset;
 
-  camera.position.copy(_tmpCamIdeal);
-  
-  // Look at the car (slightly above it)
-  camera.lookAt(cameraTarget.x, cameraTarget.y + 1.0, cameraTarget.z);
+    camera.position.copy(_tmpCamIdeal);
+    
+    // Look at the car (slightly above it)
+    camera.lookAt(cameraTarget.x, cameraTarget.y + 1.0, cameraTarget.z);
+  }
 
   if (cameraShake > 0.01) {
     camera.position.x += (Math.random() - 0.5) * cameraShake;
@@ -932,15 +957,26 @@ export function snapCamera(targetPos, carQuat) {
     _tmpFwd.set(0, 0, 1);
   }
 
-  const hFactor = 0.35 + (cameraZoom / 60) * 0.5;
-  const heightOffset = cameraZoom * hFactor;
-  const backOffset = cameraZoom * 0.6;
+  if (cameraZoom === 0) {
+    // In-car view snap
+    const driverOffset = new THREE.Vector3(-0.3, 0.8, 0.5);
+    driverOffset.applyQuaternion(carQuat);
+    camera.position.copy(targetPos).add(driverOffset);
+    
+    const lookOffset = new THREE.Vector3(0, 0.8, 10);
+    lookOffset.applyQuaternion(carQuat);
+    camera.lookAt(targetPos.x + lookOffset.x, targetPos.y + lookOffset.y, targetPos.z + lookOffset.z);
+  } else {
+    const hFactor = 0.35 + (cameraZoom / 60) * 0.5;
+    const heightOffset = cameraZoom * hFactor;
+    const backOffset = cameraZoom * 0.6;
 
-  camera.position.copy(targetPos);
-  camera.position.addScaledVector(_tmpFwd, -backOffset);
-  camera.position.y += heightOffset;
-  
-  camera.lookAt(cameraTarget.x, cameraTarget.y + 1.0, cameraTarget.z);
+    camera.position.copy(targetPos);
+    camera.position.addScaledVector(_tmpFwd, -backOffset);
+    camera.position.y += heightOffset;
+    
+    camera.lookAt(cameraTarget.x, cameraTarget.y + 1.0, cameraTarget.z);
+  }
 }
 
 export function getScreenPosition(pos3d) {

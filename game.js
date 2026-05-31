@@ -131,6 +131,11 @@ export function initInput() {
     input.reset = false;
     fireQueued = false;
   });
+  
+  // Camera Zoom (Scroll Wheel)
+  window.addEventListener('wheel', (e) => {
+    Graphics.scrollCamera(e.deltaY);
+  }, { passive: true });
 }
 
 export function consumeFire() {
