@@ -21,7 +21,7 @@ export function mulberry32(seed) {
 const NUM_POINTS = 18;
 const RING_RADIUS = 150;
 const OFFSET_MAX = 35;
-export const ROAD_HALF = 6;
+export const ROAD_HALF = 12;
 const WALL_H = 2.5;
 const WALL_T = 0.2; // wall half-thickness
 
@@ -85,7 +85,7 @@ export function generateMap(jolt, bodyInterface, layerNonMoving, seed) {
   let rng = mulberry32(seed);
   let spline, length;
 
-  const ROAD_HALF = isTest ? 30 : 6;
+  const ROAD_HALF = isTest ? 30 : 12;
 
   // Retry until track is within target length
   for (let attempt = 0; attempt < 20; attempt++) {
