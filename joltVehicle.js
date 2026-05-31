@@ -13,9 +13,9 @@ export const BASE_VEHICLE_CONFIG = {
     halfVehicleWidth: 0.9,
     halfVehicleHeight: 0.2,
     wheelOffsetHorizontal: 1.4,
-    wheelOffsetVertical: 0.18,
-    suspensionMinLength: 0.3,
-    suspensionMaxLength: 0.5,
+    wheelOffsetVertical: -0.1,
+    suspensionMinLength: 0.1,
+    suspensionMaxLength: 0.25,
     maxSteerAngle: (Math.PI / 180) * 40,
     fourWheelDrive: true,
     frontBackLimitedSlipRatio: 1.4,
@@ -91,7 +91,8 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
 
     // Create vehicle constraint
     const vehicleSettings = new Jolt.VehicleConstraintSettings();
-    vehicleSettings.mMaxPitchRollAngle = (Math.PI / 180) * 60.0;
+    // Increase to near 180 to prevent the constraint from hitting an invisible wall and bouncing the car up
+    vehicleSettings.mMaxPitchRollAngle = (Math.PI / 180) * 179.0;
     vehicleSettings.mWheels.clear();
 
     const fl = new Jolt.WheelSettingsWV();
@@ -122,6 +123,8 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         wheelS.mWidth = wheelWidth;
         wheelS.mSuspensionMinLength = suspensionMinLength;
         wheelS.mSuspensionMaxLength = suspensionMaxLength;
+        wheelS.mSuspensionSpring.mFrequency = 2.0;
+        wheelS.mSuspensionSpring.mDamping = 0.7;
     });
 
     const controllerSettings = new Jolt.WheeledVehicleControllerSettings();
