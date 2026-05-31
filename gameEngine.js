@@ -234,11 +234,12 @@ function _updateRacing(dt) {
         input: { ...Game.input }, 
         speed: v.length() * 3.6,
         pos: { x: p.x, y: p.y, z: p.z },
+        quat: { x: q.x, y: q.y, z: q.z, w: q.w },
         debugData 
       });
       
-      // Prevent infinite memory leak
-      if (STATE_HASH_LOG.length > 3600) STATE_HASH_LOG.shift(); // keep 60 seconds
+      // Prevent infinite memory leak (keep 5 minutes of data at 60Hz)
+      if (STATE_HASH_LOG.length > 18000) STATE_HASH_LOG.shift();
     }
     _tickCounter++;
 

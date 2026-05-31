@@ -406,10 +406,15 @@ export function getVehicleDebugData() {
     });
   }
 
+  const av = playerVehicle.chassisBody.GetAngularVelocity();
+  
   return {
     mass,
     engineRPM: engine.GetCurrentRPM(),
     gear: trans.GetCurrentGear(),
+    steer: playerVehicle._currentSteer || 0,
+    brake: playerVehicle.controller._currentHandbrake || 0,
+    angularVelocity: { x: av.GetX(), y: av.GetY(), z: av.GetZ() },
     wheels
   };
 }
