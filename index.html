@@ -216,14 +216,18 @@
 
         <div class="car-selection-wrap">
           <label>CHOOSE YOUR RIDE</label>
-          <div class="car-selector">
-            <button id="btn-car-prev" class="btn btn-nav">◄</button>
-            <div class="car-preview-container">
-              <canvas id="car-preview-canvas" width="200" height="120" class="car-preview-canvas"></canvas>
-              <div id="car-name-display" class="car-name-display">VOLKSWAGEN GOLF GTI 1976</div>
-              <div id="car-specs-display" class="car-specs-display" style="font-size: 11px; color: #888; margin-top: 5px; text-align: center; letter-spacing: 1px; font-weight: bold;"></div>
+          <div class="car-selector" style="flex-direction: column; gap: 12px; padding: 15px 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+              <button id="btn-car-prev" class="btn btn-nav">◄</button>
+              <div class="car-preview-container" style="height: 100px; margin-bottom: -10px;">
+                <canvas id="car-preview-canvas" width="200" height="100" class="car-preview-canvas"></canvas>
+              </div>
+              <button id="btn-car-next" class="btn btn-nav">►</button>
             </div>
-            <button id="btn-car-next" class="btn btn-nav">►</button>
+            <div style="text-align: center; width: 100%;">
+              <div id="car-name-display" style="color: #fff; font-size: 12px; text-shadow: 1px 1px 0 #000; margin-bottom: 6px;">VOLKSWAGEN GOLF GTI 1976</div>
+              <div id="car-specs-display" style="font-size: 9px; color: #aaa; letter-spacing: 1px; white-space: nowrap;"></div>
+            </div>
           </div>
         </div>
 
@@ -238,6 +242,52 @@
         <button id="btn-start" class="btn btn-primary full-width hidden" style="margin-top: 15px">
           START RACE
         </button>
+      </div>
+    </div>
+
+    <!-- ── DEV MENU (CHEAT) ────────────────────────────────── -->
+    <div id="dev-menu" class="screen hidden" style="z-index: 100;">
+      <div class="menu-box" style="width: 500px;">
+        <h2 class="panel-title" style="color: #ff22ff;">DEVELOPER MODE</h2>
+        <div class="field-row">
+          <div class="field-group half">
+            <label for="dev-mass">MASS (KG)</label>
+            <input id="dev-mass" type="number" step="10" />
+          </div>
+          <div class="field-group half">
+            <label for="dev-torque">MAX ENGINE TORQUE</label>
+            <input id="dev-torque" type="number" step="10" />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group half">
+            <label for="dev-friction">TIRE FRICTION MULTIPLIER</label>
+            <input id="dev-friction" type="number" step="0.05" />
+          </div>
+          <div class="field-group half">
+            <label for="dev-antiroll">ANTI-ROLL STIFFNESS</label>
+            <input id="dev-antiroll" type="number" step="100" />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group half">
+            <label for="dev-susp-min">SUSPENSION MIN LENGTH</label>
+            <input id="dev-susp-min" type="number" step="0.05" />
+          </div>
+          <div class="field-group half">
+            <label for="dev-susp-max">SUSPENSION MAX LENGTH</label>
+            <input id="dev-susp-max" type="number" step="0.05" />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group full-width">
+            <label for="dev-com-y">CENTER OF MASS Y-OFFSET</label>
+            <input id="dev-com-y" type="number" step="0.05" />
+            <p style="font-size: 8px; color: #888; margin-top: 4px;">More negative = lower center of gravity. Used to prevent chassis scraping.</p>
+          </div>
+        </div>
+        <button id="btn-dev-save" class="btn btn-primary full-width" style="margin-top: 15px; border-color: #ff22ff; color: #ff22ff;">APPLY CHEATS</button>
+        <button id="btn-dev-close" class="btn btn-secondary full-width" style="margin-top: 10px;">CLOSE</button>
       </div>
     </div>
 

@@ -12,6 +12,8 @@ let _onConnect = null;
 let _onStart = null;
 let _onHandlingChange = null;
 let _onReturnLobby = null;
+let _onDevMenuTrigger = null;
+let _onDevMenuSave = null;
 
 
 export function init(callbacks) {
@@ -25,6 +27,8 @@ export function init(callbacks) {
   _onStart = callbacks.onStart;
   _onHandlingChange = callbacks.onHandlingChange;
   _onReturnLobby = callbacks.onReturnLobby || null;
+  _onDevMenuTrigger = callbacks.onDevMenuTrigger || null;
+  _onDevMenuSave = callbacks.onDevMenuSave || null;
 
 
   _setupEventListeners();
@@ -137,6 +141,33 @@ function _setupEventListeners() {
     e.target.blur();
     e.target.disabled = true;
     Network.returnToLobby(); // Use Network.returnToLobby to ensure countdown triggers
+  });
+
+  // Dev Menu trigger (10 clicks under 3s)
+  let devClickCount = 0;
+  let devLastClickTime = 0;
+  safeAddListener('car-preview-canvas', 'click', () => {
+    const now = Date.now();
+    if (now - devLastClickTime > 3000) {
+      devClickCount = 0;
+    }
+    devClickCount++;
+    devLastClickTime = now;
+    if (devClickCount >= 10) {
+      devClickCount = 0;
+      if (_onDevMenuTrigger) _onDevMenuTrigger();
+    }
+  });
+
+  safeAddListener('btn-dev-close', 'click', () => {
+    document.getElementById('dev-menu').classList.remove('active');
+    setTimeout(() => document.getElementById('dev-menu').classList.add('hidden'), 250);
+  });
+
+  safeAddListener('btn-dev-save', 'click', () => {
+    if (_onDevMenuSave) _onDevMenuSave();
+    document.getElementById('dev-menu').classList.remove('active');
+    setTimeout(() => document.getElementById('dev-menu').classList.add('hidden'), 250);
   });
 }
 

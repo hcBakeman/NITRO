@@ -7,7 +7,7 @@ import * as Audio from './audio.js';
 import * as UI from './ui.js';
 import * as GameEngine from './gameEngine.js';
 import { initMobileControls } from './mobile.js';
-import { VEHICLE_CLASSES } from './joltVehicle.js';
+import { VEHICLE_CLASSES, BASE_VEHICLE_CONFIG } from './joltVehicle.js';
 
 initMobileControls();
 
@@ -45,6 +45,38 @@ window.addEventListener('load', async () => {
     onConnect: handleConnect,
     onStart: handleStart,
     onReturnLobby: handleReturnToLobby,
+    onHandlingChange: (val) => { Network.sendHandlingUpdate(val); },
+    onDevMenuTrigger: () => {
+      const car = AVAILABLE_CARS[currentCarIndex];
+      const specs = VEHICLE_CLASSES[car];
+      if (!specs) return;
+      document.getElementById('dev-mass').value = specs.mass;
+      document.getElementById('dev-torque').value = specs.maxEngineTorque;
+      document.getElementById('dev-friction').value = specs.frictionMult || 1.0;
+      document.getElementById('dev-antiroll').value = BASE_VEHICLE_CONFIG.antiRollStiffness;
+      document.getElementById('dev-susp-min').value = BASE_VEHICLE_CONFIG.suspensionMinLength;
+      document.getElementById('dev-susp-max').value = BASE_VEHICLE_CONFIG.suspensionMaxLength;
+      document.getElementById('dev-com-y').value = BASE_VEHICLE_CONFIG.centerOfMassYOffset;
+      
+      const menu = document.getElementById('dev-menu');
+      menu.classList.remove('hidden');
+      setTimeout(() => menu.classList.add('active'), 10);
+    },
+    onDevMenuSave: () => {
+      const car = AVAILABLE_CARS[currentCarIndex];
+      const specs = VEHICLE_CLASSES[car];
+      if (specs) {
+        specs.mass = parseFloat(document.getElementById('dev-mass').value);
+        specs.maxEngineTorque = parseFloat(document.getElementById('dev-torque').value);
+        specs.frictionMult = parseFloat(document.getElementById('dev-friction').value);
+      }
+      BASE_VEHICLE_CONFIG.antiRollStiffness = parseFloat(document.getElementById('dev-antiroll').value);
+      BASE_VEHICLE_CONFIG.suspensionMinLength = parseFloat(document.getElementById('dev-susp-min').value);
+      BASE_VEHICLE_CONFIG.suspensionMaxLength = parseFloat(document.getElementById('dev-susp-max').value);
+      BASE_VEHICLE_CONFIG.centerOfMassYOffset = parseFloat(document.getElementById('dev-com-y').value);
+      
+      updatePreviews(); // Refresh the lobby text
+    }
   });
 
 

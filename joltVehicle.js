@@ -22,7 +22,8 @@ export const BASE_VEHICLE_CONFIG = {
     leftRightLimitedSlipRatio: 1.4,
     antiRollbar: true,
     clutchStrength: 20.0,
-    antiRollStiffness: 3000.0
+    antiRollStiffness: 3000.0,
+    centerOfMassYOffset: -0.2
 };
 
 export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, rotation, layer, handlingMode = 'arcade', carModel = 'dacia_duster_low_poly') {
@@ -30,7 +31,7 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         wheelRadius, wheelWidth, halfVehicleLength, halfVehicleWidth, halfVehicleHeight, 
         wheelOffsetHorizontal, wheelOffsetVertical, suspensionMinLength, suspensionMaxLength, 
         maxSteerAngle, fourWheelDrive, frontBackLimitedSlipRatio, leftRightLimitedSlipRatio, 
-        antiRollbar, clutchStrength, antiRollStiffness
+        antiRollbar, clutchStrength, antiRollStiffness, centerOfMassYOffset
     } = BASE_VEHICLE_CONFIG;
 
     const classStats = VEHICLE_CLASSES[carModel] || VEHICLE_CLASSES['dacia_duster_low_poly'];
@@ -54,7 +55,7 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     }
 
     // Create car body
-    const offsetVec = new Jolt.Vec3(0, -halfVehicleHeight, 0);
+    const offsetVec = new Jolt.Vec3(0, centerOfMassYOffset, 0);
     const boxVec = new Jolt.Vec3(halfVehicleWidth, halfVehicleHeight, halfVehicleLength);
     const boxShapeSettings = new Jolt.BoxShapeSettings(boxVec);
     const carShapeSettings = new Jolt.OffsetCenterOfMassShapeSettings(offsetVec, boxShapeSettings);
