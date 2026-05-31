@@ -388,9 +388,19 @@ function _onVehicleReset(targetId, pos, quat) {
   if (targetId === Network.getMyPeerId()) {
     const hudMsg = document.getElementById('hud-msg');
     if (hudMsg) hudMsg.classList.add('hidden');
-    // Spawn 8 meters high to ensure we clear any jumps (max jump height is 6m)
-    // Spawning inside a collision box causes the physics engine to violently eject the car through the floor!
-    const respawnPos = new THREE.Vector3(pos.x, pos.y + 8.0, pos.z);
+    const mapData = Game.getRaceMapData();
+    let finalY = pos.y + 1.0; // Fallback
+    if (mapData && mapData.trackMesh) {
+      const raycaster = new THREE.Raycaster(
+        new THREE.Vector3(pos.x, 30.0, pos.z),
+        new THREE.Vector3(0, -1, 0)
+      );
+      const hits = raycaster.intersectObject(mapData.trackMesh);
+      if (hits.length > 0) {
+        finalY = hits[0].point.y + 1.0;
+      }
+    }
+    const respawnPos = new THREE.Vector3(pos.x, finalY, pos.z);
     Physics.resetVehicle(respawnPos, quat);
   } else {
     Physics.syncRemoteBody(targetId, pos, quat, {x:0, y:0, z:0}, 0);
