@@ -488,11 +488,13 @@ export function deployOilSlick(id, pos, quat) {
   const startQuat = new CANNON.Quaternion(quat.x, quat.y, quat.z, quat.w);
 
   const slick = Physics.deployOilSlick(startPos, startQuat);
-  const mesh = Graphics.createOilSlickMesh(slick.body.position);
+  if (slick) {
+    const mesh = Graphics.createOilSlickMesh(slick.body.position);
 
-  slick.onCleanup = () => {
-    Graphics.removeMesh(mesh);
-  };
+    slick.onCleanup = () => {
+      Graphics.removeMesh(mesh);
+    };
+  }
 }
 
 export function spawnRemoteOil(pos, quat) {
