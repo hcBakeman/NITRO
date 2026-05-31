@@ -319,6 +319,7 @@ export function sendLocalState(chassis, inputState, dt) {
   if (inputState.right)    byte |= 8;
   if (inputState.fire)     byte |= 16;
   if (inputState.reset)    byte |= 32;
+  if (inputState.drift)    byte |= 64;
 
   if (byte === _lastInputByte) return;
   _lastInputByte = byte;

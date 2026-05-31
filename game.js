@@ -59,7 +59,7 @@ export function setState(s) {
 }
 
 // ── Input ──────────────────────────────────────────────────────────────────
-export const input = { forward: false, backward: false, left: false, right: false, fire: false, reset: false };
+export const input = { forward: false, backward: false, left: false, right: false, fire: false, reset: false, drift: false };
 let fireQueued = false;
 
 let domWrongWayMsg, domHudSpeed, domHudRecovery;
@@ -81,6 +81,7 @@ export function initInput() {
     if (['d', 'D', 'ArrowRight'].includes(e.key)) { input.right = true; e.preventDefault(); }
     
     if (['r', 'R'].includes(e.key)) { input.reset = true; e.preventDefault(); }
+    if (e.key === 'Shift') { input.drift = true; e.preventDefault(); }
     
     if (e.key === ' ' && !input.fire) {
       input.fire = true;
@@ -97,6 +98,7 @@ export function initInput() {
     if (['d', 'D', 'ArrowRight'].includes(e.key)) { input.right = false; e.preventDefault(); }
     
     if (['r', 'R'].includes(e.key)) { input.reset = false; e.preventDefault(); }
+    if (e.key === 'Shift') { input.drift = false; e.preventDefault(); }
     
     if (e.key === ' ') {
       input.fire = false;
@@ -129,6 +131,7 @@ export function initInput() {
     input.right = false;
     input.fire = false;
     input.reset = false;
+    input.drift = false;
     fireQueued = false;
   });
   

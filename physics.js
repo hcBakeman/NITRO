@@ -321,14 +321,21 @@ export function setVehicleInput(input) {
   if (input.right) right = 1.0;
   if (input.left) right = -1.0;
 
-  // Speed-sensitive steering
+  const isSegaRally = (handlingMode === 'segarally');
   const speedKmh = Math.abs(speed) * 3.6;
-  if (speedKmh > 40.0) {
+
+  // Speed-sensitive steering (skipped for Sega Rally — full authority at all speeds)
+  if (!isSegaRally && speedKmh > 40.0) {
       const steerFactor = Math.max(0.4, 1.0 - ((speedKmh - 40.0) / 120.0) * 0.6);
       right *= steerFactor;
   }
 
   let handbrake = input.drift ? 1.0 : 0.0;
+
+  // Sega Rally: brake + steer = automatic partial handbrake (Scandinavian flick)
+  if (isSegaRally && brake > 0.5 && Math.abs(right) > 0.3 && speedKmh > 20.0) {
+    handbrake = Math.max(handbrake, 0.6);
+  }
 
   if (resetCooldown > 0) {
     resetCooldown -= (1/60);
@@ -337,12 +344,18 @@ export function setVehicleInput(input) {
     handbrake = 1.0;
   }
 
-  // Smooth steering to prevent instant snaps
+  // Smooth steering — Sega Rally uses much faster interpolation for snappy arcade response
   if (!playerVehicle._currentSteer) playerVehicle._currentSteer = 0;
-  const steerSpeed = speedKmh > 20 ? 0.15 : 0.25;
+  let steerSpeed;
+  if (isSegaRally) {
+    steerSpeed = 0.45; // Snappy, immediate — 90s arcade feel
+  } else {
+    steerSpeed = speedKmh > 20 ? 0.15 : 0.25;
+  }
   playerVehicle._currentSteer += (right - playerVehicle._currentSteer) * steerSpeed;
   
   controller._currentHandbrake = handbrake;
+  controller._currentBrake = brake; // Expose brake state for OnPreStepCallback weight transfer
   controller.SetDriverInput(forward, playerVehicle._currentSteer, brake, handbrake);
 
   if (forward !== 0 || right !== 0 || brake !== 0 || handbrake !== 0) {
@@ -505,7 +518,7 @@ export let collisionMode = 'fast';
 export function setCollisionMode(mode) {}
 export function setDriveMode(mode) {}
 export let handlingMode = 'arcade';
-export function setHandlingMode(mode) { handlingMode = mode; }
+export function setHandlingMode(mode) { handlingMode = (mode || 'arcade').toLowerCase(); }
 export let world = {};
 export let groundMat = {};
 export let wallMat = {};

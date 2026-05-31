@@ -193,7 +193,10 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         return Math.sqrt(tireFriction * body2.GetFriction());
     };
     callbacks.OnPreStepCallback = (vehicle, stepContext) => {
-        if (handlingMode !== 'rally' && handlingMode !== 'rally (drift)') return;
+        const mode = handlingMode;
+        const isRally = (mode === 'rally' || mode === 'rally (drift)');
+        const isSegaRally = (mode === 'segarally');
+        if (!isRally && !isSegaRally) return;
 
         const chassisId = chassisBody.GetID();
         const linVel = bodyInterface.GetLinearVelocity(chassisId);
@@ -206,13 +209,41 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         const up = quat.MulVec3(localUp);
         
         const forwardSpeed = (linVel.GetX() * forward.GetX()) + (linVel.GetY() * forward.GetY()) + (linVel.GetZ() * forward.GetZ());
-        const downforceCoef = 5.0; 
+
+        // ── Downforce ──
+        // Sega Rally: stronger downforce to keep car pinned at speed
+        const downforceCoef = isSegaRally ? 8.0 : 5.0; 
         const downforceMagnitude = Math.abs(forwardSpeed) * downforceCoef;
         
         if (downforceMagnitude > 0) {
             const downforce = new Jolt.Vec3(-up.GetX() * downforceMagnitude, -up.GetY() * downforceMagnitude, -up.GetZ() * downforceMagnitude);
             bodyInterface.AddForce(chassisId, downforce);
             Jolt.destroy(downforce);
+        }
+
+        // ── Sega Rally: Brake Weight Transfer (pitch torque) ──
+        // When braking at speed, apply a forward pitch torque around the car's lateral axis.
+        // This shifts weight to the front axle, making the rear light and loose.
+        // Combined with steering, this creates the signature brake-flick drift entry.
+        if (isSegaRally) {
+            const brakeAmount = controller._currentBrake || 0;
+            if (brakeAmount > 0.1 && Math.abs(forwardSpeed) > 5.0) {
+                // Lateral axis = cross(forward, up) = right vector
+                const localRight = new Jolt.Vec3(1, 0, 0);
+                const right = quat.MulVec3(localRight);
+                
+                const pitchMagnitude = brakeAmount * Math.abs(forwardSpeed) * 0.3;
+                const pitchTorque = new Jolt.Vec3(
+                    right.GetX() * pitchMagnitude,
+                    right.GetY() * pitchMagnitude,
+                    right.GetZ() * pitchMagnitude
+                );
+                bodyInterface.AddTorque(chassisId, pitchTorque);
+                
+                Jolt.destroy(localRight);
+                Jolt.destroy(right);
+                Jolt.destroy(pitchTorque);
+            }
         }
         
         Jolt.destroy(linVel);
@@ -254,6 +285,65 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
                     // Planted grip
                     latFrictionMult = 1.9;
                 }
+            }
+        } else if (handlingMode === 'segarally') {
+            // ═══════════════════════════════════════════════════════════════
+            // SEGA RALLY CHAMPIONSHIP (1995) — "Sliding on Rails" Friction
+            // ═══════════════════════════════════════════════════════════════
+            // Key design: longitudinal friction stays HIGH during drifts so
+            // the car maintains forward speed while sliding sideways.
+            // Front wheels always grip more laterally than rear = pivot point.
+            // ═══════════════════════════════════════════════════════════════
+
+            // ── Tuning Constants (tweak these!) ──
+            const SEGA_LONG_DRIFT      = 1.4;  // Forward grip while drifting (keeps momentum)
+            const SEGA_LONG_NORMAL     = 1.5;  // Forward grip normally
+            const SEGA_LONG_FRONT      = 1.6;  // Front forward grip (slightly higher)
+            const SEGA_LAT_HANDBRAKE_R = 0.35; // Rear lateral grip during handbrake (very loose)
+            const SEGA_LAT_HANDBRAKE_F = 1.8;  // Front lateral grip during handbrake (pivot point)
+            const SEGA_LAT_SLIDE_R     = 0.7;  // Rear lateral grip during power slide
+            const SEGA_LAT_SLIDE_F     = 1.4;  // Front lateral grip during power slide
+            const SEGA_LAT_RECOVERY    = 1.5;  // Lateral grip in counter-steer recovery zone
+            const SEGA_LAT_PLANTED     = 2.2;  // Lateral grip when fully planted (very high!)
+            const SEGA_SLIDE_THRESHOLD = 3.0;  // Slip velocity to enter slide state
+            const SEGA_RECOVERY_THRESH = 1.5;  // Slip velocity to enter recovery zone
+            const SEGA_PLANTED_THRESH  = 0.5;  // Slip velocity for full planted grip
+
+            const slipVelocity = Math.abs(lateralSlip);
+
+            if (handbrake > 0.1) {
+                // ── HANDBRAKE DRIFT ──
+                // Rear: very low lateral grip, high forward grip = slide freely but keep speed
+                // Front: high lateral grip = acts as a pivot point
+                if (isRearWheel) {
+                    latFrictionMult = SEGA_LAT_HANDBRAKE_R;
+                    longFrictionMult = SEGA_LONG_DRIFT;
+                } else {
+                    latFrictionMult = SEGA_LAT_HANDBRAKE_F;
+                    longFrictionMult = SEGA_LONG_FRONT;
+                }
+            } else if (slipVelocity > SEGA_SLIDE_THRESHOLD) {
+                // ── POWER SLIDE ──
+                // Car is sliding: rear is loose, front grips to create controlled rotation
+                // Forward friction stays HIGH — this is "sliding on rails"
+                if (isRearWheel) {
+                    latFrictionMult = SEGA_LAT_SLIDE_R;
+                    longFrictionMult = SEGA_LONG_NORMAL;
+                } else {
+                    latFrictionMult = SEGA_LAT_SLIDE_F;
+                    longFrictionMult = SEGA_LONG_NORMAL;
+                }
+            } else if (slipVelocity > SEGA_RECOVERY_THRESH) {
+                // ── RECOVERY ZONE ──
+                // Counter-steering is bringing slip down — grip snaps back quickly
+                // This enables fast left↔right drift chaining
+                latFrictionMult = SEGA_LAT_RECOVERY;
+                longFrictionMult = SEGA_LONG_FRONT;
+            } else if (slipVelocity < SEGA_PLANTED_THRESH) {
+                // ── PLANTED GRIP ──
+                // Driving straight or gentle cornering — car feels glued to the road
+                latFrictionMult = SEGA_LAT_PLANTED;
+                longFrictionMult = SEGA_LONG_NORMAL;
             }
         } else if (handlingMode === 'drift') {
             latFrictionMult = 0.9;
