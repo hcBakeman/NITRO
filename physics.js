@@ -452,6 +452,20 @@ export function resetVehicle(pos, quat) {
   bodyInterface.SetPositionAndRotation(playerVehicle.chassisBody.GetID(), p, q, jolt.EActivation_Activate);
   bodyInterface.SetLinearVelocity(playerVehicle.chassisBody.GetID(), new jolt.Vec3(0,0,0));
   bodyInterface.SetAngularVelocity(playerVehicle.chassisBody.GetID(), new jolt.Vec3(0,0,0));
+
+  // Reset engine and wheels to prevent massive impulse clipping when touching the ground
+  if (playerVehicle.controller) {
+    const engine = playerVehicle.controller.GetEngine();
+    engine.SetCurrentRPM(engine.mMinRPM || 1000.0);
+  }
+  
+  if (playerVehicle.constraint) {
+    for (let i = 0; i < 4; i++) {
+      const wheel = jolt.castObject(playerVehicle.constraint.GetWheel(i), jolt.WheelWV);
+      if (wheel) wheel.SetAngularVelocity(0);
+    }
+  }
+
   jolt.destroy(p);
   jolt.destroy(q);
 }
