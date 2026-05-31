@@ -415,7 +415,11 @@ function _onVehicleReset(targetId, pos, quat) {
     
     // Protect against invalid quaternions from the network which crash the physics solver
     let safeQuat = quat;
-    if (!safeQuat || (safeQuat.x === 0 && safeQuat.y === 0 && safeQuat.z === 0 && (safeQuat.w === 0 || safeQuat.w === null || safeQuat.w === undefined))) {
+    if (Array.isArray(safeQuat)) {
+      safeQuat = { x: safeQuat[0] || 0, y: safeQuat[1] || 0, z: safeQuat[2] || 0, w: safeQuat[3] !== undefined ? safeQuat[3] : 1 };
+    }
+    const qLenSq = safeQuat ? ((safeQuat.x||0)**2 + (safeQuat.y||0)**2 + (safeQuat.z||0)**2 + (safeQuat.w||0)**2) : 0;
+    if (!safeQuat || qLenSq < 0.9 || qLenSq > 1.1) {
       console.warn("Invalid quaternion received on reset. Reconstructing from spline...");
       safeQuat = { x: 0, y: 0, z: 0, w: 1 };
       if (mapData && mapData.spline && Physics.playerVehicle && Physics.playerVehicle._closestT !== undefined) {
