@@ -132,7 +132,8 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     controllerSettings.mEngine.mInertia = 0.2; // Less flywheel energy to prevent ghost launches
     controllerSettings.mEngine.mMinRPM = 1000.0;
     controllerSettings.mEngine.mMaxRPM = 10000.0; // Prevent torque dropping to 0 during wheel slip
-    controllerSettings.mTransmission.mClutchStrength = 400.0; // MUST be > maxEngineTorque (250) or engine will endlessly over-rev and dump energy!
+    // MUST be > maxEngineTorque or engine will endlessly over-rev, introduce NaN into solver, and infinite loop!
+    controllerSettings.mTransmission.mClutchStrength = Math.max(400.0, maxEngineTorque * 2.0); 
     controllerSettings.mTransmission.mSwitchTime = 0.2;
     controllerSettings.mTransmission.mShiftUpRPM = 8000.0;
     controllerSettings.mTransmission.mShiftDownRPM = 3000.0;
