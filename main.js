@@ -412,8 +412,21 @@ function _onVehicleReset(targetId, pos, quat) {
         });
       }
     }
+    
+    // Protect against invalid quaternions from the network which crash the physics solver
+    let safeQuat = quat;
+    if (!safeQuat || (safeQuat.x === 0 && safeQuat.y === 0 && safeQuat.z === 0 && (safeQuat.w === 0 || safeQuat.w === null || safeQuat.w === undefined))) {
+      console.warn("Invalid quaternion received on reset. Reconstructing from spline...");
+      safeQuat = { x: 0, y: 0, z: 0, w: 1 };
+      if (mapData && mapData.spline && Physics.playerVehicle && Physics.playerVehicle._closestT !== undefined) {
+        const tan = mapData.spline.getTangentAt(Physics.playerVehicle._closestT);
+        const fbQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.atan2(tan.x, tan.z));
+        safeQuat = { x: fbQuat.x, y: fbQuat.y, z: fbQuat.z, w: fbQuat.w };
+      }
+    }
+    
     const respawnPos = new THREE.Vector3(pos.x, finalY, pos.z);
-    Physics.resetVehicle(respawnPos, quat);
+    Physics.resetVehicle(respawnPos, safeQuat);
   } else {
     Physics.syncRemoteBody(targetId, pos, quat, {x:0, y:0, z:0}, 0);
   }
