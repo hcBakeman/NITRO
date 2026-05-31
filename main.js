@@ -45,7 +45,7 @@ window.addEventListener('load', async () => {
     onConnect: handleConnect,
     onStart: handleStart,
     onReturnLobby: handleReturnToLobby,
-    onHandlingChange: (val) => { Network.sendHandlingUpdate(val); },
+    onHandlingChange: (val) => { console.log('Handling mode changed to:', val); },
     onDevMenuTrigger: () => {
       const car = AVAILABLE_CARS[currentCarIndex];
       const specs = VEHICLE_CLASSES[car];
