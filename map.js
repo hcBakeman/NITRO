@@ -21,7 +21,7 @@ export function mulberry32(seed) {
 const NUM_POINTS = 18;
 const RING_RADIUS = 150;
 const OFFSET_MAX = 35;
-export const ROAD_HALF = 12;
+export const ROAD_HALF = 24;
 const WALL_H = 2.5;
 const WALL_T = 0.2; // wall half-thickness
 
