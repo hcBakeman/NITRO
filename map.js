@@ -19,8 +19,8 @@ export function mulberry32(seed) {
 
 // ── Track generation ──────────────────────────────────────────────────────
 const NUM_POINTS = 18;
-const RING_RADIUS = 180;
-const OFFSET_MAX = 25;
+const RING_RADIUS = 150;
+const OFFSET_MAX = 35;
 export const ROAD_HALF = 18;
 const WALL_H = 2.5;
 const WALL_T = 0.2; // wall half-thickness
@@ -104,7 +104,7 @@ export function generateMap(jolt, bodyInterface, layerNonMoving, seed) {
     }
     spline = new THREE.CatmullRomCurve3(pts, isTest ? false : true, 'centripetal');
     length = spline.getLength();
-    if (isTest || (length >= 800 && length <= 1500)) break;
+    if (isTest || (length >= 600 && length <= 1000)) break;
   }
 
   const samples = Math.ceil(length / 2.0); // Higher resolution for smoother physics
