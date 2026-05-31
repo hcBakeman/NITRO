@@ -396,8 +396,20 @@ function _onVehicleReset(targetId, pos, quat) {
         new THREE.Vector3(0, -1, 0)
       );
       const hits = raycaster.intersectObject(mapData.trackMesh);
+      let hitData = null;
       if (hits.length > 0) {
         finalY = hits[0].point.y + 0.6; // Exactly matches suspension resting height to prevent falling
+        hitData = { point: hits[0].point, distance: hits[0].distance };
+      }
+      if (window.__STATE_HASH_LOG__) {
+        window.__STATE_HASH_LOG__.push({
+          event: 'VEHICLE_RESET',
+          time: performance.now(),
+          targetPos: { x: pos.x, y: pos.y, z: pos.z },
+          finalY,
+          hitData,
+          debugDataBefore: Physics.getVehicleDebugData ? Physics.getVehicleDebugData() : null
+        });
       }
     }
     const respawnPos = new THREE.Vector3(pos.x, finalY, pos.z);
