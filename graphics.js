@@ -459,7 +459,11 @@ async function loadCarModelGltf(modelName) {
       
       const mat = child.material;
       if (mat) {
-        mat.side = THREE.DoubleSide;
+        if (Array.isArray(mat)) {
+          mat.forEach(m => m.side = THREE.DoubleSide);
+        } else {
+          mat.side = THREE.DoubleSide;
+        }
       }
       if (!geometriesByMaterial.has(mat)) {
         geometriesByMaterial.set(mat, []);
@@ -839,8 +843,8 @@ export function updateCamera(targetPos, carQuat, dt) {
   if (cameraZoom === 0) {
     // In-car view
     _tmpCamIdeal.copy(cameraTarget);
-    // Approximate driver position (left side, eye level, middle of cabin)
-    const driverOffset = new THREE.Vector3(-0.4, 0.6, 0.0);
+    // Approximate driver position (left side, eye level, middle of cabin moved further back)
+    const driverOffset = new THREE.Vector3(-0.4, 0.6, -0.6);
     driverOffset.applyQuaternion(carQuat);
     _tmpCamIdeal.add(driverOffset);
     
@@ -962,7 +966,7 @@ export function snapCamera(targetPos, carQuat) {
 
   if (cameraZoom === 0) {
     // In-car view snap
-    const driverOffset = new THREE.Vector3(-0.4, 0.6, 0.0);
+    const driverOffset = new THREE.Vector3(-0.4, 0.6, -0.6);
     driverOffset.applyQuaternion(carQuat);
     camera.position.copy(targetPos).add(driverOffset);
     
