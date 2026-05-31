@@ -85,7 +85,7 @@ export function generateMap(jolt, bodyInterface, layerNonMoving, seed) {
   let rng = mulberry32(seed);
   let spline, length;
 
-  const ROAD_HALF = isTest ? 30 : 12;
+  // Removed local ROAD_HALF to use the global one
 
   // Retry until track is within target length
   for (let attempt = 0; attempt < 20; attempt++) {
