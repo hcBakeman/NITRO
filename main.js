@@ -397,7 +397,7 @@ function _onVehicleReset(targetId, pos, quat) {
       );
       const hits = raycaster.intersectObject(mapData.trackMesh);
       if (hits.length > 0) {
-        finalY = hits[0].point.y + 1.0;
+        finalY = hits[0].point.y + 0.6; // Exactly matches suspension resting height to prevent falling
       }
     }
     const respawnPos = new THREE.Vector3(pos.x, finalY, pos.z);

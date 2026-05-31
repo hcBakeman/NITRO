@@ -26,6 +26,7 @@ let _onVehicleImpact = null;
 let _remoteBodyIdMap = new Map();
 let _lastHitTimes = new Map();
 let _contactListener = null;
+let resetCooldown = 0;
 
 export function setOnVehicleImpact(cb) {
   _onVehicleImpact = cb;
@@ -320,26 +321,31 @@ export function setVehicleInput(input) {
   if (input.right) right = 1.0;
   if (input.left) right = -1.0;
 
-  // Speed-sensitive steering for high-speed stability
+  // Speed-sensitive steering
   const speedKmh = Math.abs(speed) * 3.6;
   if (speedKmh > 40.0) {
-      // Reduce steering from 1.0 at 40km/h to 0.4 at 160km/h
       const steerFactor = Math.max(0.4, 1.0 - ((speedKmh - 40.0) / 120.0) * 0.6);
       right *= steerFactor;
   }
 
+  let handbrake = input.drift ? 1.0 : 0.0;
+
+  if (resetCooldown > 0) {
+    resetCooldown -= (1/60);
+    forward = 0;
+    brake = 1.0;
+    handbrake = 1.0;
+  }
+
   // Smooth steering to prevent instant snaps
   if (!playerVehicle._currentSteer) playerVehicle._currentSteer = 0;
-  const steerSpeed = speedKmh > 20 ? 0.15 : 0.25; // Slower snap at high speeds
+  const steerSpeed = speedKmh > 20 ? 0.15 : 0.25;
   playerVehicle._currentSteer += (right - playerVehicle._currentSteer) * steerSpeed;
-
-  let handbrake = input.drift ? 1.0 : 0.0;
   
   controller._currentHandbrake = handbrake;
   controller.SetDriverInput(forward, playerVehicle._currentSteer, brake, handbrake);
 
-  // If the player is providing input, make sure the physics body wakes up from sleep
-  if (forward !== 0.0 || right !== 0.0 || handbrake !== 0.0) {
+  if (forward !== 0 || right !== 0 || brake !== 0 || handbrake !== 0) {
     bodyInterface.ActivateBody(playerVehicle.chassisBody.GetID());
   }
 }
@@ -466,6 +472,8 @@ export function resetVehicle(pos, quat) {
       if (wheel) wheel.SetAngularVelocity(0);
     }
   }
+
+  resetCooldown = 0.2; // 200ms cooldown to ensure we land before wheels spin up
 
   jolt.destroy(p);
   jolt.destroy(q);
