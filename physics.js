@@ -460,6 +460,7 @@ export function resetVehicle(pos, quat) {
   }
   
   if (playerVehicle.constraint) {
+    playerVehicle.constraint.ResetWarmStart();
     for (let i = 0; i < 4; i++) {
       const wheel = jolt.castObject(playerVehicle.constraint.GetWheel(i), jolt.WheelWV);
       if (wheel) wheel.SetAngularVelocity(0);

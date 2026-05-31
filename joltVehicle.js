@@ -84,6 +84,7 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     
     carBodySettings.mOverrideMassProperties = Jolt.EOverrideMassProperties_CalculateInertia;
     carBodySettings.mMassPropertiesOverride.mMass = vehicleMass;
+    carBodySettings.mMotionQuality = Jolt.EMotionQuality_LinearCast; // Enable CCD to prevent tunneling through the track when falling
     const chassisBody = bodyInterface.CreateBody(carBodySettings);
 
     // IMPORTANT: Add body to physics system BEFORE adding constraint!
