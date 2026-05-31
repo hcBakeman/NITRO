@@ -458,6 +458,9 @@ async function loadCarModelGltf(modelName) {
       geo.groups = [];
       
       const mat = child.material;
+      if (mat) {
+        mat.side = THREE.DoubleSide;
+      }
       if (!geometriesByMaterial.has(mat)) {
         geometriesByMaterial.set(mat, []);
       }
