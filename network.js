@@ -68,7 +68,9 @@ function _executeEvent(event) {
 
 const PLAYER_COLOR_COUNT = 6;
 // You can switch this to localhost for local dev if needed
-const SERVER_URL = 'https://nitro-server-05t0.onrender.com';
+const SERVER_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+  ? 'http://localhost:3000'
+  : 'https://nitro-server-05t0.onrender.com';
 
 const _idHashMap = new Map();
 function _registerIdHash(fullId) {

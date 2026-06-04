@@ -199,8 +199,8 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         if (!isRally && !isSegaRally) return;
 
         const chassisId = chassisBody.GetID();
-        const linVel = bodyInterface.GetLinearVelocity(chassisId);
-        const quat = bodyInterface.GetRotation(chassisId);
+        const linVel = chassisBody.GetLinearVelocity();
+        const quat = chassisBody.GetRotation();
         
         const localForward = new Jolt.Vec3(0, 0, 1);
         const forward = quat.MulVec3(localForward);
@@ -217,7 +217,7 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         
         if (downforceMagnitude > 0) {
             const downforce = new Jolt.Vec3(-up.GetX() * downforceMagnitude, -up.GetY() * downforceMagnitude, -up.GetZ() * downforceMagnitude);
-            bodyInterface.AddForce(chassisId, downforce);
+            chassisBody.AddForce(downforce);
             Jolt.destroy(downforce);
         }
 
@@ -238,7 +238,7 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
                     right.GetY() * pitchMagnitude,
                     right.GetZ() * pitchMagnitude
                 );
-                bodyInterface.AddTorque(chassisId, pitchTorque);
+                chassisBody.AddTorque(pitchTorque);
                 
                 Jolt.destroy(localRight);
                 Jolt.destroy(right);
@@ -246,8 +246,6 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
             }
         }
         
-        Jolt.destroy(linVel);
-        Jolt.destroy(quat);
         Jolt.destroy(localForward);
         Jolt.destroy(forward);
         Jolt.destroy(localUp);

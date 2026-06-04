@@ -15,9 +15,9 @@ setTimeout(async () => {
   console.log('Clicking HOST...');
   await page.click('#btn-host');
   
-  await page.waitForSelector('#btn-lobby-start');
+  await page.waitForSelector('#btn-start');
   console.log('Clicking START...');
-  await page.click('#btn-lobby-start');
+  await page.click('#btn-start');
 
   console.log('Waiting 5 seconds...');
   await new Promise(r => setTimeout(r, 5000));
