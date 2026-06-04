@@ -301,6 +301,11 @@ async function _onGameInit(seed, laps, mode, handlingMode, grid, coll) {
   Graphics.buildRaceMap(mapData);
 
   const myId = Network.getMyPeerId();
+  const myName = Network.players[myId]?.name || localStorage.getItem('nitro-name') || 'DRIVER';
+  const hudPositionEl = document.getElementById('hud-position');
+  if (hudPositionEl) {
+    hudPositionEl.textContent = myName.toUpperCase();
+  }
 
   // Grid is now a plain map: { peerId: gridIndex }
   // (previously was an array of {id, gridIndex} which could fail serialization)

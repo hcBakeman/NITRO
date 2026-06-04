@@ -21,6 +21,9 @@ setTimeout(async () => {
 
   console.log('Waiting 5 seconds...');
   await new Promise(r => setTimeout(r, 5000));
+
+  console.log('Taking screenshot...');
+  await page.screenshot({ path: 'C:/Users/J/.gemini/antigravity/brain/413d522c-22c1-4cf5-b2a6-4f2630f206e1/ui_verification.png' });
   
   console.log('Testing if page is responsive...');
   try {

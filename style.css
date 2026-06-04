@@ -240,8 +240,8 @@ input:focus {
 }
 .loading-player-list {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: 60px;
+  right: 16px;
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid var(--col-border);
   border-radius: var(--radius);
@@ -465,11 +465,11 @@ input:focus {
   gap: 6px;
 }
 #hud-position {
-  font-size: 28px;
+  font-size: 16px;
   color: var(--col-accent);
   text-shadow:
-    3px 3px 0 #880000,
-    0 0 20px rgba(255, 34, 34, 0.6);
+    2px 2px 0 #880000,
+    0 0 15px rgba(255, 34, 34, 0.6);
 }
 
 #hud-lap {
