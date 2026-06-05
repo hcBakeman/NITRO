@@ -855,7 +855,7 @@ export function updateCamera(targetPos, carQuat, dt) {
     lookOffset.applyQuaternion(carQuat);
     camera.lookAt(cameraTarget.x + lookOffset.x, cameraTarget.y + lookOffset.y, cameraTarget.z + lookOffset.z);
   } else {
-    const hFactor = 0.35 + (cameraZoom / 60) * 0.5;
+    const hFactor = 0.15 + (cameraZoom / 60) * 0.62;
     const heightOffset = cameraZoom * hFactor;
     const backOffset = cameraZoom * 0.6;
 
@@ -866,8 +866,9 @@ export function updateCamera(targetPos, carQuat, dt) {
 
     camera.position.copy(_tmpCamIdeal);
     
-    // Look at the car (slightly above it)
-    camera.lookAt(cameraTarget.x, cameraTarget.y + 1.0, cameraTarget.z);
+    // Look at the car (slightly above it, tilted more upwards when zoomed closer)
+    const lookAtY = cameraTarget.y + 1.0 + (1.0 - (cameraZoom / 100)) * 1.0;
+    camera.lookAt(cameraTarget.x, lookAtY, cameraTarget.z);
   }
 
   if (cameraShake > 0.01) {
@@ -974,7 +975,7 @@ export function snapCamera(targetPos, carQuat) {
     lookOffset.applyQuaternion(carQuat);
     camera.lookAt(targetPos.x + lookOffset.x, targetPos.y + lookOffset.y, targetPos.z + lookOffset.z);
   } else {
-    const hFactor = 0.35 + (cameraZoom / 60) * 0.5;
+    const hFactor = 0.15 + (cameraZoom / 60) * 0.62;
     const heightOffset = cameraZoom * hFactor;
     const backOffset = cameraZoom * 0.6;
 
@@ -982,7 +983,8 @@ export function snapCamera(targetPos, carQuat) {
     camera.position.addScaledVector(_tmpFwd, -backOffset);
     camera.position.y += heightOffset;
     
-    camera.lookAt(cameraTarget.x, cameraTarget.y + 1.0, cameraTarget.z);
+    const lookAtY = cameraTarget.y + 1.0 + (1.0 - (cameraZoom / 100)) * 1.0;
+    camera.lookAt(cameraTarget.x, lookAtY, cameraTarget.z);
   }
 }
 
