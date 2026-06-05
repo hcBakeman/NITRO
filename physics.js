@@ -60,16 +60,44 @@ export async function initPhysics() {
   physicsSystem = joltInterface.GetPhysicsSystem();
   bodyInterface = physicsSystem.GetBodyInterface();
   
+  const handleContactSettings = (body1, body2, contactSettings) => {
+    const userData1 = body1.GetUserData();
+    const userData2 = body2.GetUserData();
+    
+    const isVehicle1 = (userData1 === 2);
+    const isVehicle2 = (userData2 === 2);
+    const isWall1 = (userData1 === 1);
+    const isWall2 = (userData2 === 1);
+    
+    if ((isVehicle1 && isWall2) || (isVehicle2 && isWall1)) {
+      contactSettings.mCombinedFriction = 0.0;
+      contactSettings.mCombinedRestitution = 0.1;
+    } else if (isVehicle1 && isVehicle2) {
+      contactSettings.mCombinedFriction = 0.0;
+      contactSettings.mCombinedRestitution = 0.1;
+    } else if ((isVehicle1 && userData2 === 0) || (isVehicle2 && userData1 === 0)) {
+      contactSettings.mCombinedFriction = 0.05;
+      contactSettings.mCombinedRestitution = 0.0;
+    }
+  };
+
   _contactListener = new jolt.ContactListenerJS();
   _contactListener.OnContactValidate = (body1, body2, collideShapeResult) => jolt.ValidateResult_AcceptAllContactsForThisBodyPair;
-  _contactListener.OnContactPersisted = (body1, body2, manifold, settings) => {};
+  _contactListener.OnContactPersisted = (body1Ptr, body2Ptr, manifold, settings) => {
+    const body1 = jolt.wrapPointer(body1Ptr, jolt.Body);
+    const body2 = jolt.wrapPointer(body2Ptr, jolt.Body);
+    const contactSettings = jolt.wrapPointer(settings, jolt.ContactSettings);
+    handleContactSettings(body1, body2, contactSettings);
+  };
   _contactListener.OnContactRemoved = (subShapePair) => {};
   
   _contactListener.OnContactAdded = (body1Ptr, body2Ptr, manifold, settings) => {
-    if (!playerVehicle || !playerVehicle.chassisBody) return;
-    
     const body1 = jolt.wrapPointer(body1Ptr, jolt.Body);
     const body2 = jolt.wrapPointer(body2Ptr, jolt.Body);
+    const contactSettings = jolt.wrapPointer(settings, jolt.ContactSettings);
+    handleContactSettings(body1, body2, contactSettings);
+
+    if (!playerVehicle || !playerVehicle.chassisBody) return;
     
     const id1 = body1.GetID().GetIndexAndSequenceNumber();
     const id2 = body2.GetID().GetIndexAndSequenceNumber();
@@ -241,6 +269,7 @@ export function createRemoteVehicle(peerId, mass, carModel, spawnPos, spawnQuat)
   if (collisionMode === 'perfect-sensor') {
     bodyCreationSettings.mIsSensor = true;
   }
+  bodyCreationSettings.mUserData = 2;
   
   const body = bodyInterface.CreateBody(bodyCreationSettings);
   bodyInterface.AddBody(body.GetID(), jolt.EActivation_DontActivate);

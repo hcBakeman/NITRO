@@ -71,6 +71,7 @@ function _buildWallBoxes(jolt, bodyInterface, spline, samples, side, jumpZones, 
     
     let creationSettings = new jolt.BodyCreationSettings(shape, pos, quat, jolt.EMotionType_Static, layer);
     creationSettings.mFriction = 1.0;
+    creationSettings.mUserData = 1;
     let body = bodyInterface.CreateBody(creationSettings);
     bodyInterface.AddBody(body.GetID(), jolt.EActivation_DontActivate);
     

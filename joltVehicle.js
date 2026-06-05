@@ -1,9 +1,9 @@
 export const VEHICLE_CLASSES = {
-    'dacia_duster_low_poly': { mass: 1400.0, maxEngineTorque: 250.0, frictionMult: 1.0 },
-    'police_car': { mass: 1800.0, maxEngineTorque: 330.0, frictionMult: 1.0 },
-    'retro_anime_suzuki_alto': { mass: 700.0, maxEngineTorque: 140.0, frictionMult: 0.9 },
-    'volkswagen_golf_gti_1976': { mass: 900.0, maxEngineTorque: 180.0, frictionMult: 0.95 },
-    'volvo_240': { mass: 1300.0, maxEngineTorque: 240.0, frictionMult: 1.0 }
+    'dacia_duster_low_poly': { mass: 1400.0, maxEngineTorque: 350.0, frictionMult: 1.0 },
+    'police_car': { mass: 1800.0, maxEngineTorque: 430.0, frictionMult: 1.0 },
+    'retro_anime_suzuki_alto': { mass: 700.0, maxEngineTorque: 240.0, frictionMult: 0.9 },
+    'volkswagen_golf_gti_1976': { mass: 900.0, maxEngineTorque: 280.0, frictionMult: 0.95 },
+    'volvo_240': { mass: 1300.0, maxEngineTorque: 340.0, frictionMult: 1.0 }
 };
 
 export const BASE_VEHICLE_CONFIG = {
@@ -83,6 +83,7 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     );
     
     carBodySettings.mOverrideMassProperties = Jolt.EOverrideMassProperties_CalculateInertia;
+    carBodySettings.mUserData = 2;
     carBodySettings.mMassPropertiesOverride.mMass = vehicleMass;
     carBodySettings.mMotionQuality = Jolt.EMotionQuality_LinearCast; // Enable CCD to prevent tunneling through the track when falling
     const chassisBody = bodyInterface.CreateBody(carBodySettings);
