@@ -332,10 +332,8 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
                     latFrictionMult = SEGA_LAT_HANDBRAKE_F + 0.4; // Boost front grip further to pivot the nose in (2.2)
                     longFrictionMult = SEGA_LONG_FRONT;
                 }
-            } else if (slipVelocity > SEGA_SLIDE_THRESHOLD) {
-                // ── POWER SLIDE ──
-                // Car is sliding: rear is loose, front grips to create controlled rotation
-                // Forward friction stays HIGH — this is "sliding on rails"
+            } else if (isMovingAtSpeed && slipVelocity > SEGA_SLIDE_THRESHOLD) {
+                // ── POWER SLIDE (Only at speed) ──
                 if (isRearWheel) {
                     latFrictionMult = SEGA_LAT_SLIDE_R;
                     longFrictionMult = SEGA_LONG_NORMAL;
@@ -343,21 +341,22 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
                     latFrictionMult = SEGA_LAT_SLIDE_F;
                     longFrictionMult = SEGA_LONG_NORMAL;
                 }
-            } else if (slipVelocity > SEGA_RECOVERY_THRESH) {
-                // ── RECOVERY ZONE ──
-                // Counter-steering is bringing slip down — grip snaps back quickly
-                // This enables fast left↔right drift chaining
+            } else if (isMovingAtSpeed && slipVelocity > SEGA_RECOVERY_THRESH) {
+                // ── RECOVERY ZONE (Only at speed) ──
                 latFrictionMult = SEGA_LAT_RECOVERY;
                 longFrictionMult = SEGA_LONG_FRONT;
-            } else if (slipVelocity < SEGA_PLANTED_THRESH) {
-                // ── PLANTED GRIP ──
-                // Driving straight or gentle cornering — car feels glued to the road
+            } else {
+                // ── PLANTED GRIP (Slow speed or no slide) ──
                 latFrictionMult = SEGA_LAT_PLANTED;
                 longFrictionMult = SEGA_LONG_NORMAL;
-            } else {
-                // Intermediate zone
-                latFrictionMult = SEGA_LAT_RECOVERY;
-                longFrictionMult = SEGA_LONG_NORMAL;
+            }
+        } else if (handlingMode === 'simulation') {
+            // Pure Jolt Physics simulation mode: use class base tire friction without artificial overrides
+            latFrictionMult = tireFrictionMult;
+            longFrictionMult = tireFrictionMult;
+            if (handbrake > 0.1 && isRearWheel) {
+                // Apply a simple handbrake slip reduction if pulling handbrake in simulation mode
+                latFrictionMult = tireFrictionMult * 0.4;
             }
         } else if (handlingMode === 'drift') {
             latFrictionMult = 0.9;
