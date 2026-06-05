@@ -22,6 +22,11 @@ export let playerCarSpecs = null;
 let rockets = [];
 let oilSlicks = [];
 let remoteVehicles = {};
+let rocketBodyIdMap = new Map();
+
+const EXPL_RADIUS = 8; // m, rocket explosion blast radius
+const EXPL_FORCE = 8000; // Peak impulse force for Jolt
+const EXPL_VERT_POP = 0.15; // fraction of force applied upward
 let _onVehicleImpact = null;
 let _remoteBodyIdMap = new Map();
 let _lastHitTimes = new Map();
@@ -97,10 +102,31 @@ export async function initPhysics() {
     const contactSettings = jolt.wrapPointer(settings, jolt.ContactSettings);
     handleContactSettings(body1, body2, contactSettings);
 
-    if (!playerVehicle || !playerVehicle.chassisBody) return;
-    
     const id1 = body1.GetID().GetIndexAndSequenceNumber();
     const id2 = body2.GetID().GetIndexAndSequenceNumber();
+
+    // Rocket Collision Detection
+    let rocket = null;
+    let rocketHitBody = null;
+    if (rocketBodyIdMap.has(id1)) {
+      rocket = rocketBodyIdMap.get(id1);
+      rocketHitBody = body2;
+    } else if (rocketBodyIdMap.has(id2)) {
+      rocket = rocketBodyIdMap.get(id2);
+      rocketHitBody = body1;
+    }
+
+    if (rocket && !rocket.dead) {
+      const otherId = rocketHitBody.GetID().GetIndexAndSequenceNumber();
+      if (otherId !== rocket.ownerBodyId && !rocketBodyIdMap.has(otherId)) {
+        rocket.dead = true;
+        _explodeRocket(rocket);
+        return;
+      }
+    }
+
+    if (!playerVehicle || !playerVehicle.chassisBody) return;
+    
     const myBodyId = playerVehicle.chassisBody.GetID().GetIndexAndSequenceNumber();
     
     let remoteId = null;
@@ -155,8 +181,14 @@ export function getWorld() {
 }
 
 export function clearPhysicsWorld() {
-  // Can't easily clear in Jolt without destroying all bodies.
-  // Instead, the engine usually handles map replacement cleanly.
+  // Clean up all active rockets
+  rockets.forEach(r => {
+    if (r.onCleanup) r.onCleanup(r.body.position, r);
+    bodyInterface.RemoveBody(r.bodyId);
+    bodyInterface.DestroyBody(r.bodyId);
+  });
+  rockets = [];
+  rocketBodyIdMap.clear();
 }
 
 export async function initMap(seed) {
@@ -315,6 +347,7 @@ export function syncRemoteBody(id, targetPos, targetQuat, targetVel, dt) {
 }
 
 export function getVehicleBody(id) {
+  if (id === '__local__') return playerChassis;
   return remoteVehicles[id];
 }
 
@@ -396,6 +429,22 @@ export function setVehicleInput(input) {
 export function stepPhysics(fixedDt) {
   if (joltInterface) {
     joltInterface.Step(fixedDt, 1);
+  }
+
+  // Update rockets
+  for (let i = rockets.length - 1; i >= 0; i--) {
+    const r = rockets[i];
+    r.life -= fixedDt;
+    if (r.life <= 0 || r.dead) {
+      if (r.life <= 0 && !r.dead) {
+        r.dead = true;
+        _explodeRocket(r);
+      }
+      bodyInterface.RemoveBody(r.bodyId);
+      bodyInterface.DestroyBody(r.bodyId);
+      rocketBodyIdMap.delete(r.bodyId.GetIndexAndSequenceNumber());
+      rockets.splice(i, 1);
+    }
   }
 }
 
@@ -522,9 +571,154 @@ export function resetVehicle(pos, quat) {
   jolt.destroy(q);
 }
 
+export function _explodeRocket(rocket) {
+  const pos = rocket.body.position;
+  const ownerBodyId = rocket.ownerBodyId;
+
+  if (playerVehicle && playerVehicle.chassisBody) {
+    const chassis = playerVehicle.chassisBody;
+    const chassisId = chassis.GetID().GetIndexAndSequenceNumber();
+    
+    const cPos = chassis.GetPosition();
+    const cx = cPos.GetX(), cy = cPos.GetY(), cz = cPos.GetZ();
+    const dx = cx - pos.x;
+    const dy = cy - pos.y;
+    const dz = cz - pos.z;
+    const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+    
+    if (dist < EXPL_RADIUS && chassisId !== ownerBodyId) {
+      const power = EXPL_FORCE / (dist + 1.0);
+      
+      let ux = dx, uy = dy, uz = dz;
+      if (dist > 0.001) {
+        ux /= dist; uy /= dist; uz /= dist;
+      } else {
+        ux = 0; uy = 1; uz = 0;
+      }
+      
+      const ix = ux * power;
+      const iy = uy * power + power * EXPL_VERT_POP;
+      const iz = uz * power;
+      
+      const imp = new jolt.Vec3(ix, iy, iz);
+      bodyInterface.AddImpulse(chassis.GetID(), imp);
+      jolt.destroy(imp);
+    }
+  }
+
+  if (rocket.onExplode) {
+    rocket.onExplode(pos, rocket);
+    rocket.onExplode = null;
+  }
+}
+
 export function fireRocket(startPos, startQuat, onExplode, ownerBody) {
-  // Not implemented fully in Jolt test wrapper yet
-  return null; 
+  if (!jolt) return null;
+
+  let chassisPos = startPos;
+  let chassisQuat = startQuat;
+  let avgSusp = 0.15;
+
+  if (ownerBody === playerChassis && playerVehicle) {
+    chassisPos = playerChassis.position;
+    chassisQuat = playerChassis.quaternion;
+    if (playerVehicle.constraint) {
+      const wheelL = jolt.castObject(playerVehicle.constraint.GetWheel(0), jolt.WheelWV);
+      const wheelR = jolt.castObject(playerVehicle.constraint.GetWheel(1), jolt.WheelWV);
+      const suspL = wheelL ? wheelL.GetSuspensionLength() : 0.15;
+      const suspR = wheelR ? wheelR.GetSuspensionLength() : 0.15;
+      avgSusp = (suspL + suspR) * 0.5;
+    }
+  } else if (ownerBody) {
+    chassisPos = ownerBody.position;
+    chassisQuat = ownerBody.quaternion;
+  }
+
+  const q = new jolt.Quat(chassisQuat.x, chassisQuat.y, chassisQuat.z, chassisQuat.w);
+  const localLaunchPos = new jolt.Vec3(0, 0.1 - avgSusp, 3.5);
+  const rotatedLocalPos = q.MulVec3(localLaunchPos);
+
+  const launchPosX = chassisPos.x + rotatedLocalPos.GetX();
+  const launchPosY = chassisPos.y + rotatedLocalPos.GetY();
+  const launchPosZ = chassisPos.z + rotatedLocalPos.GetZ();
+
+  const fwdLocal = new jolt.Vec3(0, 0, 1);
+  const fwd = q.MulVec3(fwdLocal);
+
+  jolt.destroy(localLaunchPos);
+  jolt.destroy(rotatedLocalPos);
+  jolt.destroy(fwdLocal);
+
+  const shapeSettings = new jolt.SphereShapeSettings(0.25);
+  const shape = shapeSettings.Create().Get();
+
+  const rpos = new jolt.RVec3(launchPosX, launchPosY, launchPosZ);
+  const bodySettings = new jolt.BodyCreationSettings(shape, rpos, q, jolt.EMotionType_Dynamic, LAYER_MOVING);
+  bodySettings.mIsSensor = true;
+  bodySettings.mGravityFactor = 0.0;
+
+  const body = bodyInterface.CreateBody(bodySettings);
+  const bodyId = body.GetID();
+
+  bodyInterface.AddBody(bodyId, jolt.EActivation_Activate);
+
+  const relativeSpeed = 41.67; // 150 km/h
+  let vx = fwd.GetX() * relativeSpeed;
+  let vy = fwd.GetY() * relativeSpeed;
+  let vz = fwd.GetZ() * relativeSpeed;
+  if (ownerBody && ownerBody.velocity) {
+    vx += ownerBody.velocity.x;
+    vy += ownerBody.velocity.y;
+    vz += ownerBody.velocity.z;
+  }
+
+  const velVec = new jolt.Vec3(vx, vy, vz);
+  bodyInterface.SetLinearVelocity(bodyId, velVec);
+
+  jolt.destroy(shapeSettings);
+  jolt.destroy(rpos);
+  jolt.destroy(q);
+  jolt.destroy(fwd);
+  jolt.destroy(bodySettings);
+  jolt.destroy(velVec);
+
+  let ownerBodyId = null;
+  if (ownerBody) {
+    if (ownerBody === playerChassis && playerVehicle) {
+      ownerBodyId = playerVehicle.chassisBody.GetID().GetIndexAndSequenceNumber();
+    } else if (ownerBody.bodyId) {
+      ownerBodyId = ownerBody.bodyId.GetIndexAndSequenceNumber();
+    }
+  }
+
+  const rocket = {
+    body: {
+      get position() {
+        const p = body.GetPosition();
+        return { x: p.GetX(), y: p.GetY(), z: p.GetZ() };
+      },
+      get interpolatedPosition() { return this.position; },
+      get velocity() {
+        const v = body.GetLinearVelocity();
+        const rvx = v.GetX(), rvy = v.GetY(), rvz = v.GetZ();
+        return {
+          x: rvx, y: rvy, z: rvz,
+          length() { return Math.sqrt(rvx*rvx + rvy*rvy + rvz*rvz); }
+        };
+      }
+    },
+    bodyId: bodyId,
+    ownerBodyId: ownerBodyId,
+    life: 6.0,
+    dead: false,
+    onExplode,
+    owner: ownerBody
+  };
+
+  rockets.push(rocket);
+  rocketBodyIdMap.set(bodyId.GetIndexAndSequenceNumber(), rocket);
+
+  return rocket;
 }
 
 export function deployOilSlick(position, quaternion) {
@@ -533,8 +727,81 @@ export function deployOilSlick(position, quaternion) {
 }
 
 export function raycastForward(chassis) {
-  // Return dummy out of bounds to avoid breaking crosshair
-  return { x: 0, y: -100, z: 0 };
+  if (!playerVehicle || !playerVehicle.chassisBody) {
+    return { x: 0, y: -100, z: 0 };
+  }
+  
+  const chassisPos = playerChassis.position;
+  const chassisQuat = playerChassis.quaternion;
+  
+  let avgSusp = 0.15;
+  if (playerVehicle.constraint) {
+    const wheelL = jolt.castObject(playerVehicle.constraint.GetWheel(0), jolt.WheelWV);
+    const wheelR = jolt.castObject(playerVehicle.constraint.GetWheel(1), jolt.WheelWV);
+    const suspL = wheelL ? wheelL.GetSuspensionLength() : 0.15;
+    const suspR = wheelR ? wheelR.GetSuspensionLength() : 0.15;
+    avgSusp = (suspL + suspR) * 0.5;
+  }
+  
+  const q = new jolt.Quat(chassisQuat.x, chassisQuat.y, chassisQuat.z, chassisQuat.w);
+  const localLaunchPos = new jolt.Vec3(0, 0.1 - avgSusp, 3.5);
+  const rotatedLocalPos = q.MulVec3(localLaunchPos);
+  
+  const originX = chassisPos.x + rotatedLocalPos.GetX();
+  const originY = chassisPos.y + rotatedLocalPos.GetY();
+  const originZ = chassisPos.z + rotatedLocalPos.GetZ();
+  
+  const fwdLocal = new jolt.Vec3(0, 0, 1);
+  const fwd = q.MulVec3(fwdLocal);
+  
+  const rayDistance = 150.0;
+  const dirX = fwd.GetX() * rayDistance;
+  const dirY = fwd.GetY() * rayDistance;
+  const dirZ = fwd.GetZ() * rayDistance;
+  
+  jolt.destroy(localLaunchPos);
+  jolt.destroy(rotatedLocalPos);
+  jolt.destroy(fwdLocal);
+  jolt.destroy(q);
+  jolt.destroy(fwd);
+  
+  const ray = new jolt.RRayCast();
+  ray.mOrigin.Set(originX, originY, originZ);
+  ray.mDirection.Set(dirX, dirY, dirZ);
+  
+  const raySettings = new jolt.RayCastSettings();
+  
+  const bpFilter = new jolt.DefaultBroadPhaseLayerFilter(joltInterface.GetObjectVsBroadPhaseLayerFilter(), LAYER_MOVING);
+  const objectLayerFilter = new jolt.DefaultObjectLayerFilter(joltInterface.GetObjectLayerPairFilter(), LAYER_MOVING);
+  const bodyFilter = new jolt.BodyFilter();
+  const shapeFilter = new jolt.ShapeFilter();
+  const collector = new jolt.CastRayClosestHitCollisionCollector();
+  
+  physicsSystem.GetNarrowPhaseQuery().CastRay(ray, raySettings, collector, bpFilter, objectLayerFilter, bodyFilter, shapeFilter);
+  
+  let hitPoint;
+  if (collector.HadHit()) {
+    const hit = collector.mHit;
+    const pt = ray.GetPointOnRay(hit.mFraction);
+    hitPoint = { x: pt.GetX(), y: pt.GetY(), z: pt.GetZ() };
+    jolt.destroy(pt);
+  } else {
+    hitPoint = {
+      x: originX + dirX,
+      y: originY + dirY,
+      z: originZ + dirZ
+    };
+  }
+  
+  jolt.destroy(ray);
+  jolt.destroy(raySettings);
+  jolt.destroy(bpFilter);
+  jolt.destroy(objectLayerFilter);
+  jolt.destroy(bodyFilter);
+  jolt.destroy(shapeFilter);
+  jolt.destroy(collector);
+  
+  return hitPoint;
 }
 
 export function getActiveRockets() { return rockets; }
