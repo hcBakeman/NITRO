@@ -201,54 +201,126 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
 
         const linVel = chassisBody.GetLinearVelocity();
         const vx = linVel.GetX(), vy = linVel.GetY(), vz = linVel.GetZ();
-        currentSpeedKmh = Math.sqrt(vx*vx + vy*vy + vz*vz) * 3.6;
+        const speed = Math.sqrt(vx*vx + vy*vy + vz*vz);
+        currentSpeedKmh = speed * 3.6;
 
-        if (!isRally && !isSegaRally) return;
+        // Check ground contact (if any wheel is touching the ground)
+        let hasGroundContact = false;
+        for (let i = 0; i < 4; i++) {
+            const wheel = Jolt.castObject(vehicle.GetWheel(i), Jolt.WheelWV);
+            if (wheel && wheel.HasContact()) {
+                hasGroundContact = true;
+                break;
+            }
+        }
 
-        const chassisId = chassisBody.GetID();
         const quat = chassisBody.GetRotation();
-        
         const localForward = new Jolt.Vec3(0, 0, 1);
         const forward = quat.MulVec3(localForward);
         
         const localUp = new Jolt.Vec3(0, 1, 0);
         const up = quat.MulVec3(localUp);
-        
-        const forwardSpeed = (linVel.GetX() * forward.GetX()) + (linVel.GetY() * forward.GetY()) + (linVel.GetZ() * forward.GetZ());
 
-        // ── Downforce ──
-        // Sega Rally: stronger downforce to keep car pinned at speed
-        const downforceCoef = isSegaRally ? 8.0 : 5.0; 
-        const downforceMagnitude = Math.abs(forwardSpeed) * downforceCoef;
-        
-        if (downforceMagnitude > 0) {
-            const downforce = new Jolt.Vec3(-up.GetX() * downforceMagnitude, -up.GetY() * downforceMagnitude, -up.GetZ() * downforceMagnitude);
-            chassisBody.AddForce(downforce);
-            Jolt.destroy(downforce);
-        }
+        if (!hasGroundContact) {
+            // ── AIRBORNE DYNAMICS (Aerodynamic drag, stabilization, self-righting) ──
+            
+            // 1. Aerodynamic Drag Force (velocity-squared opposing force)
+            if (speed > 1.0) {
+                const dragCoef = 0.5; // low drag coefficient for stability
+                const dragForce = new Jolt.Vec3(-vx * speed * dragCoef, -vy * speed * dragCoef, -vz * speed * dragCoef);
+                chassisBody.AddForce(dragForce);
+                Jolt.destroy(dragForce);
+            }
 
-        // ── Sega Rally: Brake Weight Transfer (pitch torque) ──
-        // When braking at speed, apply a forward pitch torque around the car's lateral axis.
-        // This shifts weight to the front axle, making the rear light and loose.
-        // Combined with steering, this creates the signature brake-flick drift entry.
-        if (isSegaRally) {
-            const brakeAmount = controller._currentBrake || 0;
-            if (brakeAmount > 0.1 && Math.abs(forwardSpeed) > 5.0) {
-                // Lateral axis = cross(forward, up) = right vector
-                const localRight = new Jolt.Vec3(1, 0, 0);
-                const right = quat.MulVec3(localRight);
+            // 2. Aerodynamic Stabilization Torque (align forward vector with velocity)
+            if (speed > 5.0) {
+                // Normalize velocity
+                const dirX = vx / speed;
+                const dirY = vy / speed;
+                const dirZ = vz / speed;
+
+                // axis = forward x velocityDir
+                const fx = forward.GetX(), fy = forward.GetY(), fz = forward.GetZ();
+                let ax = fy * dirZ - fz * dirY;
+                let ay = fz * dirX - fx * dirZ;
+                let az = fx * dirY - fy * dirX;
+
+                // angle = acos(forward . velocityDir)
+                const dot = fx * dirX + fy * dirY + fz * dirZ;
+                const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+
+                if (angle > 0.01) {
+                    const aeroStabilizeCoef = 12.0; // torque response coefficient
+                    const torqueMag = speed * angle * aeroStabilizeCoef;
+                    
+                    const axisLen = Math.sqrt(ax*ax + ay*ay + az*az);
+                    if (axisLen > 0.0001) {
+                        ax = (ax / axisLen) * torqueMag;
+                        ay = (ay / axisLen) * torqueMag;
+                        az = (az / axisLen) * torqueMag;
+                        
+                        const torqueVec = new Jolt.Vec3(ax, ay, az);
+                        chassisBody.AddTorque(torqueVec);
+                        Jolt.destroy(torqueVec);
+                    }
+                }
+            }
+
+            // 3. Automatic Self-Righting Torque (align up vector with world up (0, 1, 0))
+            const ux = up.GetX(), uy = up.GetY(), uz = up.GetZ();
+            let srax = -uz; // up x (0, 1, 0)
+            let sraz = ux;
+            
+            const uAngle = Math.acos(Math.max(-1, Math.min(1, uy)));
+            if (uAngle > 0.01) {
+                const selfRightingCoef = 4000.0; // strong force to stabilize orientation
+                const sTorqueMag = uAngle * selfRightingCoef;
                 
-                const pitchMagnitude = brakeAmount * Math.abs(forwardSpeed) * 0.3;
-                const pitchTorque = new Jolt.Vec3(
-                    right.GetX() * pitchMagnitude,
-                    right.GetY() * pitchMagnitude,
-                    right.GetZ() * pitchMagnitude
-                );
-                chassisBody.AddTorque(pitchTorque);
+                const saxisLen = Math.sqrt(srax*srax + sraz*sraz);
+                if (saxisLen > 0.0001) {
+                    srax = (srax / saxisLen) * sTorqueMag;
+                    sraz = (sraz / saxisLen) * sTorqueMag;
+                    
+                    const sTorqueVec = new Jolt.Vec3(srax, 0, sraz);
+                    chassisBody.AddTorque(sTorqueVec);
+                    Jolt.destroy(sTorqueVec);
+                }
+            }
+        } else {
+            // ── GROUNDED DYNAMICS ──
+            if (isRally || isSegaRally) {
+                const forwardSpeed = (vx * forward.GetX()) + (vy * forward.GetY()) + (vz * forward.GetZ());
+
+                // ── Downforce ──
+                const downforceCoef = isSegaRally ? 8.0 : 5.0; 
+                const downforceMagnitude = Math.abs(forwardSpeed) * downforceCoef;
                 
-                Jolt.destroy(localRight);
-                Jolt.destroy(right);
-                Jolt.destroy(pitchTorque);
+                if (downforceMagnitude > 0) {
+                    const downforce = new Jolt.Vec3(-up.GetX() * downforceMagnitude, -up.GetY() * downforceMagnitude, -up.GetZ() * downforceMagnitude);
+                    chassisBody.AddForce(downforce);
+                    Jolt.destroy(downforce);
+                }
+
+                // ── Sega Rally: Brake Weight Transfer (pitch torque) ──
+                if (isSegaRally) {
+                    const brakeAmount = controller._currentBrake || 0;
+                    if (brakeAmount > 0.1 && Math.abs(forwardSpeed) > 5.0) {
+                        const localRight = new Jolt.Vec3(1, 0, 0);
+                        const right = quat.MulVec3(localRight);
+                        
+                        const pitchMagnitude = brakeAmount * Math.abs(forwardSpeed) * 0.3;
+                        const pitchTorque = new Jolt.Vec3(
+                            right.GetX() * pitchMagnitude,
+                            right.GetY() * pitchMagnitude,
+                            right.GetZ() * pitchMagnitude
+                        );
+                        chassisBody.AddTorque(pitchTorque);
+                        
+                        Jolt.destroy(localRight);
+                        Jolt.destroy(right);
+                        Jolt.destroy(pitchTorque);
+                    }
+                }
             }
         }
         
