@@ -203,10 +203,7 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         const vx = linVel.GetX(), vy = linVel.GetY(), vz = linVel.GetZ();
         currentSpeedKmh = Math.sqrt(vx*vx + vy*vy + vz*vz) * 3.6;
 
-        if (!isRally && !isSegaRally) {
-            Jolt.destroy(linVel);
-            return;
-        }
+        if (!isRally && !isSegaRally) return;
 
         const chassisId = chassisBody.GetID();
         const quat = chassisBody.GetRotation();
@@ -259,8 +256,6 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         Jolt.destroy(forward);
         Jolt.destroy(localUp);
         Jolt.destroy(up);
-        Jolt.destroy(linVel);
-        Jolt.destroy(quat);
     };
     callbacks.OnPostCollideCallback = (vehicle, stepContext) => { };
     callbacks.OnPostStepCallback = (vehicle, stepContext) => { };
