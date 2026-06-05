@@ -377,7 +377,7 @@ export function setVehicleInput(input) {
   if (!playerVehicle._currentSteer) playerVehicle._currentSteer = 0;
   let steerSpeed;
   if (isSegaRally) {
-    steerSpeed = 0.45; // Snappy, immediate — 90s arcade feel
+    steerSpeed = 0.95; // Snappy, immediate — 90s arcade feel
   } else {
     steerSpeed = speedKmh > 20 ? 0.15 : 0.25;
   }
@@ -385,6 +385,7 @@ export function setVehicleInput(input) {
   
   controller._currentHandbrake = handbrake;
   controller._currentBrake = brake; // Expose brake state for OnPreStepCallback weight transfer
+  controller._currentSteer = playerVehicle._currentSteer; // Expose steer state for auto-drift callback
   controller.SetDriverInput(forward, playerVehicle._currentSteer, brake, handbrake);
 
   if (forward !== 0 || right !== 0 || brake !== 0 || handbrake !== 0) {

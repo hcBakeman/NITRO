@@ -27,6 +27,7 @@ export const BASE_VEHICLE_CONFIG = {
 };
 
 export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, rotation, layer, handlingMode = 'arcade', carModel = 'dacia_duster_low_poly') {
+    let currentSpeedKmh = 0.0;
     const { 
         wheelRadius, wheelWidth, halfVehicleLength, halfVehicleWidth, halfVehicleHeight, 
         wheelOffsetHorizontal, wheelOffsetVertical, suspensionMinLength, suspensionMaxLength, 
@@ -197,10 +198,17 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         const mode = handlingMode;
         const isRally = (mode === 'rally' || mode === 'rally (drift)');
         const isSegaRally = (mode === 'segarally');
-        if (!isRally && !isSegaRally) return;
+
+        const linVel = chassisBody.GetLinearVelocity();
+        const vx = linVel.GetX(), vy = linVel.GetY(), vz = linVel.GetZ();
+        currentSpeedKmh = Math.sqrt(vx*vx + vy*vy + vz*vz) * 3.6;
+
+        if (!isRally && !isSegaRally) {
+            Jolt.destroy(linVel);
+            return;
+        }
 
         const chassisId = chassisBody.GetID();
-        const linVel = chassisBody.GetLinearVelocity();
         const quat = chassisBody.GetRotation();
         
         const localForward = new Jolt.Vec3(0, 0, 1);
@@ -251,6 +259,8 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         Jolt.destroy(forward);
         Jolt.destroy(localUp);
         Jolt.destroy(up);
+        Jolt.destroy(linVel);
+        Jolt.destroy(quat);
     };
     callbacks.OnPostCollideCallback = (vehicle, stepContext) => { };
     callbacks.OnPostStepCallback = (vehicle, stepContext) => { };
@@ -300,25 +310,31 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
             const SEGA_LONG_FRONT      = 1.6;  // Front forward grip (slightly higher)
             const SEGA_LAT_HANDBRAKE_R = 0.35; // Rear lateral grip during handbrake (very loose)
             const SEGA_LAT_HANDBRAKE_F = 1.8;  // Front lateral grip during handbrake (pivot point)
-            const SEGA_LAT_SLIDE_R     = 0.7;  // Rear lateral grip during power slide
-            const SEGA_LAT_SLIDE_F     = 1.4;  // Front lateral grip during power slide
+            const SEGA_LAT_SLIDE_R     = 0.6;  // Rear lateral grip during power slide (slightly looser)
+            const SEGA_LAT_SLIDE_F     = 1.8;  // Front lateral grip during power slide (grippy front)
             const SEGA_LAT_RECOVERY    = 1.5;  // Lateral grip in counter-steer recovery zone
             const SEGA_LAT_PLANTED     = 2.2;  // Lateral grip when fully planted (very high!)
-            const SEGA_SLIDE_THRESHOLD = 3.0;  // Slip velocity to enter slide state
-            const SEGA_RECOVERY_THRESH = 1.5;  // Slip velocity to enter recovery zone
-            const SEGA_PLANTED_THRESH  = 0.5;  // Slip velocity for full planted grip
+            const SEGA_SLIDE_THRESHOLD = 2.0;  // Slip velocity to enter slide state
+            const SEGA_RECOVERY_THRESH = 1.0;  // Slip velocity to enter recovery zone
+            const SEGA_PLANTED_THRESH  = 0.4;  // Slip velocity for full planted grip
 
             const slipVelocity = Math.abs(lateralSlip);
+            const steerInput = controller._currentSteer || 0.0;
 
-            if (handbrake > 0.1) {
-                // ── HANDBRAKE DRIFT ──
+            // Auto-drift initiation: if steering hard at speed, we lower rear grip and boost front grip
+            const isSteeringHard = Math.abs(steerInput) > 0.3;
+            const isMovingAtSpeed = currentSpeedKmh > 30.0;
+            const autoDriftActive = isSteeringHard && isMovingAtSpeed;
+
+            if (handbrake > 0.1 || autoDriftActive) {
+                // ── SLIDING INITIATED BY HANDBRAKE OR HARD STEERING ──
                 // Rear: very low lateral grip, high forward grip = slide freely but keep speed
                 // Front: high lateral grip = acts as a pivot point
                 if (isRearWheel) {
                     latFrictionMult = SEGA_LAT_HANDBRAKE_R;
                     longFrictionMult = SEGA_LONG_DRIFT;
                 } else {
-                    latFrictionMult = SEGA_LAT_HANDBRAKE_F;
+                    latFrictionMult = SEGA_LAT_HANDBRAKE_F + 0.4; // Boost front grip further to pivot the nose in (2.2)
                     longFrictionMult = SEGA_LONG_FRONT;
                 }
             } else if (slipVelocity > SEGA_SLIDE_THRESHOLD) {
@@ -342,6 +358,10 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
                 // ── PLANTED GRIP ──
                 // Driving straight or gentle cornering — car feels glued to the road
                 latFrictionMult = SEGA_LAT_PLANTED;
+                longFrictionMult = SEGA_LONG_NORMAL;
+            } else {
+                // Intermediate zone
+                latFrictionMult = SEGA_LAT_RECOVERY;
                 longFrictionMult = SEGA_LONG_NORMAL;
             }
         } else if (handlingMode === 'drift') {
