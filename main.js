@@ -9,6 +9,9 @@ import * as GameEngine from './gameEngine.js';
 import { initMobileControls } from './mobile.js';
 import { VEHICLE_CLASSES, BASE_VEHICLE_CONFIG } from './joltVehicle.js';
 
+window.Game = Game;
+window.GameEngine = GameEngine;
+
 initMobileControls();
 
 // ── Configuration ──────────────────────────────────────────────────────────
@@ -251,7 +254,11 @@ async function setupNetwork() {
 
     onStateUpdate: () => {},
     onCratePickup: (id, crateIdx, type) => _onCratePickup(id, crateIdx, type),
-    onRocketFire: (id, pos, quat) => GameEngine.spawnRemoteRocket(pos, quat),
+    onRocketFire: (id, pos, quat) => {
+      if (id !== Network.getMyPeerId()) {
+        GameEngine.spawnRemoteRocket(id, pos, quat);
+      }
+    },
     onOilDrop: () => {},
     onReturnLobby: () => {
       UI.showHostReturnButton(false);

@@ -48,15 +48,30 @@ function _syncTick(serverTick) {
 
 function _executeEvent(event) {
   switch (event.type) {
-    case 'ROCKET_FIRE':
-      _onRocketFire(event.data.sourceId, event.data.pos, event.data.quat);
+    case 'ROCKET_FIRE': {
+      const senderId = event.data.sourceId;
+      if (players[senderId]) {
+        const currentAmmo = players[senderId].ammo || 0;
+        if (currentAmmo <= 0) {
+          console.warn(`[ANTI-CHEAT] Player ${senderId} attempted to fire a rocket without ammo! Ignoring.`);
+          break;
+        }
+        players[senderId].ammo = currentAmmo - 1;
+      }
+      _onRocketFire(senderId, event.data.pos, event.data.quat);
       break;
+    }
     case 'OIL_DROP':
       _onOilDrop(event.data.sourceId, event.data.pos, event.data.quat);
       break;
-    case 'CRATE_PICKUP':
-      _onCratePickup(event.data.sourceId, event.data.crateIdx, event.data.weaponType);
+    case 'CRATE_PICKUP': {
+      const pickerId = event.data.sourceId;
+      if (players[pickerId]) {
+        players[pickerId].ammo = (players[pickerId].ammo || 0) + 2;
+      }
+      _onCratePickup(pickerId, event.data.crateIdx, event.data.weaponType);
       break;
+    }
     case 'VEHICLE_HIT':
       _onVehicleHit(_myPeerId, event.data.bumpVel, event.data.attackerId, event.data.bumpAngVel);
       break;
@@ -153,9 +168,9 @@ function _setupSocketHandlers() {
     Object.entries(data.existingPlayers).forEach(([id, p]) => {
       _registerIdHash(id);
       if (id !== _myPeerId) {
-        players[id] = { ...p, _lerp: { pos: null, quat: null } };
+        players[id] = { ...p, ammo: p.ammo || 0, _lerp: { pos: null, quat: null } };
       } else {
-        players[id] = { ...p, isLocal: true };
+        players[id] = { ...p, ammo: p.ammo || 0, isLocal: true };
       }
     });
     if (data.lobbySettings && typeof window._updateGuestLobbySettings === 'function') {
@@ -165,7 +180,7 @@ function _setupSocketHandlers() {
 
   socket.on('PLAYER_JOINED', (p) => {
     _registerIdHash(p.id);
-    players[p.id] = { ...p, _lerp: { pos: null, quat: null } };
+    players[p.id] = { ...p, ammo: 0, _lerp: { pos: null, quat: null } };
     _onPlayerJoin(p.id, players[p.id]);
   });
 
@@ -225,7 +240,10 @@ function _setupSocketHandlers() {
   });
 
   socket.on('GAME_INIT', (data) => {
-    Object.values(players).forEach(p => p.loaded = false);
+    Object.values(players).forEach(p => {
+      p.loaded = false;
+      p.ammo = 0;
+    });
     _onGameInit(data.seed, data.lapCount, data.driveMode, data.handlingMode, data.gridAssignments, data.collisionMode);
   });
 

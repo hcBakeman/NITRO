@@ -120,6 +120,7 @@ export async function initPhysics() {
       const otherId = rocketHitBody.GetID().GetIndexAndSequenceNumber();
       if (otherId !== rocket.ownerBodyId && !rocketBodyIdMap.has(otherId)) {
         rocket.dead = true;
+        console.log(`[PHYSICS] Rocket hit body ID ${otherId}, detonating explosion!`);
         _explodeRocket(rocket);
         return;
       }

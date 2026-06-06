@@ -470,6 +470,6 @@ export function fireRocket(id, pos, quat) {
   }
 }
 
-export function spawnRemoteRocket(pos, quat) {
-  fireRocket('__remote__', pos, quat);
+export function spawnRemoteRocket(id, pos, quat) {
+  fireRocket(id, pos, quat);
 }
