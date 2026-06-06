@@ -43,3 +43,4 @@ pnpm-debug.log*
 *.bak
 *.tmp
 *.md
+state_hash_log.json

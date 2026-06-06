@@ -534,14 +534,6 @@ export function checkFlip(dt) {
   }
 }
 
-export function applyBoost() {
-  if (!playerVehicle) return;
-  const fwd = playerVehicle.chassisBody.GetRotation().MulVec3(new jolt.Vec3(0, 0, 1));
-  const boostVel = new jolt.Vec3(fwd.GetX() * 50, fwd.GetY() * 50, fwd.GetZ() * 50);
-  bodyInterface.AddLinearVelocity(playerVehicle.chassisBody.GetID(), boostVel);
-  jolt.destroy(fwd);
-  jolt.destroy(boostVel);
-}
 
 export function resetVehicle(pos, quat) {
   if (!playerVehicle) return;
@@ -721,10 +713,6 @@ export function fireRocket(startPos, startQuat, onExplode, ownerBody) {
   return rocket;
 }
 
-export function deployOilSlick(position, quaternion) {
-  // Not implemented fully in Jolt test wrapper yet
-  return null;
-}
 
 export function raycastForward(chassis) {
   if (!playerVehicle || !playerVehicle.chassisBody) {
@@ -805,7 +793,6 @@ export function raycastForward(chassis) {
 }
 
 export function getActiveRockets() { return rockets; }
-export function getActiveOilSlicks() { return oilSlicks; }
 export function getFlipProgress() { return 0; }
 export function setVehicleHitbox() {}
 export function setOnNetworkBumpApplied() {}

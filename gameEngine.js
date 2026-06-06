@@ -311,15 +311,6 @@ function _updateRacing(dt) {
         Network.sendRocketFire(pos, quat, wData.crateIdx);
         fireRocket('__local__', pos, quat);
       }
-    } else if (weapon === 'OIL_SLICK') {
-      if (chassis) {
-        const pos = chassis.position;
-        const quat = chassis.quaternion;
-        Network.sendOilDrop(pos, quat, wData.crateIdx);
-        deployOilSlick('__local__', pos, quat);
-      }
-    } else if (weapon === 'BOOST') {
-      Physics.applyBoost();
     }
   }
 
@@ -481,23 +472,4 @@ export function fireRocket(id, pos, quat) {
 
 export function spawnRemoteRocket(pos, quat) {
   fireRocket('__remote__', pos, quat);
-}
-
-export function deployOilSlick(id, pos, quat) {
-  if (!pos || !quat) return;
-  const startPos = new CANNON.Vec3(pos.x, pos.y, pos.z);
-  const startQuat = new CANNON.Quaternion(quat.x, quat.y, quat.z, quat.w);
-
-  const slick = Physics.deployOilSlick(startPos, startQuat);
-  if (slick) {
-    const mesh = Graphics.createOilSlickMesh(slick.body.position);
-
-    slick.onCleanup = () => {
-      Graphics.removeMesh(mesh);
-    };
-  }
-}
-
-export function spawnRemoteOil(pos, quat) {
-  deployOilSlick('__remote__', pos, quat);
 }

@@ -252,7 +252,7 @@ async function setupNetwork() {
     onStateUpdate: () => {},
     onCratePickup: (id, crateIdx, type) => _onCratePickup(id, crateIdx, type),
     onRocketFire: (id, pos, quat) => GameEngine.spawnRemoteRocket(pos, quat),
-    onOilDrop: (id, pos, quat) => GameEngine.spawnRemoteOil(pos, quat),
+    onOilDrop: () => {},
     onReturnLobby: () => {
       UI.showHostReturnButton(false);
       Game.setState(Game.STATE.LOBBY);

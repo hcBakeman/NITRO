@@ -153,7 +153,7 @@ export function triggerFire(state) {
 }
 
 // ── Weapon ─────────────────────────────────────────────────────────────────
-const AMMO = { ROCKET: 2, OIL_SLICK: 2, BOOST: 1 };
+const AMMO = { ROCKET: 2 };
 export let heldWeapon = null;
 export let heldCrateIdx = null;
 export let heldAmmo = 0;

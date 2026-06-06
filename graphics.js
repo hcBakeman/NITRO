@@ -304,7 +304,7 @@ export function updateCheckpoints(passedCount) {
 
 export function createCrateMesh(index, type, position) {
   const geo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
-  const colors = { ROCKET: 0xff2222, OIL_SLICK: 0x222222, BOOST: 0x22ff44 };
+  const colors = { ROCKET: 0xff2222 };
   const mat = new THREE.MeshStandardMaterial({ color: colors[type] || 0x888888, flatShading: true });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.copy(position);
@@ -809,18 +809,6 @@ export function spawnExplosion(pos) {
   ep.mesh = mesh;
 }
 
-export function createOilSlickMesh(position, quaternion) {
-  const geo = new THREE.CircleGeometry(3.0, 32);
-  geo.rotateX(-Math.PI / 2);
-  const mat = new THREE.MeshBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.9 });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.set(position.x, position.y, position.z);
-  if (quaternion) {
-    mesh.quaternion.set(quaternion.x, quaternion.y, quaternion.z, quaternion.w);
-  }
-  scene.add(mesh);
-  return mesh;
-}
 
 export function setCameraShake(amount) {
   cameraShake = Math.max(cameraShake, amount);

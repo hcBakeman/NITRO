@@ -363,26 +363,10 @@ export function generateMap(jolt, bodyInterface, layerNonMoving, seed) {
   startGridMeshes.forEach(m => trackMesh.add(m));
 
   // ── Weapon crate spawns ────────────────────────────────────────────────
-  const CRATE_TYPES = ['ROCKET', 'OIL_SLICK', 'BOOST'];
+  const CRATE_TYPES = ['ROCKET'];
   const crateCount = 8 + Math.floor(rng() * 5);
   const weaponCrateSpawns = [];
   const usedTs = new Set();
-
-  // ── Mandatory Jump Boosts ──────────────────────────────────────────────
-  // Place 1 boost pad right before each jump so players can always make it.
-  jumpZones.forEach(zone => {
-    const boostT = zone.startT - 0.02;
-    const boostPos = spline.getPointAt(boostT);
-    boostPos.y += 0.5;
-    weaponCrateSpawns.push({
-      t: boostT,
-      position: boostPos.clone(),
-      type: 'BOOST',
-      active: true,
-      respawnTimer: 0,
-      _dirty: false,
-    });
-  });
 
   for (let i = 0; i < crateCount; i++) {
     let ct;
@@ -405,7 +389,7 @@ export function generateMap(jolt, bodyInterface, layerNonMoving, seed) {
     });
   }
 
-  // ── Ground plane (visual only) ─────────────────────────────────────────
+  // ── Ground plane (visual and physics) ───────────────────────────────────
   const groundGeo = new THREE.PlaneGeometry(2000, 2000, 4, 4);
   const groundMesh = new THREE.Mesh(groundGeo, _buildGrassMaterial());
   groundMesh.rotation.x = -Math.PI / 2;
@@ -413,6 +397,21 @@ export function generateMap(jolt, bodyInterface, layerNonMoving, seed) {
   groundMesh.receiveShadow = true;
   groundMesh.matrixAutoUpdate = false;
   groundMesh.updateMatrix();
+
+  // Jolt Static Ground Collider
+  const groundShape = new jolt.BoxShape(new jolt.Vec3(1000, 0.5, 1000), 0.05);
+  const groundPos = new jolt.Vec3(0, -1.5, 0); // Center at Y = -1.5, half-height = 0.5, top at Y = -1.0
+  const groundQuat = new jolt.Quat(0, 0, 0, 1);
+  const groundCreationSettings = new jolt.BodyCreationSettings(groundShape, groundPos, groundQuat, jolt.EMotionType_Static, layerNonMoving);
+  groundCreationSettings.mFriction = 1.0;
+  groundCreationSettings.mUserData = 0; // Ground/Road ID
+  const groundBody = bodyInterface.CreateBody(groundCreationSettings);
+  bodyInterface.AddBody(groundBody.GetID(), jolt.EActivation_DontActivate);
+
+  jolt.destroy(groundShape);
+  jolt.destroy(groundPos);
+  jolt.destroy(groundQuat);
+  jolt.destroy(groundCreationSettings);
 
   return {
     isTest,
