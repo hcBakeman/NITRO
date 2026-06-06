@@ -207,7 +207,7 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         // Check ground contact (if any wheel is touching the ground)
         let hasGroundContact = false;
         for (let i = 0; i < 4; i++) {
-            const wheel = Jolt.castObject(vehicle.GetWheel(i), Jolt.WheelWV);
+            const wheel = Jolt.castObject(constraint.GetWheel(i), Jolt.WheelWV);
             if (wheel && wheel.HasContact()) {
                 hasGroundContact = true;
                 break;
