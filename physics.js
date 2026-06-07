@@ -23,6 +23,11 @@ let rockets = [];
 let oilSlicks = [];
 let remoteVehicles = {};
 let rocketBodyIdMap = new Map();
+let activeMapBodies = [];
+
+export function setMapBodies(bodies) {
+  activeMapBodies = bodies || [];
+}
 
 const EXPL_RADIUS = 8; // m, rocket explosion blast radius
 const EXPL_FORCE = 8000; // Peak impulse force for Jolt
@@ -89,86 +94,100 @@ export async function initPhysics() {
   _contactListener = new jolt.ContactListenerJS();
   _contactListener.OnContactValidate = (body1, body2, collideShapeResult) => jolt.ValidateResult_AcceptAllContactsForThisBodyPair;
   _contactListener.OnContactPersisted = (body1Ptr, body2Ptr, manifold, settings) => {
-    const body1 = jolt.wrapPointer(body1Ptr, jolt.Body);
-    const body2 = jolt.wrapPointer(body2Ptr, jolt.Body);
-    const contactSettings = jolt.wrapPointer(settings, jolt.ContactSettings);
-    handleContactSettings(body1, body2, contactSettings);
+    if (!body1Ptr || !body2Ptr || !settings) return;
+    try {
+      const body1 = jolt.wrapPointer(body1Ptr, jolt.Body);
+      const body2 = jolt.wrapPointer(body2Ptr, jolt.Body);
+      const contactSettings = jolt.wrapPointer(settings, jolt.ContactSettings);
+      if (body1 && body2 && contactSettings) {
+        handleContactSettings(body1, body2, contactSettings);
+      }
+    } catch (e) {
+      console.error("[PHYSICS] Error in OnContactPersisted:", e);
+    }
   };
   _contactListener.OnContactRemoved = (subShapePair) => {};
   
   _contactListener.OnContactAdded = (body1Ptr, body2Ptr, manifold, settings) => {
-    const body1 = jolt.wrapPointer(body1Ptr, jolt.Body);
-    const body2 = jolt.wrapPointer(body2Ptr, jolt.Body);
-    const contactSettings = jolt.wrapPointer(settings, jolt.ContactSettings);
-    handleContactSettings(body1, body2, contactSettings);
+    if (!body1Ptr || !body2Ptr || !settings) return;
+    try {
+      const body1 = jolt.wrapPointer(body1Ptr, jolt.Body);
+      const body2 = jolt.wrapPointer(body2Ptr, jolt.Body);
+      const contactSettings = jolt.wrapPointer(settings, jolt.ContactSettings);
+      if (!body1 || !body2 || !contactSettings) return;
 
-    const id1 = body1.GetID().GetIndexAndSequenceNumber();
-    const id2 = body2.GetID().GetIndexAndSequenceNumber();
+      handleContactSettings(body1, body2, contactSettings);
 
-    // Rocket Collision Detection
-    let rocket = null;
-    let rocketHitBody = null;
-    if (rocketBodyIdMap.has(id1)) {
-      rocket = rocketBodyIdMap.get(id1);
-      rocketHitBody = body2;
-    } else if (rocketBodyIdMap.has(id2)) {
-      rocket = rocketBodyIdMap.get(id2);
-      rocketHitBody = body1;
-    }
+      const id1 = body1.GetID().GetIndexAndSequenceNumber();
+      const id2 = body2.GetID().GetIndexAndSequenceNumber();
 
-    if (rocket && !rocket.dead) {
-      const otherId = rocketHitBody.GetID().GetIndexAndSequenceNumber();
-      if (otherId !== rocket.ownerBodyId && !rocketBodyIdMap.has(otherId)) {
-        rocket.dead = true;
-        console.log(`[PHYSICS] Rocket hit body ID ${otherId}, detonating explosion!`);
-        _explodeRocket(rocket);
-        return;
+      // Rocket Collision Detection
+      let rocket = null;
+      let rocketHitBody = null;
+      if (rocketBodyIdMap.has(id1)) {
+        rocket = rocketBodyIdMap.get(id1);
+        rocketHitBody = body2;
+      } else if (rocketBodyIdMap.has(id2)) {
+        rocket = rocketBodyIdMap.get(id2);
+        rocketHitBody = body1;
       }
-    }
 
-    if (!playerVehicle || !playerVehicle.chassisBody) return;
-    
-    const myBodyId = playerVehicle.chassisBody.GetID().GetIndexAndSequenceNumber();
-    
-    let remoteId = null;
-    let otherBody = null;
-    if (id1 === myBodyId && _remoteBodyIdMap.has(id2)) {
-      remoteId = _remoteBodyIdMap.get(id2);
-      otherBody = body2;
-    } else if (id2 === myBodyId && _remoteBodyIdMap.has(id1)) {
-      remoteId = _remoteBodyIdMap.get(id1);
-      otherBody = body1;
-    }
-    
-    if (remoteId) {
-      const now = performance.now();
-      const lastHit = _lastHitTimes.get(remoteId) || 0;
-      if (now - lastHit > 500) {
-        _lastHitTimes.set(remoteId, now);
-        
-        // Calculate relative bump velocity to send to network
-        const myVel = bodyInterface.GetLinearVelocity(playerVehicle.chassisBody.GetID());
-        const theirVel = bodyInterface.GetLinearVelocity(otherBody.GetID());
-        
-        const bumpVel = {
-          x: myVel.GetX() - theirVel.GetX(),
-          y: Math.abs(myVel.GetY() - theirVel.GetY()) * 0.5 + 2, // Slight upward pop
-          z: myVel.GetZ() - theirVel.GetZ()
-        };
-        
-        const bumpAng = {
-          x: (Math.random() - 0.5) * 4,
-          y: (Math.random() - 0.5) * 4,
-          z: (Math.random() - 0.5) * 4
-        };
-        
-        if (window.Network && window.Network.sendVehicleHit) {
-          window.Network.sendVehicleHit(remoteId, bumpVel, window.Network.myPeerId, bumpAng);
+      if (rocket && !rocket.dead) {
+        const otherId = rocketHitBody.GetID().GetIndexAndSequenceNumber();
+        if (otherId !== rocket.ownerBodyId && !rocketBodyIdMap.has(otherId)) {
+          rocket.dead = true;
+          console.log(`[PHYSICS] Rocket hit body ID ${otherId}, detonating explosion!`);
+          _explodeRocket(rocket);
+          return;
         }
-        
-        jolt.destroy(myVel);
-        jolt.destroy(theirVel);
       }
+
+      if (!playerVehicle || !playerVehicle.chassisBody) return;
+      
+      const myBodyId = playerVehicle.chassisBody.GetID().GetIndexAndSequenceNumber();
+      
+      let remoteId = null;
+      let otherBody = null;
+      if (id1 === myBodyId && _remoteBodyIdMap.has(id2)) {
+        remoteId = _remoteBodyIdMap.get(id2);
+        otherBody = body2;
+      } else if (id2 === myBodyId && _remoteBodyIdMap.has(id1)) {
+        remoteId = _remoteBodyIdMap.get(id1);
+        otherBody = body1;
+      }
+      
+      if (remoteId) {
+        const now = performance.now();
+        const lastHit = _lastHitTimes.get(remoteId) || 0;
+        if (now - lastHit > 500) {
+          _lastHitTimes.set(remoteId, now);
+          
+          // Calculate relative bump velocity to send to network
+          const myVel = bodyInterface.GetLinearVelocity(playerVehicle.chassisBody.GetID());
+          const theirVel = bodyInterface.GetLinearVelocity(otherBody.GetID());
+          
+          const bumpVel = {
+            x: myVel.GetX() - theirVel.GetX(),
+            y: Math.abs(myVel.GetY() - theirVel.GetY()) * 0.5 + 2, // Slight upward pop
+            z: myVel.GetZ() - theirVel.GetZ()
+          };
+          
+          const bumpAng = {
+            x: (Math.random() - 0.5) * 4,
+            y: (Math.random() - 0.5) * 4,
+            z: (Math.random() - 0.5) * 4
+          };
+          
+          if (window.Network && window.Network.sendVehicleHit) {
+            window.Network.sendVehicleHit(remoteId, bumpVel, window.Network.myPeerId, bumpAng);
+          }
+          
+          jolt.destroy(myVel);
+          jolt.destroy(theirVel);
+        }
+      }
+    } catch (e) {
+      console.error("[PHYSICS] Error in OnContactAdded:", e);
     }
   };
   
@@ -190,6 +209,60 @@ export function clearPhysicsWorld() {
   });
   rockets = [];
   rocketBodyIdMap.clear();
+
+  // Clean up all static map bodies
+  activeMapBodies.forEach(bodyId => {
+    try {
+      bodyInterface.RemoveBody(bodyId);
+      bodyInterface.DestroyBody(bodyId);
+    } catch (e) {
+      console.error("[PHYSICS] Error destroying map body:", e);
+    }
+  });
+  activeMapBodies = [];
+
+  // Clean up local vehicle
+  if (playerVehicle) {
+    try {
+      if (playerVehicle.stepListener) {
+        physicsSystem.RemoveStepListener(playerVehicle.stepListener);
+        jolt.destroy(playerVehicle.stepListener);
+      }
+      if (playerVehicle.constraint) {
+        physicsSystem.RemoveConstraint(playerVehicle.constraint);
+        jolt.destroy(playerVehicle.constraint);
+      }
+      if (playerVehicle.callbacks) {
+        jolt.destroy(playerVehicle.callbacks);
+      }
+      if (playerVehicle.controllerCallbacks) {
+        jolt.destroy(playerVehicle.controllerCallbacks);
+      }
+      if (playerVehicle.tester) {
+        jolt.destroy(playerVehicle.tester);
+      }
+      if (playerVehicle.chassisBody) {
+        const chassisId = playerVehicle.chassisBody.GetID();
+        bodyInterface.RemoveBody(chassisId);
+        bodyInterface.DestroyBody(chassisId);
+      }
+    } catch (e) {
+      console.error("[PHYSICS] Error during local vehicle cleanup:", e);
+    }
+    playerVehicle = null;
+    playerChassis = null;
+  }
+
+  // Clean up remote vehicles
+  for (const peerId of Object.keys(remoteVehicles)) {
+    try {
+      removeRemoteVehicle(peerId);
+    } catch (e) {
+      console.error("[PHYSICS] Error during remote vehicle cleanup:", e);
+    }
+  }
+  remoteVehicles = {};
+  _remoteBodyIdMap.clear();
 }
 
 export async function initMap(seed) {
@@ -485,7 +558,7 @@ export function restoreVehicleState(snapshotBuffer, offset = 0) {
 }
 
 export function getVehicleDebugData() {
-  if (!playerVehicle) return null;
+  if (!playerVehicle || !playerVehicle.constraint || !playerVehicle.controller) return null;
   const engine = playerVehicle.controller.GetEngine();
   const trans = playerVehicle.controller.GetTransmission();
   
@@ -493,27 +566,35 @@ export function getVehicleDebugData() {
   
   const wheels = [];
   for (let i = 0; i < 4; i++) {
-    const w = jolt.castObject(playerVehicle.constraint.GetWheel(i), jolt.WheelWV);
-    wheels.push({
-      angVel: w.GetAngularVelocity(),
-      suspension: w.GetSuspensionLength(),
-      longSlip: w.get_mLongitudinalSlip ? w.get_mLongitudinalSlip() : 0,
-      latSlip: w.get_mLateralSlip ? w.get_mLateralSlip() : 0,
-      contact: w.HasContact(),
-      friction: w.get_mCombinedLongitudinalFriction ? w.get_mCombinedLongitudinalFriction() : 0,
-      brakeImpulse: w.get_mBrakeImpulse ? w.get_mBrakeImpulse() : 0
-    });
+    const wheelPtr = playerVehicle.constraint.GetWheel(i);
+    if (!wheelPtr) continue;
+    try {
+      const w = jolt.castObject(wheelPtr, jolt.WheelWV);
+      if (!w) continue;
+      wheels.push({
+        angVel: w.GetAngularVelocity(),
+        suspension: w.GetSuspensionLength(),
+        longSlip: w.get_mLongitudinalSlip ? w.get_mLongitudinalSlip() : 0,
+        latSlip: w.get_mLateralSlip ? w.get_mLateralSlip() : 0,
+        contact: w.HasContact(),
+        friction: w.get_mCombinedLongitudinalFriction ? w.get_mCombinedLongitudinalFriction() : 0,
+        brakeImpulse: w.get_mBrakeImpulse ? w.get_mBrakeImpulse() : 0
+      });
+    } catch (e) {
+      console.error("[PHYSICS] Error casting wheel in debug data:", e);
+    }
   }
 
-  const av = playerVehicle.chassisBody.GetAngularVelocity();
+  const av = playerVehicle.chassisBody ? playerVehicle.chassisBody.GetAngularVelocity() : null;
+  const avData = av ? { x: av.GetX(), y: av.GetY(), z: av.GetZ() } : { x: 0, y: 0, z: 0 };
   
   return {
     mass,
-    engineRPM: engine.GetCurrentRPM(),
-    gear: trans.GetCurrentGear(),
+    engineRPM: engine ? engine.GetCurrentRPM() : 0,
+    gear: trans ? trans.GetCurrentGear() : 0,
     steer: playerVehicle._currentSteer || 0,
     brake: playerVehicle.controller._currentHandbrake || 0,
-    angularVelocity: { x: av.GetX(), y: av.GetY(), z: av.GetZ() },
+    angularVelocity: avData,
     wheels
   };
 }
@@ -537,7 +618,7 @@ export function checkFlip(dt) {
 
 
 export function resetVehicle(pos, quat) {
-  if (!playerVehicle) return;
+  if (!playerVehicle || !playerVehicle.chassisBody) return;
   const p = new jolt.Vec3(pos.x, pos.y, pos.z);
   const q = new jolt.Quat(quat.x, quat.y, quat.z, quat.w);
   bodyInterface.SetPositionAndRotation(playerVehicle.chassisBody.GetID(), p, q, jolt.EActivation_Activate);
@@ -547,14 +628,21 @@ export function resetVehicle(pos, quat) {
   // Reset engine and wheels to prevent massive impulse clipping when touching the ground
   if (playerVehicle.controller) {
     const engine = playerVehicle.controller.GetEngine();
-    engine.SetCurrentRPM(engine.mMinRPM || 1000.0);
+    if (engine) engine.SetCurrentRPM(engine.mMinRPM || 1000.0);
   }
   
   if (playerVehicle.constraint) {
     playerVehicle.constraint.ResetWarmStart();
     for (let i = 0; i < 4; i++) {
-      const wheel = jolt.castObject(playerVehicle.constraint.GetWheel(i), jolt.WheelWV);
-      if (wheel) wheel.SetAngularVelocity(0);
+      const wheelPtr = playerVehicle.constraint.GetWheel(i);
+      if (wheelPtr) {
+        try {
+          const wheel = jolt.castObject(wheelPtr, jolt.WheelWV);
+          if (wheel) wheel.SetAngularVelocity(0);
+        } catch (e) {
+          console.error("[PHYSICS] Error casting wheel during reset:", e);
+        }
+      }
     }
   }
 
@@ -616,8 +704,10 @@ export function fireRocket(startPos, startQuat, onExplode, ownerBody) {
     chassisPos = playerChassis.position;
     chassisQuat = playerChassis.quaternion;
     if (playerVehicle.constraint) {
-      const wheelL = jolt.castObject(playerVehicle.constraint.GetWheel(0), jolt.WheelWV);
-      const wheelR = jolt.castObject(playerVehicle.constraint.GetWheel(1), jolt.WheelWV);
+      const wheelLPtr = playerVehicle.constraint.GetWheel(0);
+      const wheelRPtr = playerVehicle.constraint.GetWheel(1);
+      const wheelL = wheelLPtr ? jolt.castObject(wheelLPtr, jolt.WheelWV) : null;
+      const wheelR = wheelRPtr ? jolt.castObject(wheelRPtr, jolt.WheelWV) : null;
       const suspL = wheelL ? wheelL.GetSuspensionLength() : 0.15;
       const suspR = wheelR ? wheelR.GetSuspensionLength() : 0.15;
       avgSusp = (suspL + suspR) * 0.5;
@@ -724,9 +814,11 @@ export function raycastForward(chassis) {
   const chassisQuat = playerChassis.quaternion;
   
   let avgSusp = 0.15;
-  if (playerVehicle.constraint) {
-    const wheelL = jolt.castObject(playerVehicle.constraint.GetWheel(0), jolt.WheelWV);
-    const wheelR = jolt.castObject(playerVehicle.constraint.GetWheel(1), jolt.WheelWV);
+  if (playerVehicle && playerVehicle.constraint) {
+    const wheelLPtr = playerVehicle.constraint.GetWheel(0);
+    const wheelRPtr = playerVehicle.constraint.GetWheel(1);
+    const wheelL = wheelLPtr ? jolt.castObject(wheelLPtr, jolt.WheelWV) : null;
+    const wheelR = wheelRPtr ? jolt.castObject(wheelRPtr, jolt.WheelWV) : null;
     const suspL = wheelL ? wheelL.GetSuspensionLength() : 0.15;
     const suspR = wheelR ? wheelR.GetSuspensionLength() : 0.15;
     avgSusp = (suspL + suspR) * 0.5;

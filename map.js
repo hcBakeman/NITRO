@@ -25,7 +25,7 @@ export const ROAD_HALF = 18;
 const WALL_H = 2.5;
 const WALL_T = 0.2; // wall half-thickness
 
-function _buildWallBoxes(jolt, bodyInterface, spline, samples, side, jumpZones, frames, isClosed, layer) {
+function _buildWallBoxes(jolt, bodyInterface, spline, samples, side, jumpZones, frames, isClosed, layer, physicsBodies) {
   for (let i = 0; i < samples; i++) {
     const t1 = i / samples;
     const t2 = (i + 1) / samples;
@@ -74,6 +74,9 @@ function _buildWallBoxes(jolt, bodyInterface, spline, samples, side, jumpZones, 
     creationSettings.mUserData = 1;
     let body = bodyInterface.CreateBody(creationSettings);
     bodyInterface.AddBody(body.GetID(), jolt.EActivation_DontActivate);
+    if (physicsBodies) {
+      physicsBodies.push(body.GetID());
+    }
     
     jolt.destroy(creationSettings);
     jolt.destroy(pos);
@@ -82,6 +85,7 @@ function _buildWallBoxes(jolt, bodyInterface, spline, samples, side, jumpZones, 
 }
 
 export function generateMap(jolt, bodyInterface, layerNonMoving, seed) {
+  const physicsBodies = [];
   const isTest = Number(seed) === 0;
   let rng = mulberry32(seed);
   let spline, length;
@@ -200,8 +204,10 @@ export function generateMap(jolt, bodyInterface, layerNonMoving, seed) {
   let meshShape = meshShapeSettings.Create().Get();
   let creationSettings = new jolt.BodyCreationSettings(meshShape, new jolt.Vec3(0,0,0), new jolt.Quat(0,0,0,1), jolt.EMotionType_Static, layerNonMoving);
   creationSettings.mFriction = 1.0;
+  creationSettings.mUserData = 0; // Explicitly road/ground
   let trackBody = bodyInterface.CreateBody(creationSettings);
   bodyInterface.AddBody(trackBody.GetID(), jolt.EActivation_DontActivate);
+  physicsBodies.push(trackBody.GetID());
   
   jolt.destroy(triangles);
   jolt.destroy(materials);
@@ -231,8 +237,8 @@ export function generateMap(jolt, bodyInterface, layerNonMoving, seed) {
   wallMeshes.push(rightMesh);
 
   // Wall Physics
-  _buildWallBoxes(jolt, bodyInterface, spline, samples, -1, jumpZones, frames, isClosed, layerNonMoving);
-  _buildWallBoxes(jolt, bodyInterface, spline, samples, 1, jumpZones, frames, isClosed, layerNonMoving);
+  _buildWallBoxes(jolt, bodyInterface, spline, samples, -1, jumpZones, frames, isClosed, layerNonMoving, physicsBodies);
+  _buildWallBoxes(jolt, bodyInterface, spline, samples, 1, jumpZones, frames, isClosed, layerNonMoving, physicsBodies);
 
   // ── Modular Ramps (Seed 0000 only) ───────────────────────────────────────
   if (isTest) {
@@ -407,6 +413,7 @@ export function generateMap(jolt, bodyInterface, layerNonMoving, seed) {
   groundCreationSettings.mUserData = 0; // Ground/Road ID
   const groundBody = bodyInterface.CreateBody(groundCreationSettings);
   bodyInterface.AddBody(groundBody.GetID(), jolt.EActivation_DontActivate);
+  physicsBodies.push(groundBody.GetID());
 
   jolt.destroy(groundShape);
   jolt.destroy(groundPos);
@@ -427,6 +434,7 @@ export function generateMap(jolt, bodyInterface, layerNonMoving, seed) {
     frames,
     spline,
     roadLength: length,
+    physicsBodies,
   };
 }
 

@@ -305,6 +305,7 @@ async function _onGameInit(seed, laps, mode, handlingMode, grid, coll) {
   Physics.setHandlingMode(handlingMode);
 
   const mapData = Game.initRace(seed, laps, Physics.world, Physics.groundMat, Physics.wallMat);
+  Physics.setMapBodies(mapData.physicsBodies);
   Graphics.buildRaceMap(mapData);
 
   const myId = Network.getMyPeerId();

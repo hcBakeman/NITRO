@@ -191,143 +191,159 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     // Vehicle constraint callbacks
     const callbacks = new Jolt.VehicleConstraintCallbacksJS();
     callbacks.GetCombinedFriction = (wheelIndex, tireFrictionDirection, tireFriction, body2, subShapeID2) => {
-        body2 = Jolt.wrapPointer(body2, Jolt.Body);
-        return Math.sqrt(tireFriction * body2.GetFriction());
+        if (!body2) return tireFriction;
+        try {
+            const wrappedBody2 = Jolt.wrapPointer(body2, Jolt.Body);
+            if (!wrappedBody2) return tireFriction;
+            return Math.sqrt(tireFriction * wrappedBody2.GetFriction());
+        } catch (e) {
+            console.error("[PHYSICS] Error in GetCombinedFriction:", e);
+            return tireFriction;
+        }
     };
     callbacks.OnPreStepCallback = (vehicle, stepContext) => {
-        const mode = handlingMode;
-        const isRally = (mode === 'rally' || mode === 'rally (drift)');
-        const isSegaRally = (mode === 'segarally');
+        try {
+            const mode = handlingMode;
+            const isRally = (mode === 'rally' || mode === 'rally (drift)');
+            const isSegaRally = (mode === 'segarally');
 
-        const linVel = chassisBody.GetLinearVelocity();
-        const vx = linVel.GetX(), vy = linVel.GetY(), vz = linVel.GetZ();
-        const speed = Math.sqrt(vx*vx + vy*vy + vz*vz);
-        currentSpeedKmh = speed * 3.6;
+            const linVel = chassisBody.GetLinearVelocity();
+            const vx = linVel.GetX(), vy = linVel.GetY(), vz = linVel.GetZ();
+            const speed = Math.sqrt(vx*vx + vy*vy + vz*vz);
+            currentSpeedKmh = speed * 3.6;
 
-        // Check ground contact (if any wheel is touching the ground)
-        let hasGroundContact = false;
-        for (let i = 0; i < 4; i++) {
-            const wheel = Jolt.castObject(constraint.GetWheel(i), Jolt.WheelWV);
-            if (wheel && wheel.HasContact()) {
-                hasGroundContact = true;
-                break;
-            }
-        }
-
-        const quat = chassisBody.GetRotation();
-        const localForward = new Jolt.Vec3(0, 0, 1);
-        const forward = quat.MulVec3(localForward);
-        
-        const localUp = new Jolt.Vec3(0, 1, 0);
-        const up = quat.MulVec3(localUp);
-
-        if (!hasGroundContact) {
-            // ── AIRBORNE DYNAMICS (Aerodynamic drag, stabilization, self-righting) ──
-            
-            // 1. Aerodynamic Drag Force (velocity-squared opposing force)
-            if (speed > 1.0) {
-                const dragCoef = 0.5; // low drag coefficient for stability
-                const dragForce = new Jolt.Vec3(-vx * speed * dragCoef, -vy * speed * dragCoef, -vz * speed * dragCoef);
-                chassisBody.AddForce(dragForce);
-                Jolt.destroy(dragForce);
-            }
-
-            // 2. Aerodynamic Stabilization Torque (align forward vector with velocity)
-            if (speed > 5.0) {
-                // Normalize velocity
-                const dirX = vx / speed;
-                const dirY = vy / speed;
-                const dirZ = vz / speed;
-
-                // axis = forward x velocityDir
-                const fx = forward.GetX(), fy = forward.GetY(), fz = forward.GetZ();
-                let ax = fy * dirZ - fz * dirY;
-                let ay = fz * dirX - fx * dirZ;
-                let az = fx * dirY - fy * dirX;
-
-                // angle = acos(forward . velocityDir)
-                const dot = fx * dirX + fy * dirY + fz * dirZ;
-                const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
-
-                if (angle > 0.01) {
-                    const aeroStabilizeCoef = 12.0; // torque response coefficient
-                    const torqueMag = speed * angle * aeroStabilizeCoef;
-                    
-                    const axisLen = Math.sqrt(ax*ax + ay*ay + az*az);
-                    if (axisLen > 0.0001) {
-                        ax = (ax / axisLen) * torqueMag;
-                        ay = (ay / axisLen) * torqueMag;
-                        az = (az / axisLen) * torqueMag;
-                        
-                        const torqueVec = new Jolt.Vec3(ax, ay, az);
-                        chassisBody.AddTorque(torqueVec);
-                        Jolt.destroy(torqueVec);
+            // Check ground contact (if any wheel is touching the ground)
+            let hasGroundContact = false;
+            for (let i = 0; i < 4; i++) {
+                const wheelPtr = constraint.GetWheel(i);
+                if (wheelPtr) {
+                    const wheel = Jolt.castObject(wheelPtr, Jolt.WheelWV);
+                    if (wheel && wheel.HasContact()) {
+                        hasGroundContact = true;
+                        break;
                     }
                 }
             }
 
-            // 3. Automatic Self-Righting Torque (align up vector with world up (0, 1, 0))
-            const ux = up.GetX(), uy = up.GetY(), uz = up.GetZ();
-            let srax = -uz; // up x (0, 1, 0)
-            let sraz = ux;
+            const quat = chassisBody.GetRotation();
+            const localForward = new Jolt.Vec3(0, 0, 1);
+            const forward = quat.MulVec3(localForward);
             
-            const uAngle = Math.acos(Math.max(-1, Math.min(1, uy)));
-            if (uAngle > 0.01) {
-                const selfRightingCoef = 4000.0; // strong force to stabilize orientation
-                const sTorqueMag = uAngle * selfRightingCoef;
-                
-                const saxisLen = Math.sqrt(srax*srax + sraz*sraz);
-                if (saxisLen > 0.0001) {
-                    srax = (srax / saxisLen) * sTorqueMag;
-                    sraz = (sraz / saxisLen) * sTorqueMag;
+            const localUp = new Jolt.Vec3(0, 1, 0);
+            const up = quat.MulVec3(localUp);
+
+            try {
+                if (!hasGroundContact) {
+                    // ── AIRBORNE DYNAMICS (Aerodynamic drag, stabilization, self-righting) ──
                     
-                    const sTorqueVec = new Jolt.Vec3(srax, 0, sraz);
-                    chassisBody.AddTorque(sTorqueVec);
-                    Jolt.destroy(sTorqueVec);
-                }
-            }
-        } else {
-            // ── GROUNDED DYNAMICS ──
-            if (isRally || isSegaRally) {
-                const forwardSpeed = (vx * forward.GetX()) + (vy * forward.GetY()) + (vz * forward.GetZ());
+                    // 1. Aerodynamic Drag Force (velocity-squared opposing force)
+                    if (speed > 1.0) {
+                        const dragCoef = 0.5; // low drag coefficient for stability
+                        const dragForce = new Jolt.Vec3(-vx * speed * dragCoef, -vy * speed * dragCoef, -vz * speed * dragCoef);
+                        chassisBody.AddForce(dragForce);
+                        Jolt.destroy(dragForce);
+                    }
 
-                // ── Downforce ──
-                const downforceCoef = isSegaRally ? 8.0 : 5.0; 
-                const downforceMagnitude = Math.abs(forwardSpeed) * downforceCoef;
-                
-                if (downforceMagnitude > 0) {
-                    const downforce = new Jolt.Vec3(-up.GetX() * downforceMagnitude, -up.GetY() * downforceMagnitude, -up.GetZ() * downforceMagnitude);
-                    chassisBody.AddForce(downforce);
-                    Jolt.destroy(downforce);
-                }
+                    // 2. Aerodynamic Stabilization Torque (align forward vector with velocity)
+                    if (speed > 5.0) {
+                        // Normalize velocity
+                        const dirX = vx / speed;
+                        const dirY = vy / speed;
+                        const dirZ = vz / speed;
 
-                // ── Sega Rally: Brake Weight Transfer (pitch torque) ──
-                if (isSegaRally) {
-                    const brakeAmount = controller._currentBrake || 0;
-                    if (brakeAmount > 0.1 && Math.abs(forwardSpeed) > 5.0) {
-                        const localRight = new Jolt.Vec3(1, 0, 0);
-                        const right = quat.MulVec3(localRight);
+                        // axis = forward x velocityDir
+                        const fx = forward.GetX(), fy = forward.GetY(), fz = forward.GetZ();
+                        let ax = fy * dirZ - fz * dirY;
+                        let ay = fz * dirX - fx * dirZ;
+                        let az = fx * dirY - fy * dirX;
+
+                        // angle = acos(forward . velocityDir)
+                        const dot = fx * dirX + fy * dirY + fz * dirZ;
+                        const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+
+                        if (angle > 0.01) {
+                            const aeroStabilizeCoef = 12.0; // torque response coefficient
+                            const torqueMag = speed * angle * aeroStabilizeCoef;
+                            
+                            const axisLen = Math.sqrt(ax*ax + ay*ay + az*az);
+                            if (axisLen > 0.0001) {
+                                ax = (ax / axisLen) * torqueMag;
+                                ay = (ay / axisLen) * torqueMag;
+                                az = (az / axisLen) * torqueMag;
+                                
+                                const torqueVec = new Jolt.Vec3(ax, ay, az);
+                                chassisBody.AddTorque(torqueVec);
+                                Jolt.destroy(torqueVec);
+                            }
+                        }
+                    }
+
+                    // 3. Automatic Self-Righting Torque (align up vector with world up (0, 1, 0))
+                    const ux = up.GetX(), uy = up.GetY(), uz = up.GetZ();
+                    let srax = -uz; // up x (0, 1, 0)
+                    let sraz = ux;
+                    
+                    const uAngle = Math.acos(Math.max(-1, Math.min(1, uy)));
+                    if (uAngle > 0.01) {
+                        const selfRightingCoef = 4000.0; // strong force to stabilize orientation
+                        const sTorqueMag = uAngle * selfRightingCoef;
                         
-                        const pitchMagnitude = brakeAmount * Math.abs(forwardSpeed) * 0.3;
-                        const pitchTorque = new Jolt.Vec3(
-                            right.GetX() * pitchMagnitude,
-                            right.GetY() * pitchMagnitude,
-                            right.GetZ() * pitchMagnitude
-                        );
-                        chassisBody.AddTorque(pitchTorque);
+                        const saxisLen = Math.sqrt(srax*srax + sraz*sraz);
+                        if (saxisLen > 0.0001) {
+                            srax = (srax / saxisLen) * sTorqueMag;
+                            sraz = (sraz / saxisLen) * sTorqueMag;
+                            
+                            const sTorqueVec = new Jolt.Vec3(srax, 0, sraz);
+                            chassisBody.AddTorque(sTorqueVec);
+                            Jolt.destroy(sTorqueVec);
+                        }
+                    }
+                } else {
+                    // ── GROUNDED DYNAMICS ──
+                    if (isRally || isSegaRally) {
+                        const forwardSpeed = (vx * forward.GetX()) + (vy * forward.GetY()) + (vz * forward.GetZ());
+
+                        // ── Downforce ──
+                        const downforceCoef = isSegaRally ? 8.0 : 5.0; 
+                        const downforceMagnitude = Math.abs(forwardSpeed) * downforceCoef;
                         
-                        Jolt.destroy(localRight);
-                        Jolt.destroy(right);
-                        Jolt.destroy(pitchTorque);
+                        if (downforceMagnitude > 0) {
+                            const downforce = new Jolt.Vec3(-up.GetX() * downforceMagnitude, -up.GetY() * downforceMagnitude, -up.GetZ() * downforceMagnitude);
+                            chassisBody.AddForce(downforce);
+                            Jolt.destroy(downforce);
+                        }
+
+                        // ── Sega Rally: Brake Weight Transfer (pitch torque) ──
+                        if (isSegaRally) {
+                            const brakeAmount = controller._currentBrake || 0;
+                            if (brakeAmount > 0.1 && Math.abs(forwardSpeed) > 5.0) {
+                                const localRight = new Jolt.Vec3(1, 0, 0);
+                                const right = quat.MulVec3(localRight);
+                                
+                                const pitchMagnitude = brakeAmount * Math.abs(forwardSpeed) * 0.3;
+                                const pitchTorque = new Jolt.Vec3(
+                                    right.GetX() * pitchMagnitude,
+                                    right.GetY() * pitchMagnitude,
+                                    right.GetZ() * pitchMagnitude
+                                );
+                                chassisBody.AddTorque(pitchTorque);
+                                
+                                Jolt.destroy(localRight);
+                                Jolt.destroy(right);
+                                Jolt.destroy(pitchTorque);
+                            }
+                        }
                     }
                 }
+            } finally {
+                Jolt.destroy(localForward);
+                Jolt.destroy(forward);
+                Jolt.destroy(localUp);
+                Jolt.destroy(up);
             }
+        } catch (e) {
+            console.error("[PHYSICS] Error in OnPreStepCallback:", e);
         }
-        
-        Jolt.destroy(localForward);
-        Jolt.destroy(forward);
-        Jolt.destroy(localUp);
-        Jolt.destroy(up);
     };
     callbacks.OnPostCollideCallback = (vehicle, stepContext) => { };
     callbacks.OnPostStepCallback = (vehicle, stepContext) => { };
@@ -482,6 +498,7 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
         controller,
         callbacks,
         controllerCallbacks,
-        stepListener
+        stepListener,
+        tester
     };
 }
