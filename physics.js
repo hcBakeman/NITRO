@@ -569,19 +569,17 @@ export function getVehicleDebugData() {
     const wheelPtr = playerVehicle.constraint.GetWheel(i);
     if (!wheelPtr) continue;
     try {
-      const w = jolt.castObject(wheelPtr, jolt.WheelWV);
-      if (!w) continue;
       wheels.push({
-        angVel: w.GetAngularVelocity(),
-        suspension: w.GetSuspensionLength(),
-        longSlip: w.get_mLongitudinalSlip ? w.get_mLongitudinalSlip() : 0,
-        latSlip: w.get_mLateralSlip ? w.get_mLateralSlip() : 0,
-        contact: w.HasContact(),
-        friction: w.get_mCombinedLongitudinalFriction ? w.get_mCombinedLongitudinalFriction() : 0,
-        brakeImpulse: w.get_mBrakeImpulse ? w.get_mBrakeImpulse() : 0
+        angVel: wheelPtr.GetAngularVelocity(),
+        suspension: wheelPtr.GetSuspensionLength(),
+        longSlip: 0,
+        latSlip: 0,
+        contact: wheelPtr.HasContact(),
+        friction: 0,
+        brakeImpulse: 0
       });
     } catch (e) {
-      console.error("[PHYSICS] Error casting wheel in debug data:", e);
+      console.error("[PHYSICS] Error reading wheel in debug data:", e);
     }
   }
 
@@ -637,10 +635,9 @@ export function resetVehicle(pos, quat) {
       const wheelPtr = playerVehicle.constraint.GetWheel(i);
       if (wheelPtr) {
         try {
-          const wheel = jolt.castObject(wheelPtr, jolt.WheelWV);
-          if (wheel) wheel.SetAngularVelocity(0);
+          wheelPtr.SetAngularVelocity(0);
         } catch (e) {
-          console.error("[PHYSICS] Error casting wheel during reset:", e);
+          console.error("[PHYSICS] Error resetting wheel angular velocity:", e);
         }
       }
     }
@@ -706,10 +703,8 @@ export function fireRocket(startPos, startQuat, onExplode, ownerBody) {
     if (playerVehicle.constraint) {
       const wheelLPtr = playerVehicle.constraint.GetWheel(0);
       const wheelRPtr = playerVehicle.constraint.GetWheel(1);
-      const wheelL = wheelLPtr ? jolt.castObject(wheelLPtr, jolt.WheelWV) : null;
-      const wheelR = wheelRPtr ? jolt.castObject(wheelRPtr, jolt.WheelWV) : null;
-      const suspL = wheelL ? wheelL.GetSuspensionLength() : 0.15;
-      const suspR = wheelR ? wheelR.GetSuspensionLength() : 0.15;
+      const suspL = wheelLPtr ? wheelLPtr.GetSuspensionLength() : 0.15;
+      const suspR = wheelRPtr ? wheelRPtr.GetSuspensionLength() : 0.15;
       avgSusp = (suspL + suspR) * 0.5;
     }
   } else if (ownerBody) {
@@ -817,10 +812,8 @@ export function raycastForward(chassis) {
   if (playerVehicle && playerVehicle.constraint) {
     const wheelLPtr = playerVehicle.constraint.GetWheel(0);
     const wheelRPtr = playerVehicle.constraint.GetWheel(1);
-    const wheelL = wheelLPtr ? jolt.castObject(wheelLPtr, jolt.WheelWV) : null;
-    const wheelR = wheelRPtr ? jolt.castObject(wheelRPtr, jolt.WheelWV) : null;
-    const suspL = wheelL ? wheelL.GetSuspensionLength() : 0.15;
-    const suspR = wheelR ? wheelR.GetSuspensionLength() : 0.15;
+    const suspL = wheelLPtr ? wheelLPtr.GetSuspensionLength() : 0.15;
+    const suspR = wheelRPtr ? wheelRPtr.GetSuspensionLength() : 0.15;
     avgSusp = (suspL + suspR) * 0.5;
   }
   

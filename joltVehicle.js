@@ -216,12 +216,9 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
             let hasGroundContact = false;
             for (let i = 0; i < 4; i++) {
                 const wheelPtr = constraint.GetWheel(i);
-                if (wheelPtr) {
-                    const wheel = Jolt.castObject(wheelPtr, Jolt.WheelWV);
-                    if (wheel && wheel.HasContact()) {
-                        hasGroundContact = true;
-                        break;
-                    }
+                if (wheelPtr && wheelPtr.HasContact()) {
+                    hasGroundContact = true;
+                    break;
                 }
             }
 
