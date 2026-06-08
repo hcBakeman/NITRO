@@ -223,31 +223,52 @@ export function clearPhysicsWorld() {
 
   // Clean up local vehicle
   if (playerVehicle) {
-    try {
-      if (playerVehicle.stepListener) {
+    if (playerVehicle.stepListener) {
+      try {
         physicsSystem.RemoveStepListener(playerVehicle.stepListener);
+      } catch (e) {
+        console.error("[PHYSICS] Error removing step listener:", e);
+      }
+      try {
         jolt.destroy(playerVehicle.stepListener);
+      } catch (e) {
+        // Ignore signature mismatch if it throws
       }
-      if (playerVehicle.constraint) {
+    }
+    if (playerVehicle.constraint) {
+      try {
         physicsSystem.RemoveConstraint(playerVehicle.constraint);
-        jolt.destroy(playerVehicle.constraint);
+      } catch (e) {
+        console.error("[PHYSICS] Error removing constraint:", e);
       }
-      if (playerVehicle.callbacks) {
-        jolt.destroy(playerVehicle.callbacks);
+      try {
+        // Constraints are reference-counted in Jolt, so we use Release()
+        playerVehicle.constraint.Release();
+      } catch (e) {
+        console.error("[PHYSICS] Error releasing constraint:", e);
       }
-      if (playerVehicle.controllerCallbacks) {
-        jolt.destroy(playerVehicle.controllerCallbacks);
+    }
+    
+    // JS callbacks are garbage-collected and manual destroy throws signature mismatch
+    playerVehicle.callbacks = null;
+    playerVehicle.controllerCallbacks = null;
+
+    if (playerVehicle.tester) {
+      try {
+        // Testers are reference-counted in Jolt, so we use Release()
+        playerVehicle.tester.Release();
+      } catch (e) {
+        console.error("[PHYSICS] Error releasing tester:", e);
       }
-      if (playerVehicle.tester) {
-        jolt.destroy(playerVehicle.tester);
-      }
-      if (playerVehicle.chassisBody) {
+    }
+    if (playerVehicle.chassisBody) {
+      try {
         const chassisId = playerVehicle.chassisBody.GetID();
         bodyInterface.RemoveBody(chassisId);
         bodyInterface.DestroyBody(chassisId);
+      } catch (e) {
+        console.error("[PHYSICS] Error removing/destroying chassis body:", e);
       }
-    } catch (e) {
-      console.error("[PHYSICS] Error during local vehicle cleanup:", e);
     }
     playerVehicle = null;
     playerChassis = null;
