@@ -26,7 +26,7 @@ export const BASE_VEHICLE_CONFIG = {
     centerOfMassYOffset: -0.2
 };
 
-export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, rotation, layer, handlingMode = 'arcade', carModel = 'dacia_duster_low_poly') {
+export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, rotation, layer, handlingMode = 'arcade', carModel = 'dacia_duster_low_poly', driveMode = '4WD') {
     let currentSpeedKmh = 0.0;
     const { 
         wheelRadius, wheelWidth, halfVehicleLength, halfVehicleWidth, halfVehicleHeight, 
@@ -142,26 +142,41 @@ export function createJoltVehicle(Jolt, physicsSystem, bodyInterface, position, 
     controllerSettings.mTransmission.mShiftDownRPM = 3000.0;
     vehicleSettings.mController = controllerSettings;
 
-    // Front differential
+    // Configure differentials based on driveMode (FWD, RWD, AWD/4WD)
     controllerSettings.mDifferentials.clear();
-    const frontWheelDrive = new Jolt.VehicleDifferentialSettings();
-    frontWheelDrive.mLeftWheel = FL_WHEEL;
-    frontWheelDrive.mRightWheel = FR_WHEEL;
-    frontWheelDrive.mLimitedSlipRatio = leftRightLimitedSlipRatio;
-    if (fourWheelDrive) {
-        frontWheelDrive.mEngineTorqueRatio = 0.35; // 35% torque to front to prevent understeer during acceleration
+    
+    if (driveMode === 'FWD' || driveMode === '4WD' || driveMode === 'AWD') {
+        const frontWheelDrive = new Jolt.VehicleDifferentialSettings();
+        frontWheelDrive.mLeftWheel = FL_WHEEL;
+        frontWheelDrive.mRightWheel = FR_WHEEL;
+        frontWheelDrive.mLimitedSlipRatio = leftRightLimitedSlipRatio;
+        if (driveMode === '4WD' || driveMode === 'AWD') {
+            frontWheelDrive.mEngineTorqueRatio = 0.35; // 35% torque to front
+        } else {
+            frontWheelDrive.mEngineTorqueRatio = 1.0; // 100% torque to front
+        }
+        controllerSettings.mDifferentials.push_back(frontWheelDrive);
+        Jolt.destroy(frontWheelDrive);
     }
-    controllerSettings.mDifferentials.push_back(frontWheelDrive);
-    controllerSettings.mDifferentialLimitedSlipRatio = frontBackLimitedSlipRatio;
 
-    // Rear differential
-    if (fourWheelDrive) {
+    if (driveMode === 'RWD' || driveMode === '4WD' || driveMode === 'AWD') {
         const rearWheelDrive = new Jolt.VehicleDifferentialSettings();
         rearWheelDrive.mLeftWheel = BL_WHEEL;
         rearWheelDrive.mRightWheel = BR_WHEEL;
         rearWheelDrive.mLimitedSlipRatio = leftRightLimitedSlipRatio;
-        rearWheelDrive.mEngineTorqueRatio = 0.65; // 65% torque to rear for sporty acceleration
+        if (driveMode === '4WD' || driveMode === 'AWD') {
+            rearWheelDrive.mEngineTorqueRatio = 0.65; // 65% torque to rear
+        } else {
+            rearWheelDrive.mEngineTorqueRatio = 1.0; // 100% torque to rear
+        }
         controllerSettings.mDifferentials.push_back(rearWheelDrive);
+        Jolt.destroy(rearWheelDrive);
+    }
+
+    if (driveMode === '4WD' || driveMode === 'AWD') {
+        controllerSettings.mDifferentialLimitedSlipRatio = frontBackLimitedSlipRatio;
+    } else {
+        controllerSettings.mDifferentialLimitedSlipRatio = -1.0; // Disable front-back slip calculation for 2WD
     }
 
     // Anti-roll bars

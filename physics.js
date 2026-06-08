@@ -292,7 +292,7 @@ export async function initMap(seed) {
 }
 
 export function createLocalVehicle(x, y, z) {
-  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [x, y, z], null, LAYER_MOVING, handlingMode);
+  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [x, y, z], null, LAYER_MOVING, handlingMode, 'dacia_duster_low_poly', driveMode);
 }
 
 export function createPlayerVehicle(startPos, startQuat, carModel) {
@@ -301,7 +301,7 @@ export function createPlayerVehicle(startPos, startQuat, carModel) {
   const spawnYOffset = BASE_VEHICLE_CONFIG.halfVehicleHeight + BASE_VEHICLE_CONFIG.suspensionMaxLength + BASE_VEHICLE_CONFIG.wheelRadius + 0.1;
   const py = startPos.y + spawnYOffset;
   
-  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [startPos.x, py, startPos.z], [startQuat.x, startQuat.y, startQuat.z, startQuat.w], LAYER_MOVING, handlingMode, carModel);
+  playerVehicle = createJoltVehicle(jolt, physicsSystem, bodyInterface, [startPos.x, py, startPos.z], [startQuat.x, startQuat.y, startQuat.z, startQuat.w], LAYER_MOVING, handlingMode, carModel, driveMode);
   
   // Cannon-compatible wrapper so gameEngine.js works without modification.
   // Exposes: position, quaternion (with vmult), velocity (with set/length/copy),
@@ -907,7 +907,10 @@ export function checkStrictCollisions() {}
 
 export let collisionMode = 'fast';
 export function setCollisionMode(mode) {}
-export function setDriveMode(mode) {}
+export let driveMode = '4WD';
+export function setDriveMode(mode) {
+  driveMode = mode || '4WD';
+}
 export let handlingMode = 'arcade';
 export function setHandlingMode(mode) { handlingMode = (mode || 'arcade').toLowerCase(); }
 export let world = {};
