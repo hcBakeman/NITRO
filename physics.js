@@ -868,8 +868,9 @@ export function raycastForward(chassis) {
   
   const bpFilter = new jolt.DefaultBroadPhaseLayerFilter(joltInterface.GetObjectVsBroadPhaseLayerFilter(), LAYER_MOVING);
   const objectLayerFilter = new jolt.DefaultObjectLayerFilter(joltInterface.GetObjectLayerPairFilter(), LAYER_MOVING);
-  const bodyFilter = new jolt.BodyFilter();
-  const shapeFilter = new jolt.ShapeFilter();
+  const bodyFilter = new jolt.IgnoreSingleBodyFilter(playerVehicle.chassisBody.GetID());
+  const shapeFilter = new jolt.ShapeFilterJS();
+  shapeFilter.ShouldCollide = () => true;
   const collector = new jolt.CastRayClosestHitCollisionCollector();
   
   physicsSystem.GetNarrowPhaseQuery().CastRay(ray, raySettings, collector, bpFilter, objectLayerFilter, bodyFilter, shapeFilter);
