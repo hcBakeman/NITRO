@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Volumetric Laser & Light Party Engine - OBS Web Source Layout</title>
+  <link rel="stylesheet" href="./src/laser/laser.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- 3D Canvas -->
+  <canvas id="laser-canvas"></canvas>
+
+  <!-- FPS HUD -->
+  <div id="fps-hud">FPS: <span id="fps-val">60</span> | OBS Ready</div>
+
+  <script type="module">
+    import { LaserEngine } from './src/laser/LaserEngine.js';
+    import { LaserBeams } from './src/laser/LaserBeams.js';
+    import { StageLights } from './src/laser/StageLights.js';
+    import { Atmosphere } from './src/laser/Atmosphere.js';
+    import { AudioAnalyzer } from './src/laser/AudioAnalyzer.js';
+    import { Randomizer } from './src/laser/Randomizer.js';
+    import { PresetManager } from './src/laser/PresetManager.js';
+    import { LaserUI } from './src/laser/LaserUI.js';
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const canvas = document.getElementById('laser-canvas');
+      const fpsVal = document.getElementById('fps-val');
+
+      // 1. Initialize Core Engine
+      const engine = new LaserEngine(canvas);
+      
+      // 2. Initialize Subsystems
+      const laserBeams = new LaserBeams(engine.scene);
+      const stageLights = new StageLights(engine.scene);
+      const atmosphere = new Atmosphere(engine.scene);
+      const audioAnalyzer = new AudioAnalyzer();
+
+      // 3. Generators & Managers
+      const randomizer = new Randomizer(laserBeams, stageLights, atmosphere, engine);
+      const presetManager = new PresetManager(laserBeams, stageLights, atmosphere, engine);
+
+      // 4. Studio UI Overlay
+      const ui = new LaserUI(laserBeams, stageLights, atmosphere, engine, randomizer, presetManager, audioAnalyzer);
+
+      // 5. Parse OBS URL Parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      // Background Mode (?bg=transparent or ?black=1 or ?mode=black)
+      if (urlParams.get('bg') === 'transparent' || urlParams.get('transparent') === '1') {
+        engine.setTransparent(true);
+        const chkTrans = document.getElementById('chk-transparent');
+        if (chkTrans) chkTrans.checked = true;
+      } else if (urlParams.get('black') === '1' || urlParams.get('mode') === 'black' || !urlParams.has('bg')) {
+        // Default to Pure Black Void Mode for high color contrast
+        const chkBlack = document.getElementById('chk-blackmode');
+        if (chkBlack) {
+          chkBlack.checked = true;
+          chkBlack.dispatchEvent(new Event('change'));
+        }
+      }
+
+      // Hide UI for OBS Overlay capture (?ui=0 or ?overlay=1)
+      if (urlParams.get('ui') === '0' || urlParams.get('overlay') === '1') {
+        ui.setUIVisible(false);
+      }
+
+      // Preset Parameter (?preset=cyber_tunnel)
+      const presetParam = urlParams.get('preset');
+      if (presetParam) {
+        presetManager.loadPreset(presetParam);
+        ui.syncControlsFromParams();
+      }
+
+      // Auto-Chaos Cycle Parameter (?autocycle=10)
+      const autoCycleParam = urlParams.get('autocycle');
+      if (autoCycleParam) {
+        const seconds = parseFloat(autoCycleParam) || 8;
+        randomizer.setAutoChaos(true, seconds);
+      }
+
+      // 6. Main Render Loop
+      engine.render((delta, elapsedSeconds) => {
+        // Update Audio reactivity if active
+        audioAnalyzer.update();
+        if (audioAnalyzer.isListening) {
+          laserBeams.setAudioLevel(audioAnalyzer.bass * 1.5);
+        }
+
+        // Update Laser Beams, Stage Lights, Atmosphere & Auto Chaos
+        laserBeams.update(delta, elapsedSeconds);
+        stageLights.update(delta, elapsedSeconds);
+        atmosphere.update(delta, elapsedSeconds);
+        randomizer.update(delta);
+
+        // Update FPS Display
+        fpsVal.textContent = engine.fps;
+      });
+    });
+  </script>
+</body>
+</html>

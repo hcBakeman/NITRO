@@ -1,0 +1,390 @@
+export const FACTORY_PRESETS = {
+  neon_rave: {
+    name: '⚡ Neon Rave',
+    beamType: 'lissajous',
+    beamCount: 64,
+    beamLength: 25,
+    thickness: 0.12,
+    radius: 6,
+    freqA: 3,
+    freqB: 4,
+    freqC: 5,
+    phaseOffset: 1.57,
+    rotSpeedX: 0.2,
+    rotSpeedY: 0.3,
+    rotSpeedZ: 0.1,
+    sweepSpeed: 0.5,
+    sweepAngle: 0.8,
+    wobbleFreq: 8.0,
+    wobbleAmp: 0.3,
+    spiral: 0.0,
+    color1: '#00ffcc',
+    color2: '#ff007f',
+    colorBlend: 0.8,
+    rainbowSpeed: 0.0,
+    intensity: 2.2,
+    strobeSpeed: 0.0,
+    strobeDuty: 0.5,
+    bloom: 1.8,
+    stageLights: true,
+    fogDensity: 0.5,
+    pureColor: 1.0
+  },
+  cyber_tunnel: {
+    name: '🌀 Cyber Laser Tunnel',
+    beamType: 'tunnel',
+    beamCount: 48,
+    beamLength: 35,
+    thickness: 0.15,
+    radius: 8,
+    rotSpeedX: 0.0,
+    rotSpeedY: 0.0,
+    rotSpeedZ: 0.6,
+    sweepSpeed: 0.0,
+    wobbleFreq: 12.0,
+    wobbleAmp: 0.2,
+    spiral: 1.2,
+    color1: '#0088ff',
+    color2: '#00ffff',
+    colorBlend: 1.0,
+    rainbowSpeed: 0.0,
+    intensity: 2.5,
+    strobeSpeed: 0.0,
+    bloom: 2.2,
+    stageLights: false,
+    fogDensity: 0.7,
+    pureColor: 1.0
+  },
+  emerald_scan: {
+    name: '🟢 Emerald Scan Array',
+    beamType: 'fan',
+    beamCount: 32,
+    beamLength: 28,
+    thickness: 0.1,
+    radius: 7,
+    rotSpeedX: 0.0,
+    rotSpeedY: 0.1,
+    rotSpeedZ: 0.0,
+    sweepSpeed: 1.0,
+    sweepAngle: 1.0,
+    wobbleFreq: 0.0,
+    wobbleAmp: 0.0,
+    spiral: 0.0,
+    color1: '#00ff44',
+    color2: '#00cc88',
+    colorBlend: 0.5,
+    rainbowSpeed: 0.0,
+    intensity: 2.8,
+    strobeSpeed: 0.0,
+    bloom: 1.6,
+    stageLights: true,
+    fogDensity: 0.4,
+    pureColor: 1.0
+  },
+  crimson_inferno: {
+    name: '🔥 Crimson Inferno',
+    beamType: 'spirograph',
+    beamCount: 72,
+    beamLength: 22,
+    thickness: 0.14,
+    radius: 7,
+    rotSpeedX: 0.4,
+    rotSpeedY: 0.5,
+    rotSpeedZ: 0.2,
+    sweepSpeed: 0.4,
+    sweepAngle: 0.6,
+    wobbleFreq: 6.0,
+    wobbleAmp: 0.4,
+    spiral: 0.5,
+    color1: '#ff0033',
+    color2: '#ff6600',
+    colorBlend: 0.9,
+    rainbowSpeed: 0.0,
+    intensity: 2.6,
+    strobeSpeed: 2.0,
+    strobeDuty: 0.6,
+    bloom: 2.4,
+    stageLights: true,
+    fogDensity: 0.6,
+    pureColor: 1.0
+  },
+  raver_starburst: {
+    name: '💥 Raver Starburst',
+    beamType: 'starburst',
+    beamCount: 96,
+    beamLength: 30,
+    thickness: 0.09,
+    radius: 5,
+    rotSpeedX: 0.5,
+    rotSpeedY: 0.7,
+    rotSpeedZ: 0.3,
+    sweepSpeed: 0.0,
+    wobbleFreq: 10.0,
+    wobbleAmp: 0.2,
+    spiral: 0.0,
+    color1: '#ff00ff',
+    color2: '#ffff00',
+    colorBlend: 0.8,
+    rainbowSpeed: 1.0,
+    intensity: 3.0,
+    strobeSpeed: 0.0,
+    bloom: 2.0,
+    stageLights: true,
+    fogDensity: 0.5,
+    pureColor: 1.0
+  },
+  strobe_storm: {
+    name: '⚡ Strobe Laser Storm',
+    beamType: 'grid',
+    beamCount: 64,
+    beamLength: 26,
+    thickness: 0.16,
+    radius: 8,
+    rotSpeedX: 0.3,
+    rotSpeedY: 0.4,
+    rotSpeedZ: 0.0,
+    sweepSpeed: 0.8,
+    wobbleFreq: 14.0,
+    wobbleAmp: 0.5,
+    spiral: 0.0,
+    color1: '#ffffff',
+    color2: '#00ffff',
+    colorBlend: 1.0,
+    rainbowSpeed: 0.0,
+    intensity: 3.5,
+    strobeSpeed: 6.0,
+    strobeDuty: 0.4,
+    bloom: 2.6,
+    stageLights: true,
+    fogDensity: 0.8,
+    pureColor: 1.0
+  },
+  acid_wave: {
+    name: '🧪 Acid Wave Lissajous',
+    beamType: 'wave',
+    beamCount: 50,
+    beamLength: 24,
+    thickness: 0.12,
+    radius: 7,
+    rotSpeedX: 0.1,
+    rotSpeedY: 0.2,
+    rotSpeedZ: 0.4,
+    sweepSpeed: 0.6,
+    wobbleFreq: 5.0,
+    wobbleAmp: 0.6,
+    spiral: 0.8,
+    color1: '#cc00ff',
+    color2: '#00ffaa',
+    colorBlend: 0.8,
+    rainbowSpeed: 0.0,
+    intensity: 2.4,
+    strobeSpeed: 0.0,
+    bloom: 1.8,
+    stageLights: true,
+    fogDensity: 0.5,
+    pureColor: 1.0
+  },
+  cosmic_disco: {
+    name: '🪩 Cosmic Disco',
+    beamType: 'cone',
+    beamCount: 40,
+    beamLength: 28,
+    thickness: 0.13,
+    radius: 6,
+    rotSpeedX: 0.6,
+    rotSpeedY: 0.8,
+    rotSpeedZ: 0.5,
+    sweepSpeed: 0.3,
+    wobbleFreq: 8.0,
+    wobbleAmp: 0.3,
+    spiral: 0.0,
+    color1: '#ff00aa',
+    color2: '#00ffff',
+    colorBlend: 0.7,
+    rainbowSpeed: 1.5,
+    intensity: 2.7,
+    strobeSpeed: 0.0,
+    bloom: 2.0,
+    stageLights: true,
+    fogDensity: 0.6,
+    pureColor: 1.0
+  }
+};
+
+const STORAGE_KEY = 'laser_custom_presets_v1';
+
+export class PresetManager {
+  constructor(laserBeams, stageLights, atmosphere, laserEngine) {
+    this.laserBeams = laserBeams;
+    this.stageLights = stageLights;
+    this.atmosphere = atmosphere;
+    this.laserEngine = laserEngine;
+
+    this.customPresets = [];
+    this.loadFromStorage();
+  }
+
+  loadFromStorage() {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        this.customPresets = JSON.parse(stored);
+      }
+    } catch (err) {
+      console.warn('Failed to load custom presets from LocalStorage:', err);
+      this.customPresets = [];
+    }
+  }
+
+  saveToStorage() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.customPresets));
+    } catch (err) {
+      console.warn('Failed to save custom presets to LocalStorage:', err);
+    }
+  }
+
+  getCustomPresets() {
+    return this.customPresets;
+  }
+
+  saveCustomPreset(name, hotkeyKey = '') {
+    const p = this.laserBeams.params;
+    const newPreset = {
+      id: 'custom_' + Date.now(),
+      name: name || `Custom Preset #${this.customPresets.length + 1}`,
+      hotkey: hotkeyKey.trim().toLowerCase(),
+      params: { ...p },
+      stageLightsVisible: this.stageLights.enabled,
+      bloomStrength: this.laserEngine.bloomPass.strength
+    };
+
+    // Check if updating existing preset with same hotkey or name
+    const existingIndex = this.customPresets.findIndex(item => item.name === newPreset.name);
+    if (existingIndex >= 0) {
+      this.customPresets[existingIndex] = newPreset;
+    } else {
+      this.customPresets.push(newPreset);
+    }
+
+    this.saveToStorage();
+    return newPreset;
+  }
+
+  deleteCustomPreset(id) {
+    this.customPresets = this.customPresets.filter(item => item.id !== id);
+    this.saveToStorage();
+  }
+
+  updatePresetHotkey(id, newHotkey) {
+    const target = this.customPresets.find(item => item.id === id);
+    if (target) {
+      target.hotkey = newHotkey.trim().toLowerCase();
+      this.saveToStorage();
+    }
+  }
+
+  updatePresetDetails(id, newName, newHotkey, overwriteParams = false) {
+    const target = this.customPresets.find(item => item.id === id);
+    if (target) {
+      if (newName) target.name = newName.trim();
+      target.hotkey = (newHotkey !== undefined ? newHotkey : target.hotkey).trim().toLowerCase();
+      if (overwriteParams) {
+        target.params = { ...this.laserBeams.params };
+        target.stageLightsVisible = this.stageLights.enabled;
+        target.bloomStrength = this.laserEngine.bloomPass.strength;
+      }
+      this.saveToStorage();
+      return true;
+    }
+    return false;
+  }
+
+  movePreset(id, direction) {
+    const idx = this.customPresets.findIndex(item => item.id === id);
+    if (idx < 0) return;
+    const targetIdx = idx + direction;
+    if (targetIdx >= 0 && targetIdx < this.customPresets.length) {
+      const temp = this.customPresets[idx];
+      this.customPresets[idx] = this.customPresets[targetIdx];
+      this.customPresets[targetIdx] = temp;
+      this.saveToStorage();
+    }
+  }
+
+  findByHotkey(key) {
+    if (!key) return null;
+    const cleanKey = key.trim().toLowerCase();
+    return this.customPresets.find(item => item.hotkey === cleanKey) || null;
+  }
+
+  loadCustomPreset(id) {
+    const preset = this.customPresets.find(item => item.id === id);
+    if (!preset) return false;
+
+    if (preset.bloomStrength !== undefined) {
+      this.laserEngine.setBloomParameters(preset.bloomStrength, 0.4, 0.15);
+    }
+
+    if (preset.stageLightsVisible !== undefined) {
+      this.stageLights.setVisible(preset.stageLightsVisible);
+    }
+
+    if (this.laserBeams.morphEnabled) {
+      this.laserBeams.startMorph(preset.params, this.laserBeams.morphDuration || 1.5);
+    } else {
+      Object.assign(this.laserBeams.params, preset.params);
+      this.laserBeams.updateUniforms();
+      this.laserBeams.rebuildBeams();
+    }
+    return true;
+  }
+
+  loadPreset(presetKey) {
+    // Check if custom preset ID
+    if (presetKey.startsWith('custom_')) {
+      return this.loadCustomPreset(presetKey);
+    }
+
+    const p = FACTORY_PRESETS[presetKey] || FACTORY_PRESETS.neon_rave;
+
+    if (p.bloom !== undefined) {
+      this.laserEngine.setBloomParameters(p.bloom, 0.4, 0.15);
+    }
+
+    if (p.stageLights !== undefined) {
+      this.stageLights.setVisible(p.stageLights);
+    }
+
+    if (p.fogDensity !== undefined) {
+      this.atmosphere.setDensity(p.fogDensity);
+    }
+
+    if (this.laserBeams.morphEnabled) {
+      this.laserBeams.startMorph(p, this.laserBeams.morphDuration || 1.5);
+    } else {
+      Object.assign(this.laserBeams.params, p);
+      this.laserBeams.updateUniforms();
+      this.laserBeams.rebuildBeams();
+    }
+    return true;
+  }
+
+  exportPresetsJSON() {
+    return JSON.stringify(this.customPresets, null, 2);
+  }
+
+  importPresetsJSON(jsonString) {
+    try {
+      const parsed = JSON.parse(jsonString);
+      if (Array.isArray(parsed)) {
+        this.customPresets = parsed;
+        this.saveToStorage();
+        return true;
+      }
+    } catch (err) {
+      console.error('Invalid Presets JSON:', err);
+    }
+    return false;
+  }
+}
