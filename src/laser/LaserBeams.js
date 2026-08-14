@@ -151,6 +151,11 @@ export class LaserBeams {
       pureColor: 1.0 // 1.0 = Pure saturated colors, 0.0 = White core diode
     };
 
+    // Smooth Morphing Engine State
+    this.morphEnabled = true;
+    this.morphDuration = 1.5;
+    this.isMorphing = false;
+
     // Shared Shader Material
     this.shaderMaterial = new THREE.ShaderMaterial({
       vertexShader: LaserShader.vertexShader,
@@ -376,12 +381,35 @@ export class LaserBeams {
     this.morphTargetC1 = new THREE.Color(targetParams.color1 || this.params.color1);
     this.morphTargetC2 = new THREE.Color(targetParams.color2 || this.params.color2);
 
-    // If beam type or count changed drastically, rebuild immediately to new count
-    if (targetParams.beamType !== this.params.beamType || targetParams.beamCount !== this.params.beamCount) {
-      this.params.beamType = targetParams.beamType;
-      this.params.beamCount = targetParams.beamCount;
-      this.rebuildBeams();
+    // Save current 3D positions and rotations for all beam meshes
+    const children = this.beamGroup.children;
+    this.morphStartTransforms = children.map(mesh => ({
+      pos: mesh.position.clone(),
+      rot: new THREE.Euler().copy(mesh.rotation)
+    }));
+
+    // Temporary param clone to compute target 3D positions
+    const tempParams = { ...this.params, ...targetParams };
+    const savedParams = { ...this.params };
+    this.params = tempParams;
+
+    const count = children.length;
+    this.morphTargetTransforms = [];
+    const dummy = new THREE.Object3D();
+
+    for (let i = 0; i < count; i++) {
+      const tRatio = i / count;
+      dummy.position.set(0, 0, 0);
+      dummy.rotation.set(0, 0, 0);
+      this.positionLaserBeam(dummy, i, count, tempParams.radius || 6, tRatio);
+      this.morphTargetTransforms.push({
+        pos: dummy.position.clone(),
+        rot: new THREE.Euler().copy(dummy.rotation)
+      });
     }
+
+    // Restore current active params
+    this.params = savedParams;
   }
 
   update(delta, elapsedSeconds) {
@@ -397,6 +425,21 @@ export class LaserBeams {
       const start = this.morphStartParams;
       const target = this.morphTargetParams;
       const p = this.params;
+
+      // Lerp 3D mesh positions & rotations smoothly
+      const children = this.beamGroup.children;
+      for (let i = 0; i < children.length; i++) {
+        const mesh = children[i];
+        const sT = this.morphStartTransforms[i];
+        const tT = this.morphTargetTransforms[i];
+
+        if (sT && tT) {
+          mesh.position.lerpVectors(sT.pos, tT.pos, t);
+          mesh.rotation.x = THREE.MathUtils.lerp(sT.rot.x, tT.rot.x, t);
+          mesh.rotation.y = THREE.MathUtils.lerp(sT.rot.y, tT.rot.y, t);
+          mesh.rotation.z = THREE.MathUtils.lerp(sT.rot.z, tT.rot.z, t);
+        }
+      }
 
       // Lerp float params
       p.thickness = THREE.MathUtils.lerp(start.thickness, target.thickness, t);
@@ -425,6 +468,8 @@ export class LaserBeams {
 
       if (rawT >= 1.0) {
         this.isMorphing = false;
+        Object.assign(this.params, target);
+        this.rebuildBeams();
       }
     }
 
