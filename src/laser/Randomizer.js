@@ -67,7 +67,7 @@ export class Randomizer {
       color2: palette.c2,
       colorBlend: THREE.MathUtils.randFloat(0.2, 1.0),
       rainbowSpeed: isRainbow ? THREE.MathUtils.randFloat(0.5, 2.5) : 0.0,
-      intensity: THREE.MathUtils.randFloat(1.5, 3.5),
+      intensity: THREE.MathUtils.randFloat(0.9, 1.5),
 
       strobeSpeed: isStrobe ? THREE.MathUtils.randFloat(1.0, 8.0) : 0.0,
       strobeDuty: THREE.MathUtils.randFloat(0.2, 0.7),
@@ -75,7 +75,7 @@ export class Randomizer {
       stageLightSpeed: THREE.MathUtils.randFloat(0.5, 2.5),
       stageLightVisible: Math.random() > 0.3,
       fogDensity: THREE.MathUtils.randFloat(0.2, 0.8),
-      bloomStrength: THREE.MathUtils.randFloat(1.2, 2.6)
+      bloomStrength: THREE.MathUtils.randFloat(0.6, 1.1)
     };
   }
 

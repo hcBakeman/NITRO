@@ -123,8 +123,12 @@ export class LaserUI {
             <input type="range" id="ctrl-rainbowSpeed" min="0" max="3" step="0.1" value="0">
           </div>
           <div class="ui-row">
-            <label>Intensity Glow (<span id="val-intensity">2.2</span>)</label>
-            <input type="range" id="ctrl-intensity" min="1.0" max="4.0" step="0.1" value="2.2">
+            <label>Intensity Brightness (<span id="val-intensity">1.2</span>)</label>
+            <input type="range" id="ctrl-intensity" min="0.2" max="2.5" step="0.05" value="1.2">
+          </div>
+          <div class="ui-row">
+            <label>Bloom Glow Strength (<span id="val-bloom">0.85</span>)</label>
+            <input type="range" id="ctrl-bloom" min="0.0" max="2.5" step="0.05" value="0.85">
           </div>
           <div class="ui-row-check">
             <label><input type="checkbox" id="chk-purecolor" checked> 🌈 Pure Saturated Colors (No White Bleach)</label>
@@ -283,6 +287,17 @@ export class LaserUI {
       { id: 'spiral', param: 'spiral', isInt: false, rebuild: false },
       { id: 'strobeSpeed', param: 'strobeSpeed', isInt: false, rebuild: false }
     ];
+
+    // Bloom Strength Slider listener
+    const bloomElem = document.getElementById('ctrl-bloom');
+    const bloomVal = document.getElementById('val-bloom');
+    if (bloomElem) {
+      bloomElem.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        this.laserEngine.setBloomParameters(val, 0.3, 0.2);
+        if (bloomVal) bloomVal.textContent = val.toFixed(2);
+      });
+    }
 
     sliders.forEach(item => {
       const elem = document.getElementById(`ctrl-${item.id}`);
@@ -515,10 +530,17 @@ export class LaserUI {
     document.getElementById('val-rainbowSpeed').textContent = p.rainbowSpeed.toFixed(1);
 
     document.getElementById('ctrl-intensity').value = p.intensity;
-    document.getElementById('val-intensity').textContent = p.intensity.toFixed(1);
+    document.getElementById('val-intensity').textContent = p.intensity.toFixed(2);
 
-    document.getElementById('ctrl-strobeSpeed').value = p.strobeSpeed;
-    document.getElementById('val-strobeSpeed').textContent = p.strobeSpeed.toFixed(1);
+    const bloomElem = document.getElementById('ctrl-bloom');
+    const bloomVal = document.getElementById('val-bloom');
+    if (bloomElem && this.laserEngine.bloomPass) {
+      bloomElem.value = this.laserEngine.bloomPass.strength;
+      if (bloomVal) bloomVal.textContent = this.laserEngine.bloomPass.strength.toFixed(2);
+    }
+
+    document.getElementById('ctrl-strobeSpeed').value = p.strobeSpeed || 0;
+    document.getElementById('val-strobeSpeed').textContent = (p.strobeSpeed || 0).toFixed(1);
 
     document.getElementById('chk-purecolor').checked = p.pureColor > 0.5;
 

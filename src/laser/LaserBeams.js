@@ -71,13 +71,13 @@ const LaserShader = {
       // Fresnel core glow calculation (bright center line, soft edges)
       vec3 viewDir = normalize(cameraPosition - vWorldPosition);
       float fresnel = abs(dot(viewDir, normalize(vNormal)));
-      float coreGlow = pow(fresnel, 2.0); // Core brightness intensity
+      float coreGlow = pow(fresnel, 2.2); // Core brightness intensity
 
       // Strobing effect calculation
       float strobe = 1.0;
       if (uStrobeSpeed > 0.01) {
         float pulse = mod(uTime * uStrobeSpeed * 10.0, 1.0);
-        strobe = step(1.0 - uStrobeDuty, pulse);
+        strobe = step(1.0 - clamp(uStrobeDuty, 0.05, 0.95), pulse);
       }
 
       // Color calculation
@@ -89,20 +89,20 @@ const LaserShader = {
         finalColor = hsl2rgb(vec3(hue, 1.0, 0.5));
       }
 
-      // Laser Core Color: Pure Vibrant Saturated Color vs White Diode Core
-      vec3 whiteCoreColor = mix(finalColor * 2.0, vec3(1.4, 1.4, 1.4), coreGlow * 0.85);
-      vec3 pureColor = finalColor * (1.2 + coreGlow * 1.5);
+      // Laser Core Color: Pure Vibrant Saturated Color vs Soft Diode Core
+      vec3 whiteCoreColor = mix(finalColor * 1.3, vec3(1.15, 1.15, 1.15), coreGlow * 0.65);
+      vec3 vibrantColor = finalColor * (1.0 + coreGlow * 0.8);
       
-      vec3 laserCoreColor = mix(whiteCoreColor, pureColor, uPureColor);
+      vec3 laserCoreColor = mix(whiteCoreColor, vibrantColor, clamp(uPureColor, 0.0, 1.0));
 
       // Audio reactivity boost
-      float totalIntensity = uIntensity * (1.0 + uAudioLevel * 0.8) * strobe;
+      float effectiveIntensity = uIntensity * (1.0 + uAudioLevel * 0.6) * strobe;
 
       // Gradient fade along length
-      float opacity = (0.3 + 0.7 * (1.0 - vSegment * 0.3)) * totalIntensity;
-      float edgeAlpha = (1.0 - fresnel * 0.4);
+      float opacity = (0.3 + 0.7 * (1.0 - vSegment * 0.25)) * clamp(effectiveIntensity, 0.0, 2.0);
+      float edgeAlpha = (1.0 - fresnel * 0.35);
       
-      gl_FragColor = vec4(laserCoreColor * totalIntensity, clamp(opacity * edgeAlpha, 0.0, 1.0));
+      gl_FragColor = vec4(laserCoreColor * effectiveIntensity, clamp(opacity * edgeAlpha, 0.0, 1.0));
     }
   `
 };

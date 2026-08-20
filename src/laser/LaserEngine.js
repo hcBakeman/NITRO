@@ -37,7 +37,7 @@ export class LaserEngine {
     // Ramp up pixel ratio to native hardware DPR (up to 3x Retina/4K sharp resolution)
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.2;
+    this.renderer.toneMappingExposure = 1.0;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     // 4. Post-processing Composer (Volumetric Laser Bloom with Multi-Sample Anti-Aliasing)
@@ -54,12 +54,12 @@ export class LaserEngine {
     this.renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(this.renderPass);
 
-    // High intensity Bloom Pass for glowing lasers
+    // Balanced Bloom Pass for rich saturated laser colors
     this.bloomPass = new UnrealBloomPass(
       new THREE.Vector2(this.width * this.renderer.getPixelRatio(), this.height * this.renderer.getPixelRatio()),
-      1.8, // Strength
-      0.4, // Radius
-      0.15 // Threshold
+      0.85, // Strength (soft, rich glow instead of blinding white blowout)
+      0.3,  // Radius
+      0.2   // Threshold
     );
     this.composer.addPass(this.bloomPass);
 
