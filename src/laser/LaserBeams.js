@@ -184,6 +184,22 @@ export class LaserBeams {
     this.rebuildBeams();
   }
 
+  dispose() {
+    this.clearBeams();
+    if (this.shaderMaterial) {
+      this.shaderMaterial.dispose();
+    }
+    this.scene.remove(this.beamGroup);
+  }
+
+  clearBeams() {
+    while (this.beamGroup.children.length > 0) {
+      const child = this.beamGroup.children[0];
+      if (child.geometry) child.geometry.dispose();
+      this.beamGroup.remove(child);
+    }
+  }
+
   updateUniforms() {
     this.shaderMaterial.uniforms.uColor1.value.set(this.params.color1);
     this.shaderMaterial.uniforms.uColor2.value.set(this.params.color2);
@@ -200,11 +216,7 @@ export class LaserBeams {
 
   rebuildBeams() {
     // Clear old beam meshes
-    while (this.beamGroup.children.length > 0) {
-      const child = this.beamGroup.children[0];
-      if (child.geometry) child.geometry.dispose();
-      this.beamGroup.remove(child);
-    }
+    this.clearBeams();
 
     const count = Math.max(4, Math.floor(this.params.beamCount));
     const length = this.params.beamLength;
@@ -373,13 +385,13 @@ export class LaserBeams {
     this.morphDuration = Math.max(0.2, duration);
 
     this.morphStartParams = { ...this.params };
-    this.morphTargetParams = { ...targetParams };
+    this.morphTargetParams = { ...this.params, ...targetParams };
 
     this.morphStartC1 = new THREE.Color(this.params.color1);
     this.morphStartC2 = new THREE.Color(this.params.color2);
 
-    this.morphTargetC1 = new THREE.Color(targetParams.color1 || this.params.color1);
-    this.morphTargetC2 = new THREE.Color(targetParams.color2 || this.params.color2);
+    this.morphTargetC1 = new THREE.Color(this.morphTargetParams.color1);
+    this.morphTargetC2 = new THREE.Color(this.morphTargetParams.color2);
 
     // Save current 3D positions and rotations for all beam meshes
     const children = this.beamGroup.children;
@@ -454,6 +466,7 @@ export class LaserBeams {
       p.spiral = THREE.MathUtils.lerp(start.spiral || 0, target.spiral || 0, t);
       p.intensity = THREE.MathUtils.lerp(start.intensity, target.intensity, t);
       p.strobeSpeed = THREE.MathUtils.lerp(start.strobeSpeed || 0, target.strobeSpeed || 0, t);
+      p.strobeDuty = THREE.MathUtils.lerp(start.strobeDuty || 0.5, target.strobeDuty || 0.5, t);
       p.rainbowSpeed = THREE.MathUtils.lerp(start.rainbowSpeed || 0, target.rainbowSpeed || 0, t);
       p.pureColor = THREE.MathUtils.lerp(start.pureColor !== undefined ? start.pureColor : 1.0, target.pureColor !== undefined ? target.pureColor : 1.0, t);
 

@@ -9,10 +9,16 @@ export class AudioAnalyzer {
   }
 
   async startMic() {
+    this.shouldListen = true;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      if (!this.shouldListen) {
+        stream.getTracks().forEach(track => track.stop());
+        return false;
+      }
+      this.stream = stream;
       this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const source = this.audioCtx.createMediaStreamSource(stream);
+      const source = this.audioCtx.createMediaStreamSource(this.stream);
       
       this.analyser = this.audioCtx.createAnalyser();
       this.analyser.fftSize = 256;
@@ -25,14 +31,20 @@ export class AudioAnalyzer {
     } catch (err) {
       console.warn('Audio mic capture unavailable or denied:', err);
       this.isListening = false;
+      this.shouldListen = false;
       return false;
     }
   }
 
   stopMic() {
+    this.shouldListen = false;
     if (this.audioCtx) {
       this.audioCtx.close();
       this.audioCtx = null;
+    }
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => track.stop());
+      this.stream = null;
     }
     this.isListening = false;
   }

@@ -261,9 +261,12 @@ export class LaserUI {
       this.syncControlsFromParams();
     });
 
-    // Pattern type selector
     document.getElementById('ctrl-beamType').addEventListener('change', (e) => {
       p.beamType = e.target.value;
+      if (this.laserBeams.isMorphing) {
+        this.laserBeams.morphTargetParams.beamType = e.target.value;
+        this.laserBeams.morphStartParams.beamType = e.target.value;
+      }
       this.laserBeams.rebuildBeams();
     });
 
@@ -287,6 +290,10 @@ export class LaserUI {
       elem.addEventListener('input', (e) => {
         const val = item.isInt ? parseInt(e.target.value) : parseFloat(e.target.value);
         p[item.param] = val;
+        if (this.laserBeams.isMorphing) {
+          this.laserBeams.morphTargetParams[item.param] = val;
+          this.laserBeams.morphStartParams[item.param] = val;
+        }
         if (valElem) valElem.textContent = val.toString();
         this.laserBeams.updateUniforms();
         if (item.rebuild) this.laserBeams.rebuildBeams();
@@ -296,10 +303,22 @@ export class LaserUI {
     // Colors
     document.getElementById('ctrl-color1').addEventListener('input', (e) => {
       p.color1 = e.target.value;
+      if (this.laserBeams.isMorphing) {
+        this.laserBeams.morphTargetParams.color1 = e.target.value;
+        this.laserBeams.morphStartParams.color1 = e.target.value;
+        this.laserBeams.morphTargetC1.set(e.target.value);
+        this.laserBeams.morphStartC1.set(e.target.value);
+      }
       this.laserBeams.updateUniforms();
     });
     document.getElementById('ctrl-color2').addEventListener('input', (e) => {
       p.color2 = e.target.value;
+      if (this.laserBeams.isMorphing) {
+        this.laserBeams.morphTargetParams.color2 = e.target.value;
+        this.laserBeams.morphStartParams.color2 = e.target.value;
+        this.laserBeams.morphTargetC2.set(e.target.value);
+        this.laserBeams.morphStartC2.set(e.target.value);
+      }
       this.laserBeams.updateUniforms();
     });
 
@@ -319,7 +338,12 @@ export class LaserUI {
 
     // Checkboxes
     document.getElementById('chk-purecolor').addEventListener('change', (e) => {
-      p.pureColor = e.target.checked ? 1.0 : 0.0;
+      const val = e.target.checked ? 1.0 : 0.0;
+      p.pureColor = val;
+      if (this.laserBeams.isMorphing) {
+        this.laserBeams.morphTargetParams.pureColor = val;
+        this.laserBeams.morphStartParams.pureColor = val;
+      }
       this.laserBeams.updateUniforms();
     });
 
@@ -472,7 +496,7 @@ export class LaserUI {
   }
 
   syncControlsFromParams() {
-    const p = this.laserBeams.params;
+    const p = this.laserBeams.isMorphing ? this.laserBeams.morphTargetParams : this.laserBeams.params;
 
     document.getElementById('ctrl-beamType').value = p.beamType;
     document.getElementById('ctrl-beamCount').value = p.beamCount;

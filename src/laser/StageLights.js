@@ -21,8 +21,36 @@ export class StageLights {
     this.initLights();
   }
 
+  dispose() {
+    for (const item of this.spotlights) {
+      if (item.cone) {
+        if (item.cone.geometry) item.cone.geometry.dispose();
+        if (item.cone.material) item.cone.material.dispose();
+      }
+      if (item.target) this.scene.remove(item.target);
+      if (item.spot && item.spot.dispose) item.spot.dispose();
+    }
+    this.spotlights = [];
+    while (this.lightGroup.children.length > 0) {
+      this.lightGroup.remove(this.lightGroup.children[0]);
+    }
+    this.scene.remove(this.lightGroup);
+  }
+
   initLights() {
     // Clear old lights
+    for (const item of this.spotlights) {
+      if (item.cone) {
+        if (item.cone.geometry) item.cone.geometry.dispose();
+        if (item.cone.material) item.cone.material.dispose();
+      }
+      if (item.target) {
+        this.scene.remove(item.target);
+      }
+      if (item.spot) {
+        if (item.spot.dispose) item.spot.dispose();
+      }
+    }
     while (this.lightGroup.children.length > 0) {
       this.lightGroup.remove(this.lightGroup.children[0]);
     }

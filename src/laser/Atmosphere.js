@@ -10,6 +10,15 @@ export class Atmosphere {
     this.initFog();
   }
 
+  dispose() {
+    if (this.fogParticles) {
+      if (this.fogParticles.geometry) this.fogParticles.geometry.dispose();
+      if (this.fogParticles.material) this.fogParticles.material.dispose();
+      this.scene.remove(this.fogParticles);
+      this.fogParticles = null;
+    }
+  }
+
   initFog() {
     const geom = new THREE.BufferGeometry();
     const positions = new Float32Array(this.particleCount * 3);

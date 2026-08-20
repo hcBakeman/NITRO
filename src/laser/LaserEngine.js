@@ -78,7 +78,8 @@ export class LaserEngine {
     this.scene.add(this.gridHelper);
 
     // Listeners
-    window.addEventListener('resize', () => this.onResize());
+    this._resizeHandler = () => this.onResize();
+    window.addEventListener('resize', this._resizeHandler);
   }
 
   setTransparent(transparent) {
@@ -137,5 +138,27 @@ export class LaserEngine {
     };
 
     requestAnimationFrame(loop);
+  }
+
+  dispose() {
+    window.removeEventListener('resize', this._resizeHandler);
+    
+    if (this.gridHelper) {
+      this.gridHelper.geometry.dispose();
+      this.gridHelper.material.dispose();
+    }
+    
+    this.composer.passes.forEach(pass => {
+      if (pass.dispose) pass.dispose();
+    });
+    
+    this.renderPass = null;
+    this.bloomPass = null;
+    this.outputPass = null;
+    
+    if (this.composer.renderTarget1) this.composer.renderTarget1.dispose();
+    if (this.composer.renderTarget2) this.composer.renderTarget2.dispose();
+    
+    this.renderer.dispose();
   }
 }
