@@ -1,5 +1,48 @@
 import * as THREE from 'three';
 
+// Custom GLSL Shader for silky smooth volumetric stage spotlights with Gaussian radial edge fade
+const StageSpotlightShader = {
+  vertexShader: `
+    attribute float aSegment; // 0.0 at top emitter, 1.0 at floor tip
+
+    varying float vSegment;
+    varying vec3 vWorldPosition;
+    varying vec3 vNormal;
+
+    void main() {
+      vSegment = aSegment;
+      vNormal = normalMatrix * normal;
+      vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+      vWorldPosition = worldPosition.xyz;
+      gl_Position = projectionMatrix * viewMatrix * worldPosition;
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 uColor;
+    uniform float uOpacity;
+
+    varying float vSegment;
+    varying vec3 vWorldPosition;
+    varying vec3 vNormal;
+
+    void main() {
+      vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+      float fresnel = abs(dot(viewDir, normalize(vNormal)));
+      
+      // Soft radial edge falloff (Gaussian smooth curve, eliminates hard flat polygon facets)
+      float edgeFade = pow(fresnel, 2.0);
+
+      // Fade along length (brightest at top lens fixture, soft fade towards bottom)
+      float lengthFade = (1.0 - vSegment * 0.4) * smoothstep(0.0, 0.08, vSegment);
+
+      float finalAlpha = edgeFade * lengthFade * uOpacity;
+      vec3 finalRGB = uColor * (1.2 + fresnel * 0.8);
+
+      gl_FragColor = vec4(finalRGB, clamp(finalAlpha, 0.0, 1.0));
+    }
+  `
+};
+
 export class StageLights {
   constructor(scene) {
     this.scene = scene;
@@ -12,10 +55,9 @@ export class StageLights {
 
     this.params = {
       speed: 1.0,
-      color1: 0x00ffff,
-      color2: 0xff00aa,
-      intensity: 3.5,
-      angle: 0.4
+      opacity: 0.15,
+      angle: 0.35,
+      intensity: 2.5
     };
 
     this.initLights();
@@ -23,12 +65,11 @@ export class StageLights {
 
   dispose() {
     for (const item of this.spotlights) {
-      if (item.cone) {
-        if (item.cone.geometry) item.cone.geometry.dispose();
-        if (item.cone.material) item.cone.material.dispose();
-      }
+      if (item.coneGeom) item.coneGeom.dispose();
+      if (item.shaderMat) item.shaderMat.dispose();
+      if (item.lensGeom) item.lensGeom.dispose();
+      if (item.lensMat) item.lensMat.dispose();
       if (item.target) this.scene.remove(item.target);
-      if (item.spot && item.spot.dispose) item.spot.dispose();
     }
     this.spotlights = [];
     while (this.lightGroup.children.length > 0) {
@@ -38,68 +79,85 @@ export class StageLights {
   }
 
   initLights() {
-    // Clear old lights
-    for (const item of this.spotlights) {
-      if (item.cone) {
-        if (item.cone.geometry) item.cone.geometry.dispose();
-        if (item.cone.material) item.cone.material.dispose();
-      }
-      if (item.target) {
-        this.scene.remove(item.target);
-      }
-      if (item.spot) {
-        if (item.spot.dispose) item.spot.dispose();
-      }
-    }
-    while (this.lightGroup.children.length > 0) {
-      this.lightGroup.remove(this.lightGroup.children[0]);
-    }
-    this.spotlights = [];
+    this.dispose();
+    this.scene.add(this.lightGroup);
 
-    const colors = [0x00ffff, 0xff00ff, 0xffff00, 0x00ffaa, 0xff0055, 0x7700ff];
+    const colors = [
+      new THREE.Color(0x00ffff),
+      new THREE.Color(0xff00cc),
+      new THREE.Color(0xffff00),
+      new THREE.Color(0x00ff88),
+      new THREE.Color(0xff0055),
+      new THREE.Color(0x9900ff)
+    ];
 
     for (let i = 0; i < this.spotCount; i++) {
       const color = colors[i % colors.length];
-      
-      // Spotlight
-      const spot = new THREE.SpotLight(color, this.params.intensity);
-      spot.angle = this.params.angle;
-      spot.penumbra = 0.8;
-      spot.decay = 1.5;
-      spot.distance = 40;
+      const posX = (i - (this.spotCount - 1) / 2) * 5.5;
 
-      // Position moving heads along rear stage truss
-      const posX = (i - (this.spotCount - 1) / 2) * 5;
-      spot.position.set(posX, 8, -6);
+      // Fixture Group
+      const fixtureGroup = new THREE.Group();
+      fixtureGroup.position.set(posX, 8.5, -6);
 
-      // Target
+      // Target Object on stage floor
       const target = new THREE.Object3D();
       target.position.set(posX, -4, 5);
       this.scene.add(target);
-      spot.target = target;
 
-      // Volumetric Beam Mesh Cone
-      const coneGeom = new THREE.ConeGeometry(3, 16, 16, 1, true);
-      coneGeom.translate(0, -8, 0); // Origin at top tip
+      // High-Poly Volumetric Beam Cylinder/Cone (64 radial segments, 64 height segments)
+      const beamLength = 22;
+      const topRadius = 0.15;
+      const bottomRadius = Math.tan(this.params.angle) * beamLength;
+      
+      const coneGeom = new THREE.CylinderGeometry(topRadius, bottomRadius, beamLength, 64, 64, true);
+      coneGeom.translate(0, -beamLength / 2, 0); // Emitter origin at top
 
-      const coneMat = new THREE.MeshBasicMaterial({
-        color: color,
+      // Attribute for length fade (0 at top, 1 at bottom)
+      const posAttr = coneGeom.attributes.position;
+      const segmentArray = new Float32Array(posAttr.count);
+      for (let j = 0; j < posAttr.count; j++) {
+        segmentArray[j] = Math.abs(posAttr.getY(j)) / beamLength;
+      }
+      coneGeom.setAttribute('aSegment', new THREE.BufferAttribute(segmentArray, 1));
+
+      // Custom Volumetric Shader Material
+      const shaderMat = new THREE.ShaderMaterial({
+        vertexShader: StageSpotlightShader.vertexShader,
+        fragmentShader: StageSpotlightShader.fragmentShader,
+        uniforms: {
+          uColor: { value: color.clone() },
+          uOpacity: { value: this.params.opacity }
+        },
         transparent: true,
-        opacity: 0.18,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         side: THREE.DoubleSide
       });
 
-      const coneMesh = new THREE.Mesh(coneGeom, coneMat);
-      spot.add(coneMesh);
+      const coneMesh = new THREE.Mesh(coneGeom, shaderMat);
+      fixtureGroup.add(coneMesh);
 
-      this.lightGroup.add(spot);
+      // Emitter Glowing Lens Orb at fixture head
+      const lensGeom = new THREE.SphereGeometry(0.35, 32, 32);
+      const lensMat = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending
+      });
+      const lensMesh = new THREE.Mesh(lensGeom, lensMat);
+      fixtureGroup.add(lensMesh);
+
+      this.lightGroup.add(fixtureGroup);
 
       this.spotlights.push({
-        spot: spot,
+        group: fixtureGroup,
         target: target,
-        cone: coneMesh,
+        coneMesh: coneMesh,
+        coneGeom: coneGeom,
+        shaderMat: shaderMat,
+        lensGeom: lensGeom,
+        lensMat: lensMat,
         baseX: posX,
         phase: i * (Math.PI / 3)
       });
@@ -111,8 +169,19 @@ export class StageLights {
     this.lightGroup.visible = visible;
   }
 
+  setOpacity(opacity) {
+    this.params.opacity = opacity;
+    for (const item of this.spotlights) {
+      if (item.shaderMat) item.shaderMat.uniforms.uOpacity.value = opacity;
+    }
+  }
+
+  setSpeed(speed) {
+    this.params.speed = speed;
+  }
+
   update(delta, elapsedSeconds) {
-    if (!this.enabled) return;
+    if (!this.enabled || !this.lightGroup.visible) return;
 
     for (let i = 0; i < this.spotlights.length; i++) {
       const item = this.spotlights[i];
@@ -120,13 +189,13 @@ export class StageLights {
       const t = elapsedSeconds * speed + item.phase;
 
       // Sweep target in dynamic figure-8 pattern across stage
-      item.target.position.x = item.baseX + Math.sin(t * 1.5) * 6;
-      item.target.position.z = Math.cos(t * 2.0) * 8;
-      item.target.position.y = -3 + Math.sin(t * 3.0) * 2;
+      item.target.position.x = item.baseX + Math.sin(t * 1.5) * 6.5;
+      item.target.position.z = Math.cos(t * 2.0) * 8.0;
+      item.target.position.y = -3 + Math.sin(t * 3.0) * 2.0;
 
-      // Orient volumetric cone mesh towards target
-      item.cone.lookAt(item.target.position);
-      item.cone.rotateX(Math.PI / 2);
+      // Smooth orient moving head fixture towards target
+      item.group.lookAt(item.target.position);
+      item.group.rotateX(Math.PI / 2);
     }
   }
 }

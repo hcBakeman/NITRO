@@ -45,10 +45,17 @@ export class LaserUI {
         </div>
 
         <!-- Quick Action Bar -->
-        <div class="ui-bar ui-bar-3">
+        <div class="ui-bar ui-bar-4">
           <button id="btn-randomize" class="btn-primary" title="Generate New Preset (Space)">🎲 RANDOMIZE</button>
           <button id="btn-chaos" class="btn-secondary" title="Auto-Morph Random Presets">⚡ Auto-Chaos</button>
           <button id="btn-loop-custom" class="btn-playlist" title="Auto-Morph My Saved Presets (Hotkey: L)">🔁 Loop My Presets [L]</button>
+          <button id="btn-copy-url" class="btn-copy-url" title="Copy Direct OBS / Preset URL to Clipboard">📋 Copy URL</button>
+        </div>
+
+        <!-- Shareable Preset URL Bar -->
+        <div class="ui-url-share-box">
+          <span class="url-share-label">🔗 Share / OBS URL:</span>
+          <input type="text" id="input-share-url" readonly class="ui-input-share-url" title="Click to copy full preset URL">
         </div>
 
         <!-- Factory & Custom Presets Dropdown -->
@@ -96,7 +103,7 @@ export class LaserUI {
           </div>
           <div class="ui-row">
             <label>Beam Count (<span id="val-beamCount">64</span>)</label>
-            <input type="range" id="ctrl-beamCount" min="8" max="120" step="2" value="64">
+            <input type="range" id="ctrl-beamCount" min="4" max="128" step="4" value="64">
           </div>
           <div class="ui-row">
             <label>Thickness (<span id="val-thickness">0.12</span>)</label>
@@ -171,15 +178,27 @@ export class LaserUI {
         </div>
 
         <div class="ui-section">
-          <div class="section-title">📺 Stage Background & OBS Settings</div>
+          <div class="section-title">💡 Moving Head Stage Lights</div>
           <div class="ui-row-check">
-            <label><input type="checkbox" id="chk-blackmode" checked> ⬛ Pure Black Void Background [Hotkey: B]</label>
+            <label><input type="checkbox" id="chk-stagelights" checked> 💡 Moving Head Spotlights ON / OFF</label>
+          </div>
+          <div class="ui-row">
+            <label>Spotlight Glow Brightness (<span id="val-spotOpacity">0.15</span>)</label>
+            <input type="range" id="ctrl-spotOpacity" min="0.0" max="0.6" step="0.02" value="0.15">
+          </div>
+          <div class="ui-row">
+            <label>Moving Head Sweep Speed (<span id="val-spotSpeed">1.0</span>)</label>
+            <input type="range" id="ctrl-spotSpeed" min="0.0" max="3.0" step="0.1" value="1.0">
+          </div>
+        </div>
+
+        <div class="ui-section">
+          <div class="section-title">🖥️ Stage Background & OBS Settings</div>
+          <div class="ui-row-check">
+            <label><input type="checkbox" id="chk-blackmode"> 🖤 Pure Black Void Background [Hotkey: B]</label>
           </div>
           <div class="ui-row-check">
             <label><input type="checkbox" id="chk-transparent"> 🏁 Transparent Overlay Mode (OBS)</label>
-          </div>
-          <div class="ui-row-check">
-            <label><input type="checkbox" id="chk-stagelights" checked> 💡 Moving Head Spotlights</label>
           </div>
           <div class="ui-row-check">
             <label><input type="checkbox" id="chk-audio"> 🎤 Web Audio Mic Beat Sync</label>
@@ -198,6 +217,64 @@ export class LaserUI {
     this.bindEvents();
   }
 
+  getShareableURL() {
+    try {
+      const url = new URL(window.location.href);
+      const urlParams = new URLSearchParams(window.location.search);
+      const activePreset = urlParams.get('preset') || 'neon_rave';
+      url.searchParams.set('preset', activePreset);
+
+      const isBlack = document.getElementById('chk-blackmode')?.checked;
+      const isTrans = document.getElementById('chk-transparent')?.checked;
+      
+      if (isBlack) url.searchParams.set('mode', 'black');
+      else url.searchParams.delete('mode');
+
+      if (isTrans) url.searchParams.set('bg', 'transparent');
+      else url.searchParams.delete('bg');
+
+      return url.toString();
+    } catch (e) {
+      return window.location.href;
+    }
+  }
+
+  updateShareableURLInput() {
+    const shareInput = document.getElementById('input-share-url');
+    if (shareInput) {
+      shareInput.value = this.getShareableURL();
+    }
+  }
+
+  copyURLToClipboard() {
+    const urlStr = this.getShareableURL();
+    navigator.clipboard.writeText(urlStr).then(() => {
+      this.showToast('✅ Preset URL Copied to Clipboard!');
+    }).catch(() => {
+      const input = document.getElementById('input-share-url');
+      if (input) {
+        input.select();
+        document.execCommand('copy');
+        this.showToast('✅ Preset URL Copied to Clipboard!');
+      }
+    });
+  }
+
+  showToast(message) {
+    let toast = document.getElementById('ui-toast-msg');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'ui-toast-msg';
+      toast.className = 'ui-toast';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 2500);
+  }
+
   updatePresetBadge() {
     const current = this.randomizer.getCurrentPreset();
     const badge = document.getElementById('preset-id-badge');
@@ -209,6 +286,7 @@ export class LaserUI {
       const idx = this.randomizer.historyIndex + 1;
       counter.textContent = `(${idx} of ${total})`;
     }
+    this.updateShareableURLInput();
   }
 
   bindEvents() {
@@ -234,6 +312,37 @@ export class LaserUI {
       this.syncControlsFromParams();
       this.updatePresetBadge();
     });
+
+    // Copy URL button listener
+    const copyUrlBtn = document.getElementById('btn-copy-url');
+    const shareInput = document.getElementById('input-share-url');
+    if (copyUrlBtn) {
+      copyUrlBtn.addEventListener('click', () => this.copyURLToClipboard());
+    }
+    if (shareInput) {
+      shareInput.addEventListener('click', () => this.copyURLToClipboard());
+    }
+
+    // Moving Head Spotlight Controls
+    const spotOpacityElem = document.getElementById('ctrl-spotOpacity');
+    const spotOpacityVal = document.getElementById('val-spotOpacity');
+    if (spotOpacityElem) {
+      spotOpacityElem.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        this.stageLights.setOpacity(val);
+        if (spotOpacityVal) spotOpacityVal.textContent = val.toFixed(2);
+      });
+    }
+
+    const spotSpeedElem = document.getElementById('ctrl-spotSpeed');
+    const spotSpeedVal = document.getElementById('val-spotSpeed');
+    if (spotSpeedElem) {
+      spotSpeedElem.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        this.stageLights.setSpeed(val);
+        if (spotSpeedVal) spotSpeedVal.textContent = val.toFixed(1);
+      });
+    }
 
     // Auto Chaos & Auto-Morph Custom Playlist buttons
     const chaosBtn = document.getElementById('btn-chaos');
