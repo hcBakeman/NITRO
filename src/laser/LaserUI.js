@@ -177,22 +177,6 @@ export class LaserUI {
           <div class="ui-row">
             <label>Morph Duration (<span id="val-morphDuration">1.5</span>s)</label>
             <input type="range" id="ctrl-morphDuration" min="0.3" max="4.0" step="0.1" value="1.5">
-          </div>
-        </div>
-
-        <div class="ui-section">
-          <div class="section-title">💡 Moving Head Stage Lights</div>
-          <div class="ui-row-check">
-            <label><input type="checkbox" id="chk-stagelights" checked> 💡 Moving Head Spotlights ON / OFF</label>
-          </div>
-          <div class="ui-row">
-            <label>Spotlight Glow Brightness (<span id="val-spotOpacity">0.15</span>)</label>
-            <input type="range" id="ctrl-spotOpacity" min="0.0" max="0.6" step="0.02" value="0.15">
-          </div>
-          <div class="ui-row">
-            <label>Moving Head Sweep Speed (<span id="val-spotSpeed">1.0</span>)</label>
-            <input type="range" id="ctrl-spotSpeed" min="0.0" max="3.0" step="0.1" value="1.0">
-          </div>
         </div>
 
         <div class="ui-section">
@@ -246,7 +230,6 @@ export class LaserUI {
       url.searchParams.set('sp', (p.spiral || 0).toFixed(2));
       url.searchParams.set('ss', (p.strobeSpeed || 0).toFixed(2));
       url.searchParams.set('sd', (p.strobeDuty || 0.5).toFixed(2));
-      url.searchParams.set('spots', this.stageLights.enabled ? '1' : '0');
 
       const state = {
         bt: p.beamType,
@@ -276,10 +259,7 @@ export class LaserUI {
         sd: Number((p.strobeDuty || 0.5).toFixed(2)),
         pc: p.pureColor > 0.5 ? 1 : 0,
         bm: Number((this.laserEngine.bloomPass ? this.laserEngine.bloomPass.strength : 0.85).toFixed(2)),
-        fd: Number((this.atmosphere ? this.atmosphere.fogParticles?.material?.opacity * 2.5 : 0.5).toFixed(2)),
-        spots: this.stageLights.enabled ? 1 : 0,
-        so: Number((this.stageLights.params.opacity || 0.15).toFixed(2)),
-        spSpeed: Number((this.stageLights.params.speed || 1.0).toFixed(2))
+        fd: Number((this.atmosphere ? this.atmosphere.fogParticles?.material?.opacity * 2.5 : 0.5).toFixed(2))
       };
 
       const base64Str = btoa(JSON.stringify(state));
@@ -386,27 +366,6 @@ export class LaserUI {
     if (copyUrlBtn) copyUrlBtn.addEventListener('click', () => this.copyURLToClipboard());
     if (copyUrlHdrBtn) copyUrlHdrBtn.addEventListener('click', () => this.copyURLToClipboard());
     if (shareInput) shareInput.addEventListener('click', () => this.copyURLToClipboard());
-
-    // Moving Head Spotlight Controls
-    const spotOpacityElem = document.getElementById('ctrl-spotOpacity');
-    const spotOpacityVal = document.getElementById('val-spotOpacity');
-    if (spotOpacityElem) {
-      spotOpacityElem.addEventListener('input', (e) => {
-        const val = parseFloat(e.target.value);
-        this.stageLights.setOpacity(val);
-        if (spotOpacityVal) spotOpacityVal.textContent = val.toFixed(2);
-      });
-    }
-
-    const spotSpeedElem = document.getElementById('ctrl-spotSpeed');
-    const spotSpeedVal = document.getElementById('val-spotSpeed');
-    if (spotSpeedElem) {
-      spotSpeedElem.addEventListener('input', (e) => {
-        const val = parseFloat(e.target.value);
-        this.stageLights.setSpeed(val);
-        if (spotSpeedVal) spotSpeedVal.textContent = val.toFixed(1);
-      });
-    }
 
     // Auto Chaos & Auto-Morph Custom Playlist buttons
     const chaosBtn = document.getElementById('btn-chaos');
@@ -567,11 +526,6 @@ export class LaserUI {
         document.getElementById('chk-blackmode').checked = false;
       }
       this.laserEngine.setTransparent(e.target.checked);
-      this.updateShareableURLInput();
-    });
-
-    document.getElementById('chk-stagelights').addEventListener('change', (e) => {
-      this.stageLights.setUserDisabled(!e.target.checked);
       this.updateShareableURLInput();
     });
 

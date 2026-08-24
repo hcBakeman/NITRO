@@ -49,8 +49,8 @@ export class StageLights {
     this.lightGroup = new THREE.Group();
     this.scene.add(this.lightGroup);
 
-    this.enabled = true;
-    this.userDisabled = false;
+    this.enabled = false;
+    this.userDisabled = true;
     this.spotlights = [];
     this.spotCount = 6;
 
@@ -62,6 +62,7 @@ export class StageLights {
     };
 
     this.initLights();
+    this.lightGroup.visible = false;
   }
 
   dispose() {
