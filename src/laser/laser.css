@@ -41,7 +41,7 @@ html, body {
   position: absolute;
   top: 20px;
   right: 20px;
-  width: 390px;
+  width: 470px;
   max-height: calc(100vh - 40px);
   background: var(--bg-glass);
   backdrop-filter: blur(16px);
@@ -618,9 +618,18 @@ html, body {
   gap: 12px;
 }
 
+.ui-row > label:first-child {
+  color: var(--text-muted);
+  flex: 0 0 175px;
+  white-space: nowrap;
+  font-size: 0.73rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .ui-row label {
   color: var(--text-muted);
-  flex: 1;
 }
 
 .ui-row input[type="range"] {
