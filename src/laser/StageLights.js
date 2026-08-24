@@ -50,6 +50,7 @@ export class StageLights {
     this.scene.add(this.lightGroup);
 
     this.enabled = true;
+    this.userDisabled = false;
     this.spotlights = [];
     this.spotCount = 6;
 
@@ -165,8 +166,24 @@ export class StageLights {
   }
 
   setVisible(visible) {
+    if (this.userDisabled) {
+      this.enabled = false;
+      this.lightGroup.visible = false;
+      return;
+    }
     this.enabled = visible;
     this.lightGroup.visible = visible;
+  }
+
+  setUserDisabled(disabled) {
+    this.userDisabled = disabled;
+    if (disabled) {
+      this.enabled = false;
+      this.lightGroup.visible = false;
+    } else {
+      this.enabled = true;
+      this.lightGroup.visible = true;
+    }
   }
 
   setOpacity(opacity) {

@@ -222,6 +222,28 @@ export class LaserUI {
       const url = new URL(window.location.href);
       const p = this.laserBeams.params;
 
+      const currentPreset = this.randomizer.getCurrentPreset();
+      if (currentPreset && (currentPreset.key || currentPreset.id)) {
+        url.searchParams.set('preset', currentPreset.key || currentPreset.id);
+      }
+
+      // Explicit human-readable parameters
+      url.searchParams.set('bt', p.beamType);
+      url.searchParams.set('bc', p.beamCount);
+      url.searchParams.set('th', p.thickness.toFixed(3));
+      url.searchParams.set('rad', p.radius.toFixed(2));
+      url.searchParams.set('c1', p.color1.replace('#', ''));
+      url.searchParams.set('c2', p.color2.replace('#', ''));
+      url.searchParams.set('int', p.intensity.toFixed(2));
+      url.searchParams.set('bm', (this.laserEngine.bloomPass ? this.laserEngine.bloomPass.strength : 0.85).toFixed(2));
+      url.searchParams.set('ry', (p.rotSpeedY || 0).toFixed(2));
+      url.searchParams.set('sw', (p.sweepSpeed || 0).toFixed(2));
+      url.searchParams.set('wa', (p.wobbleAmp || 0).toFixed(2));
+      url.searchParams.set('sp', (p.spiral || 0).toFixed(2));
+      url.searchParams.set('ss', (p.strobeSpeed || 0).toFixed(2));
+      url.searchParams.set('sd', (p.strobeDuty || 0.5).toFixed(2));
+      url.searchParams.set('spots', this.stageLights.enabled ? '1' : '0');
+
       const state = {
         bt: p.beamType,
         bc: p.beamCount,
@@ -519,7 +541,8 @@ export class LaserUI {
     });
 
     document.getElementById('chk-stagelights').addEventListener('change', (e) => {
-      this.stageLights.setVisible(e.target.checked);
+      this.stageLights.setUserDisabled(!e.target.checked);
+      this.updateShareableURLInput();
     });
 
     document.getElementById('chk-audio').addEventListener('change', async (e) => {

@@ -400,14 +400,16 @@ export class LaserBeams {
       rot: new THREE.Euler().copy(mesh.rotation)
     }));
 
-    // Temporary param clone to compute target 3D positions
+    // Temporary param clone to compute target 3D positions without mutating this.params reference
     const tempParams = { ...this.params, ...targetParams };
-    const savedParams = { ...this.params };
-    this.params = tempParams;
 
     const count = children.length;
     this.morphTargetTransforms = [];
     const dummy = new THREE.Object3D();
+
+    // Preserve active params while computing dummy target positions
+    const activeBeamType = this.params.beamType;
+    this.params.beamType = tempParams.beamType;
 
     for (let i = 0; i < count; i++) {
       const tRatio = i / count;
@@ -420,8 +422,7 @@ export class LaserBeams {
       });
     }
 
-    // Restore current active params
-    this.params = savedParams;
+    this.params.beamType = activeBeamType;
   }
 
   update(delta, elapsedSeconds) {
