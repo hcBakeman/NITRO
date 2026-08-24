@@ -55,6 +55,7 @@ export class Randomizer {
 
     const id = Math.floor(Math.random() * 9000000) + 1000000; // 7-digit Preset ID
     const cur = this.laserBeams ? this.laserBeams.params : {};
+    const engineBloom = (this.laserEngine && this.laserEngine.bloomPass) ? this.laserEngine.bloomPass.strength : 0.85;
 
     return {
       id: id,
@@ -71,25 +72,25 @@ export class Randomizer {
       phaseOffset: THREE.MathUtils.randFloat(0, Math.PI * 2),
 
       rotSpeedX: THREE.MathUtils.randFloat(-0.8, 0.8),
-      rotSpeedY: THREE.MathUtils.randFloat(-0.8, 0.8),
+      rotSpeedY: this.isParamLocked('rotSpeedY') ? (cur.rotSpeedY !== undefined ? cur.rotSpeedY : 0.3) : THREE.MathUtils.randFloat(-0.8, 0.8),
       rotSpeedZ: THREE.MathUtils.randFloat(-0.5, 0.5),
-      sweepSpeed: THREE.MathUtils.randFloat(0.0, 1.2),
+      sweepSpeed: this.isParamLocked('sweepSpeed') ? (cur.sweepSpeed || 0) : THREE.MathUtils.randFloat(0.0, 1.2),
       sweepAngle: THREE.MathUtils.randFloat(0.2, 1.2),
       wobbleFreq: THREE.MathUtils.randFloat(2.0, 15.0),
-      wobbleAmp: Math.random() > 0.4 ? THREE.MathUtils.randFloat(0.1, 0.8) : 0.0,
-      spiral: Math.random() > 0.6 ? THREE.MathUtils.randFloat(0.2, 1.5) : 0.0,
+      wobbleAmp: this.isParamLocked('wobbleAmp') ? (cur.wobbleAmp || 0) : (Math.random() > 0.4 ? THREE.MathUtils.randFloat(0.1, 0.8) : 0.0),
+      spiral: this.isParamLocked('spiral') ? (cur.spiral || 0) : (Math.random() > 0.6 ? THREE.MathUtils.randFloat(0.2, 1.5) : 0.0),
 
-      color1: palette.c1,
-      color2: palette.c2,
+      color1: this.isParamLocked('color1') ? (cur.color1 || '#00ffcc') : palette.c1,
+      color2: this.isParamLocked('color2') ? (cur.color2 || '#ff007f') : palette.c2,
       colorBlend: THREE.MathUtils.randFloat(0.2, 1.0),
-      rainbowSpeed: isRainbow ? THREE.MathUtils.randFloat(0.5, 2.5) : 0.0,
-      intensity: THREE.MathUtils.randFloat(0.2, 0.5),
+      rainbowSpeed: this.isParamLocked('rainbowSpeed') ? (cur.rainbowSpeed || 0) : (isRainbow ? THREE.MathUtils.randFloat(0.5, 2.5) : 0.0),
+      intensity: this.isParamLocked('intensity') ? (cur.intensity || 0.4) : THREE.MathUtils.randFloat(0.2, 0.5),
 
-      strobeSpeed: isStrobe ? THREE.MathUtils.randFloat(1.0, 8.0) : 0.0,
-      strobeDuty: THREE.MathUtils.randFloat(0.2, 0.7),
+      strobeSpeed: this.isParamLocked('strobeSpeed') ? (cur.strobeSpeed || 0) : (isStrobe ? THREE.MathUtils.randFloat(1.0, 8.0) : 0.0),
+      strobeDuty: this.isParamLocked('strobeDuty') ? (cur.strobeDuty !== undefined ? cur.strobeDuty : 0.5) : THREE.MathUtils.randFloat(0.2, 0.7),
 
       patternSize: this.isParamLocked('patternSize') ? (cur.patternSize || 1.0) : THREE.MathUtils.randFloat(0.6, 1.8),
-      bloomStrength: THREE.MathUtils.randFloat(0.1, 0.5)
+      bloomStrength: this.isParamLocked('bloomStrength') ? engineBloom : THREE.MathUtils.randFloat(0.1, 0.5)
     };
   }
 

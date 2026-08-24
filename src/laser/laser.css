@@ -332,38 +332,35 @@ html, body {
   min-width: 0;
 }
 
-.lock-toggle {
+.btn-lock-toggle {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  padding: 0;
   display: flex;
   align-items: center;
-  gap: 3px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-  user-select: none;
+  justify-content: center;
   background: rgba(255, 255, 255, 0.05);
-  padding: 4px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  transition: all 0.2s ease;
-}
-
-.lock-toggle:hover {
-  background: rgba(255, 204, 0, 0.15);
-  border-color: #ffcc00;
-  color: #ffcc00;
-}
-
-.lock-toggle input[type="checkbox"] {
-  accent-color: #ffcc00;
+  font-size: 0.82rem;
   cursor: pointer;
+  opacity: 0.5;
+  transition: all 0.2s ease;
+  user-select: none;
 }
 
-.lock-toggle:has(input[type="checkbox"]:checked) {
-  background: rgba(255, 204, 0, 0.2);
+.btn-lock-toggle:hover {
+  opacity: 0.9;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.btn-lock-toggle.locked {
+  opacity: 1;
+  background: rgba(255, 204, 0, 0.25);
   border-color: #ffcc00;
-  color: #ffcc00;
-  box-shadow: 0 0 10px rgba(255, 204, 0, 0.35);
+  box-shadow: 0 0 10px rgba(255, 204, 0, 0.4);
 }
 
 .ui-url-share-box {

@@ -103,35 +103,35 @@ export class LaserUI {
                 <option value="starburst">Starburst Radial</option>
                 <option value="wave">Wave Ray Array</option>
               </select>
-              <label class="lock-toggle" title="Lock Pattern Type during Randomize"><input type="checkbox" class="chk-param-lock" data-param="beamType"> 🔒</label>
+              <button type="button" class="btn-lock-toggle" data-param="beamType" title="Lock/Unlock Pattern Type during Randomize">🔓</button>
             </div>
           </div>
           <div class="ui-row">
             <label>Beam Count (<span id="val-beamCount">64</span>)</label>
             <div class="ui-control-with-lock">
               <input type="range" id="ctrl-beamCount" min="4" max="128" step="4" value="64">
-              <label class="lock-toggle" title="Lock Beam Count during Randomize"><input type="checkbox" class="chk-param-lock" data-param="beamCount"> 🔒</label>
+              <button type="button" class="btn-lock-toggle" data-param="beamCount" title="Lock/Unlock Beam Count during Randomize">🔓</button>
             </div>
           </div>
           <div class="ui-row">
             <label>Thickness (<span id="val-thickness">0.12</span>)</label>
             <div class="ui-control-with-lock">
               <input type="range" id="ctrl-thickness" min="0.04" max="0.30" step="0.01" value="0.12">
-              <label class="lock-toggle" title="Lock Thickness during Randomize"><input type="checkbox" class="chk-param-lock" data-param="thickness"> 🔒</label>
+              <button type="button" class="btn-lock-toggle" data-param="thickness" title="Lock/Unlock Thickness during Randomize">🔓</button>
             </div>
           </div>
           <div class="ui-row">
             <label>Pattern Radius (<span id="val-radius">6</span>)</label>
             <div class="ui-control-with-lock">
               <input type="range" id="ctrl-radius" min="2" max="15" step="0.5" value="6">
-              <label class="lock-toggle" title="Lock Pattern Radius during Randomize"><input type="checkbox" class="chk-param-lock" data-param="radius"> 🔒</label>
+              <button type="button" class="btn-lock-toggle" data-param="radius" title="Lock/Unlock Radius during Randomize">🔓</button>
             </div>
           </div>
           <div class="ui-row">
             <label>Overall Pattern Size (<span id="val-patternSize">1.0</span>x)</label>
             <div class="ui-control-with-lock">
               <input type="range" id="ctrl-patternSize" min="0.2" max="3.0" step="0.1" value="1.0">
-              <label class="lock-toggle" title="Lock Pattern Size during Randomize"><input type="checkbox" class="chk-param-lock" data-param="patternSize"> 🔒</label>
+              <button type="button" class="btn-lock-toggle" data-param="patternSize" title="Lock/Unlock Pattern Size during Randomize">🔓</button>
             </div>
           </div>
         </div>
@@ -140,23 +140,38 @@ export class LaserUI {
           <div class="section-title">🎨 Color & Rainbow Diode</div>
           <div class="ui-row">
             <label>Primary Laser</label>
-            <input type="color" id="ctrl-color1" value="#00ffcc">
+            <div class="ui-control-with-lock">
+              <input type="color" id="ctrl-color1" value="#00ffcc">
+              <button type="button" class="btn-lock-toggle" data-param="color1" title="Lock/Unlock Primary Laser Color during Randomize">🔓</button>
+            </div>
           </div>
           <div class="ui-row">
             <label>Secondary Laser</label>
-            <input type="color" id="ctrl-color2" value="#ff007f">
+            <div class="ui-control-with-lock">
+              <input type="color" id="ctrl-color2" value="#ff007f">
+              <button type="button" class="btn-lock-toggle" data-param="color2" title="Lock/Unlock Secondary Laser Color during Randomize">🔓</button>
+            </div>
           </div>
           <div class="ui-row">
             <label>Rainbow Cycle (<span id="val-rainbowSpeed">0.0</span>)</label>
-            <input type="range" id="ctrl-rainbowSpeed" min="0" max="3" step="0.1" value="0">
+            <div class="ui-control-with-lock">
+              <input type="range" id="ctrl-rainbowSpeed" min="0" max="3" step="0.1" value="0">
+              <button type="button" class="btn-lock-toggle" data-param="rainbowSpeed" title="Lock/Unlock Rainbow Cycle during Randomize">🔓</button>
+            </div>
           </div>
           <div class="ui-row">
             <label>Intensity Brightness (<span id="val-intensity">1.2</span>)</label>
-            <input type="range" id="ctrl-intensity" min="0.2" max="2.5" step="0.05" value="1.2">
+            <div class="ui-control-with-lock">
+              <input type="range" id="ctrl-intensity" min="0.2" max="2.5" step="0.05" value="1.2">
+              <button type="button" class="btn-lock-toggle" data-param="intensity" title="Lock/Unlock Intensity Brightness during Randomize">🔓</button>
+            </div>
           </div>
           <div class="ui-row">
             <label>Bloom Glow Strength (<span id="val-bloom">0.85</span>)</label>
-            <input type="range" id="ctrl-bloom" min="0.0" max="2.5" step="0.05" value="0.85">
+            <div class="ui-control-with-lock">
+              <input type="range" id="ctrl-bloom" min="0.0" max="2.5" step="0.05" value="0.85">
+              <button type="button" class="btn-lock-toggle" data-param="bloomStrength" title="Lock/Unlock Bloom Glow Strength during Randomize">🔓</button>
+            </div>
           </div>
         </div>
 
@@ -164,27 +179,45 @@ export class LaserUI {
           <div class="section-title">⚡ Motion, Sweep & Strobe</div>
           <div class="ui-row">
             <label>3D Rotation Speed (<span id="val-rotSpeedY">0.3</span>)</label>
-            <input type="range" id="ctrl-rotSpeedY" min="-3.0" max="3.0" step="0.1" value="0.3">
+            <div class="ui-control-with-lock">
+              <input type="range" id="ctrl-rotSpeedY" min="-3.0" max="3.0" step="0.1" value="0.3">
+              <button type="button" class="btn-lock-toggle" data-param="rotSpeedY" title="Lock/Unlock 3D Rotation Speed during Randomize">🔓</button>
+            </div>
           </div>
           <div class="ui-row">
             <label>Sweep Angle Speed (<span id="val-sweepSpeed">0.5</span>)</label>
-            <input type="range" id="ctrl-sweepSpeed" min="0" max="3.0" step="0.1" value="0.5">
+            <div class="ui-control-with-lock">
+              <input type="range" id="ctrl-sweepSpeed" min="0" max="3.0" step="0.1" value="0.5">
+              <button type="button" class="btn-lock-toggle" data-param="sweepSpeed" title="Lock/Unlock Sweep Speed during Randomize">🔓</button>
+            </div>
           </div>
           <div class="ui-row">
             <label>Wobble Wave Amplitude (<span id="val-wobbleAmp">0.3</span>)</label>
-            <input type="range" id="ctrl-wobbleAmp" min="0" max="1.5" step="0.05" value="0.3">
+            <div class="ui-control-with-lock">
+              <input type="range" id="ctrl-wobbleAmp" min="0" max="1.5" step="0.05" value="0.3">
+              <button type="button" class="btn-lock-toggle" data-param="wobbleAmp" title="Lock/Unlock Wobble Amplitude during Randomize">🔓</button>
+            </div>
           </div>
           <div class="ui-row">
             <label>Spiral Twist (<span id="val-spiral">0.0</span>)</label>
-            <input type="range" id="ctrl-spiral" min="0" max="3.0" step="0.1" value="0">
+            <div class="ui-control-with-lock">
+              <input type="range" id="ctrl-spiral" min="0" max="3.0" step="0.1" value="0">
+              <button type="button" class="btn-lock-toggle" data-param="spiral" title="Lock/Unlock Spiral Twist during Randomize">🔓</button>
+            </div>
           </div>
           <div class="ui-row">
             <label>Strobe Flash Rate (<span id="val-strobeSpeed">0.0</span> Hz)</label>
-            <input type="range" id="ctrl-strobeSpeed" min="0" max="20.0" step="0.5" value="0">
+            <div class="ui-control-with-lock">
+              <input type="range" id="ctrl-strobeSpeed" min="0" max="20.0" step="0.5" value="0">
+              <button type="button" class="btn-lock-toggle" data-param="strobeSpeed" title="Lock/Unlock Strobe Flash Rate during Randomize">🔓</button>
+            </div>
           </div>
           <div class="ui-row">
             <label>Strobe Duty Width (<span id="val-strobeDuty">0.5</span>)</label>
-            <input type="range" id="ctrl-strobeDuty" min="0.05" max="0.95" step="0.05" value="0.5">
+            <div class="ui-control-with-lock">
+              <input type="range" id="ctrl-strobeDuty" min="0.05" max="0.95" step="0.05" value="0.5">
+              <button type="button" class="btn-lock-toggle" data-param="strobeDuty" title="Lock/Unlock Strobe Duty Width during Randomize">🔓</button>
+            </div>
           </div>
           <div class="ui-row-check">
             <label><input type="checkbox" id="chk-morph"> 🌀 Smooth Preset Morphing [Hotkey: M]</label>
@@ -192,7 +225,7 @@ export class LaserUI {
           <div class="ui-row">
             <label>Morph Duration (<span id="val-morphDuration">1.5</span>s)</label>
             <input type="range" id="ctrl-morphDuration" min="0.3" max="4.0" step="0.1" value="1.5">
-        </div>
+          </div>
 
         <div class="ui-section">
           <div class="section-title">🖥️ Stage Background & OBS Settings</div>
@@ -509,12 +542,17 @@ export class LaserUI {
       document.getElementById('val-morphDuration').textContent = val.toFixed(1);
     });
 
-    // Parameter Lock Checkboxes (🔒)
-    document.querySelectorAll('.chk-param-lock').forEach(chk => {
-      chk.addEventListener('change', (e) => {
+    // Parameter Lock Buttons (🔓 / 🔒)
+    document.querySelectorAll('.btn-lock-toggle').forEach(btn => {
+      btn.addEventListener('click', (e) => {
         const param = e.target.getAttribute('data-param');
         if (param) {
-          this.randomizer.setParamLock(param, e.target.checked);
+          const isCurrentlyLocked = this.randomizer.isParamLocked(param);
+          const newLockedState = !isCurrentlyLocked;
+          this.randomizer.setParamLock(param, newLockedState);
+          
+          e.target.classList.toggle('locked', newLockedState);
+          e.target.textContent = newLockedState ? '🔒' : '🔓';
         }
       });
     });
