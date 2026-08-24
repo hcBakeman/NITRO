@@ -343,7 +343,6 @@ export class LaserUI {
     const current = this.randomizer.getCurrentPreset();
     const badge = document.getElementById('preset-id-badge');
     const counter = document.getElementById('preset-counter-badge');
-    const selectElem = document.getElementById('select-preset');
 
     if (current && badge && counter) {
       const presetName = current.name || `Preset #${current.id}`;
@@ -351,17 +350,6 @@ export class LaserUI {
       const total = this.randomizer.history.length;
       const idx = this.randomizer.historyIndex + 1;
       counter.textContent = `(${idx} of ${total})`;
-
-      if (selectElem) {
-        let randOpt = selectElem.querySelector('option[value="current_random"]');
-        if (!randOpt) {
-          randOpt = document.createElement('option');
-          randOpt.value = 'current_random';
-          selectElem.insertBefore(randOpt, selectElem.firstChild);
-        }
-        randOpt.textContent = `🎲 ${presetName}`;
-        selectElem.value = current.key || 'current_random';
-      }
     }
     this.updateShareableURLInput();
   }
@@ -779,8 +767,6 @@ export class LaserUI {
       dutyElem.value = duty;
       if (dutyVal) dutyVal.textContent = duty.toFixed(2);
     }
-
-    document.getElementById('chk-purecolor').checked = p.pureColor > 0.5;
 
     this.updatePresetBadge();
   }
