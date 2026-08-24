@@ -137,9 +137,15 @@ html, body {
 .ui-body {
   padding: 16px 20px;
   overflow-y: auto;
+  max-height: calc(100vh - 90px);
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  pointer-events: auto;
 }
 
 .ui-body::-webkit-scrollbar {
@@ -148,6 +154,29 @@ html, body {
 .ui-body::-webkit-scrollbar-thumb {
   background: rgba(0, 255, 204, 0.3);
   border-radius: 4px;
+}
+
+.btn-toggle-sub {
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  color: var(--text-muted);
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-toggle-sub:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-color: var(--primary-neon);
+}
+
+.custom-presets-container.collapsed {
+  display: none !important;
 }
 
 /* Preset Navigation Card */

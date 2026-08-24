@@ -79,9 +79,10 @@ export class LaserUI {
             <input type="text" id="input-preset-hotkey" placeholder="Key (e.g. 1, q, f)" maxlength="5" class="ui-input-key" title="Custom Hotkey">
           </div>
           <button id="btn-save-custom-preset" class="btn-save">+ Save Current Effect & Bind Hotkey</button>
+          <button id="btn-toggle-saved-list" class="btn-toggle-sub" title="Click to expand/collapse saved preset cards list">📁 View / Edit Saved Preset Cards (<span id="saved-count-badge">0</span>) <span id="saved-list-arrow">▼</span></button>
 
-          <!-- List of Custom Presets -->
-          <div id="custom-presets-list" class="custom-presets-container">
+          <!-- List of Custom Presets (Collapsed by default to keep UI clean) -->
+          <div id="custom-presets-list" class="custom-presets-container collapsed">
             <!-- Dynamically populated -->
           </div>
         </div>
@@ -141,9 +142,6 @@ export class LaserUI {
           <div class="ui-row">
             <label>Bloom Glow Strength (<span id="val-bloom">0.85</span>)</label>
             <input type="range" id="ctrl-bloom" min="0.0" max="2.5" step="0.05" value="0.85">
-          </div>
-          <div class="ui-row-check">
-            <label><input type="checkbox" id="chk-purecolor" checked> 🌈 Pure Saturated Colors (No White Bleach)</label>
           </div>
         </div>
 
@@ -549,17 +547,21 @@ export class LaserUI {
       document.getElementById('val-morphDuration').textContent = val.toFixed(1);
     });
 
-    // Checkboxes
-    document.getElementById('chk-purecolor').addEventListener('change', (e) => {
-      const val = e.target.checked ? 1.0 : 0.0;
-      this.laserBeams.params.pureColor = val;
-      if (this.laserBeams.isMorphing) {
-        this.laserBeams.morphTargetParams.pureColor = val;
-        this.laserBeams.morphStartParams.pureColor = val;
-      }
-      this.laserBeams.updateUniforms();
-      this.updateShareableURLInput();
-    });
+    // Prevent wheel scrolling from being intercepted by canvas or OrbitControls
+    this.container.addEventListener('wheel', (e) => {
+      e.stopPropagation();
+    }, { passive: true });
+
+    // Collapsible Saved Presets Cards Toggle
+    const toggleSavedBtn = document.getElementById('btn-toggle-saved-list');
+    const savedListElem = document.getElementById('custom-presets-list');
+    const savedArrowElem = document.getElementById('saved-list-arrow');
+    if (toggleSavedBtn && savedListElem) {
+      toggleSavedBtn.addEventListener('click', () => {
+        const isCollapsed = savedListElem.classList.toggle('collapsed');
+        if (savedArrowElem) savedArrowElem.textContent = isCollapsed ? '▼' : '▲';
+      });
+    }
 
     document.getElementById('chk-blackmode').addEventListener('change', (e) => {
       if (e.target.checked) {
@@ -622,8 +624,10 @@ export class LaserUI {
   updateCustomPresetsUI() {
     const listContainer = document.getElementById('custom-presets-list');
     const optGroup = document.getElementById('optgroup-custom-presets');
+    const countBadge = document.getElementById('saved-count-badge');
 
     const customPresets = this.presetManager.getCustomPresets();
+    if (countBadge) countBadge.textContent = customPresets.length.toString();
 
     // Update Dropdown optgroup
     if (optGroup) {
