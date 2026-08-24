@@ -727,6 +727,13 @@ export class LaserUI {
     document.getElementById('ctrl-radius').value = p.radius;
     document.getElementById('val-radius').textContent = p.radius;
 
+    const patternSizeElem = document.getElementById('ctrl-patternSize');
+    const patternSizeVal = document.getElementById('val-patternSize');
+    if (patternSizeElem) {
+      patternSizeElem.value = p.patternSize !== undefined ? p.patternSize : 1.0;
+      if (patternSizeVal) patternSizeVal.textContent = (p.patternSize !== undefined ? p.patternSize : 1.0).toFixed(1);
+    }
+
     document.getElementById('ctrl-color1').value = p.color1;
     document.getElementById('ctrl-color2').value = p.color2;
 
@@ -738,9 +745,10 @@ export class LaserUI {
 
     const bloomElem = document.getElementById('ctrl-bloom');
     const bloomVal = document.getElementById('val-bloom');
-    if (bloomElem && this.laserEngine.bloomPass) {
-      bloomElem.value = this.laserEngine.bloomPass.strength;
-      if (bloomVal) bloomVal.textContent = this.laserEngine.bloomPass.strength.toFixed(2);
+    const targetBloom = p.bloomStrength !== undefined ? p.bloomStrength : (p.bloom !== undefined ? p.bloom : (this.laserEngine.bloomPass ? this.laserEngine.bloomPass.strength : 0.85));
+    if (bloomElem) {
+      bloomElem.value = targetBloom;
+      if (bloomVal) bloomVal.textContent = targetBloom.toFixed(2);
     }
 
     document.getElementById('ctrl-rotSpeedY').value = p.rotSpeedY !== undefined ? p.rotSpeedY : 0.3;
