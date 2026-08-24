@@ -70,13 +70,6 @@ export class LaserEngine {
     this.ambientLight = new THREE.AmbientLight(0x111122, 0.5);
     this.scene.add(this.ambientLight);
 
-    // Stage Ground (Optional Grid for stage visual)
-    this.gridHelper = new THREE.GridHelper(50, 50, 0x00ffff, 0x222244);
-    this.gridHelper.position.y = -4;
-    this.gridHelper.material.opacity = 0.25;
-    this.gridHelper.material.transparent = true;
-    this.scene.add(this.gridHelper);
-
     // Listeners
     this._resizeHandler = () => this.onResize();
     window.addEventListener('resize', this._resizeHandler);
@@ -87,11 +80,9 @@ export class LaserEngine {
     if (transparent) {
       this.renderer.setClearColor(0x000000, 0);
       this.scene.background = null;
-      this.gridHelper.visible = false;
     } else {
       this.renderer.setClearColor(0x020208, 1);
       this.scene.background = new THREE.Color(0x020208);
-      this.gridHelper.visible = true;
     }
   }
 

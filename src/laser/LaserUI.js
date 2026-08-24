@@ -568,10 +568,8 @@ export class LaserUI {
         document.getElementById('chk-transparent').checked = false;
         this.laserEngine.setTransparent(false);
         this.laserEngine.scene.background = new THREE.Color(0x000000);
-        this.laserEngine.gridHelper.visible = false;
       } else {
         this.laserEngine.scene.background = new THREE.Color(0x020208);
-        this.laserEngine.gridHelper.visible = true;
       }
       this.updateShareableURLInput();
     });
