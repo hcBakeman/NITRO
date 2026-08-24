@@ -86,8 +86,9 @@ export class LaserEngine {
     }
   }
 
-  setBloomParameters(strength, radius, threshold) {
-    this.bloomPass.strength = strength;
+  setBloomParameters(strength, radius = 0.3, threshold = 0.2) {
+    const safeStrength = (typeof strength === 'number' && !isNaN(strength) && isFinite(strength)) ? Math.max(0.0, Math.min(3.0, strength)) : 0.85;
+    this.bloomPass.strength = safeStrength;
     this.bloomPass.radius = radius;
     this.bloomPass.threshold = threshold;
   }

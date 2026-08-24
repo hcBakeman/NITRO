@@ -491,7 +491,8 @@ export class LaserBeams {
     }
 
     // Apply dynamic 3D scale/size multiplier
-    const sz = this.params.patternSize || 1.0;
+    const rawSz = this.params.patternSize;
+    const sz = (typeof rawSz === 'number' && !isNaN(rawSz) && isFinite(rawSz) && rawSz > 0) ? Math.max(0.1, Math.min(5.0, rawSz)) : 1.0;
     this.beamGroup.scale.set(sz, sz, sz);
 
     // Apply dynamic 3D rotation of laser rig

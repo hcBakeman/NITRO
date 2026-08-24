@@ -729,26 +729,32 @@ export class LaserUI {
 
     const patternSizeElem = document.getElementById('ctrl-patternSize');
     const patternSizeVal = document.getElementById('val-patternSize');
+    const safeSize = (typeof p.patternSize === 'number' && !isNaN(p.patternSize) && p.patternSize > 0) ? p.patternSize : 1.0;
     if (patternSizeElem) {
-      patternSizeElem.value = p.patternSize !== undefined ? p.patternSize : 1.0;
-      if (patternSizeVal) patternSizeVal.textContent = (p.patternSize !== undefined ? p.patternSize : 1.0).toFixed(1);
+      patternSizeElem.value = safeSize;
+      if (patternSizeVal) patternSizeVal.textContent = safeSize.toFixed(1);
     }
 
-    document.getElementById('ctrl-color1').value = p.color1;
-    document.getElementById('ctrl-color2').value = p.color2;
+    document.getElementById('ctrl-color1').value = p.color1 || '#00ffcc';
+    document.getElementById('ctrl-color2').value = p.color2 || '#ff007f';
 
-    document.getElementById('ctrl-rainbowSpeed').value = p.rainbowSpeed;
-    document.getElementById('val-rainbowSpeed').textContent = p.rainbowSpeed.toFixed(1);
+    document.getElementById('ctrl-rainbowSpeed').value = p.rainbowSpeed || 0;
+    document.getElementById('val-rainbowSpeed').textContent = (p.rainbowSpeed || 0).toFixed(1);
 
-    document.getElementById('ctrl-intensity').value = p.intensity;
-    document.getElementById('val-intensity').textContent = p.intensity.toFixed(2);
+    document.getElementById('ctrl-intensity').value = p.intensity || 1.2;
+    document.getElementById('val-intensity').textContent = (p.intensity || 1.2).toFixed(2);
 
     const bloomElem = document.getElementById('ctrl-bloom');
     const bloomVal = document.getElementById('val-bloom');
-    const targetBloom = p.bloomStrength !== undefined ? p.bloomStrength : (p.bloom !== undefined ? p.bloom : (this.laserEngine.bloomPass ? this.laserEngine.bloomPass.strength : 0.85));
+    const rawBloom = p.bloomStrength !== undefined ? p.bloomStrength : (p.bloom !== undefined ? p.bloom : (this.laserEngine.bloomPass ? this.laserEngine.bloomPass.strength : 0.85));
+    const safeBloom = (typeof rawBloom === 'number' && !isNaN(rawBloom) && isFinite(rawBloom)) ? Math.max(0.0, Math.min(3.0, rawBloom)) : 0.85;
+
     if (bloomElem) {
-      bloomElem.value = targetBloom;
-      if (bloomVal) bloomVal.textContent = targetBloom.toFixed(2);
+      bloomElem.value = safeBloom;
+      if (bloomVal) bloomVal.textContent = safeBloom.toFixed(2);
+    }
+    if (this.laserEngine && this.laserEngine.bloomPass) {
+      this.laserEngine.setBloomParameters(safeBloom, 0.3, 0.2);
     }
 
     document.getElementById('ctrl-rotSpeedY').value = p.rotSpeedY !== undefined ? p.rotSpeedY : 0.3;
