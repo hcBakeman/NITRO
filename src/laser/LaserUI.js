@@ -139,23 +139,27 @@ export class LaserUI {
           <div class="section-title">⚡ Motion, Sweep & Strobe</div>
           <div class="ui-row">
             <label>3D Rotation Speed (<span id="val-rotSpeedY">0.3</span>)</label>
-            <input type="range" id="ctrl-rotSpeedY" min="-1.5" max="1.5" step="0.05" value="0.3">
+            <input type="range" id="ctrl-rotSpeedY" min="-3.0" max="3.0" step="0.1" value="0.3">
           </div>
           <div class="ui-row">
             <label>Sweep Pan Speed (<span id="val-sweepSpeed">0.5</span>)</label>
-            <input type="range" id="ctrl-sweepSpeed" min="0" max="2.0" step="0.05" value="0.5">
+            <input type="range" id="ctrl-sweepSpeed" min="0" max="3.0" step="0.1" value="0.5">
           </div>
           <div class="ui-row">
             <label>Wobble Wave (<span id="val-wobbleAmp">0.3</span>)</label>
-            <input type="range" id="ctrl-wobbleAmp" min="0" max="1.0" step="0.05" value="0.3">
+            <input type="range" id="ctrl-wobbleAmp" min="0" max="1.5" step="0.05" value="0.3">
           </div>
           <div class="ui-row">
             <label>Spiral Twist (<span id="val-spiral">0.0</span>)</label>
-            <input type="range" id="ctrl-spiral" min="0" max="2.0" step="0.1" value="0">
+            <input type="range" id="ctrl-spiral" min="0" max="3.0" step="0.1" value="0">
           </div>
           <div class="ui-row">
-            <label>Strobe Flash Rate (<span id="val-strobeSpeed">0.0</span>)</label>
-            <input type="range" id="ctrl-strobeSpeed" min="0" max="10.0" step="0.2" value="0">
+            <label>Strobe Flash Rate (<span id="val-strobeSpeed">0.0</span> Hz)</label>
+            <input type="range" id="ctrl-strobeSpeed" min="0" max="20.0" step="0.5" value="0">
+          </div>
+          <div class="ui-row">
+            <label>Strobe Duty Width (<span id="val-strobeDuty">0.5</span>)</label>
+            <input type="range" id="ctrl-strobeDuty" min="0.05" max="0.95" step="0.05" value="0.5">
           </div>
           <div class="ui-row-check">
             <label><input type="checkbox" id="chk-morph" checked> 🌀 Smooth Preset Morphing [Hotkey: M]</label>
@@ -285,7 +289,8 @@ export class LaserUI {
       { id: 'sweepSpeed', param: 'sweepSpeed', isInt: false, rebuild: false },
       { id: 'wobbleAmp', param: 'wobbleAmp', isInt: false, rebuild: false },
       { id: 'spiral', param: 'spiral', isInt: false, rebuild: false },
-      { id: 'strobeSpeed', param: 'strobeSpeed', isInt: false, rebuild: false }
+      { id: 'strobeSpeed', param: 'strobeSpeed', isInt: false, rebuild: false },
+      { id: 'strobeDuty', param: 'strobeDuty', isInt: false, rebuild: false }
     ];
 
     // Bloom Strength Slider listener
@@ -539,8 +544,28 @@ export class LaserUI {
       if (bloomVal) bloomVal.textContent = this.laserEngine.bloomPass.strength.toFixed(2);
     }
 
+    document.getElementById('ctrl-rotSpeedY').value = p.rotSpeedY !== undefined ? p.rotSpeedY : 0.3;
+    document.getElementById('val-rotSpeedY').textContent = (p.rotSpeedY !== undefined ? p.rotSpeedY : 0.3).toFixed(1);
+
+    document.getElementById('ctrl-sweepSpeed').value = p.sweepSpeed || 0;
+    document.getElementById('val-sweepSpeed').textContent = (p.sweepSpeed || 0).toFixed(1);
+
+    document.getElementById('ctrl-wobbleAmp').value = p.wobbleAmp || 0;
+    document.getElementById('val-wobbleAmp').textContent = (p.wobbleAmp || 0).toFixed(2);
+
+    document.getElementById('ctrl-spiral').value = p.spiral || 0;
+    document.getElementById('val-spiral').textContent = (p.spiral || 0).toFixed(1);
+
     document.getElementById('ctrl-strobeSpeed').value = p.strobeSpeed || 0;
     document.getElementById('val-strobeSpeed').textContent = (p.strobeSpeed || 0).toFixed(1);
+
+    const dutyElem = document.getElementById('ctrl-strobeDuty');
+    const dutyVal = document.getElementById('val-strobeDuty');
+    if (dutyElem) {
+      const duty = p.strobeDuty !== undefined ? p.strobeDuty : 0.5;
+      dutyElem.value = duty;
+      if (dutyVal) dutyVal.textContent = duty.toFixed(2);
+    }
 
     document.getElementById('chk-purecolor').checked = p.pureColor > 0.5;
 

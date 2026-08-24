@@ -73,10 +73,10 @@ const LaserShader = {
       float fresnel = abs(dot(viewDir, normalize(vNormal)));
       float coreGlow = pow(fresnel, 2.2); // Core brightness intensity
 
-      // Strobing effect calculation
+      // Rhythmic 0% to 100% sharp square-wave strobing effect
       float strobe = 1.0;
       if (uStrobeSpeed > 0.01) {
-        float pulse = mod(uTime * uStrobeSpeed * 10.0, 1.0);
+        float pulse = fract(uTime * uStrobeSpeed);
         strobe = step(1.0 - clamp(uStrobeDuty, 0.05, 0.95), pulse);
       }
 
@@ -95,7 +95,7 @@ const LaserShader = {
       
       vec3 laserCoreColor = mix(whiteCoreColor, vibrantColor, clamp(uPureColor, 0.0, 1.0));
 
-      // Audio reactivity boost
+      // Audio reactivity & Instant high-impact strobe blackout
       float effectiveIntensity = uIntensity * (1.0 + uAudioLevel * 0.6) * strobe;
 
       // Gradient fade along length
@@ -484,17 +484,25 @@ export class LaserBeams {
         Object.assign(this.params, target);
         this.rebuildBeams();
       }
+    } else {
+      this.updateUniforms();
     }
 
-    // Apply continuous 3D rotation of entire laser rig
-    this.beamGroup.rotation.x += this.params.rotSpeedX * delta;
-    this.beamGroup.rotation.y += this.params.rotSpeedY * delta;
-    this.beamGroup.rotation.z += this.params.rotSpeedZ * delta;
+    // Apply dynamic 3D rotation of laser rig
+    this.beamGroup.rotation.x += (this.params.rotSpeedX || 0) * delta * 2.0;
+    this.beamGroup.rotation.y += (this.params.rotSpeedY || 0) * delta * 2.0;
+    this.beamGroup.rotation.z += (this.params.rotSpeedZ || 0) * delta * 2.0;
 
-    // Apply sweep pan motion
-    if (Math.abs(this.params.sweepSpeed) > 0.01) {
-      const sweep = Math.sin(elapsedSeconds * this.params.sweepSpeed * 2.0) * this.params.sweepAngle;
-      this.beamGroup.position.x = sweep * 3.0;
+    // Apply high-speed stage scanner sweep pan motion
+    if (Math.abs(this.params.sweepSpeed || 0) > 0.01) {
+      const sweepSpeed = this.params.sweepSpeed || 0.5;
+      const sweepAngle = this.params.sweepAngle || 0.8;
+      const sweepWave = Math.sin(elapsedSeconds * sweepSpeed * 2.5) * sweepAngle;
+      
+      this.beamGroup.rotation.z += sweepWave * 0.02;
+      this.beamGroup.position.x = Math.sin(elapsedSeconds * sweepSpeed * 1.5) * 4.0;
+    } else {
+      this.beamGroup.position.x *= 0.95; // Smooth return to center when sweep is disabled
     }
   }
 }

@@ -10,45 +10,63 @@ export class Atmosphere {
     this.initFog();
   }
 
-  dispose() {
-    if (this.fogParticles) {
-      if (this.fogParticles.geometry) this.fogParticles.geometry.dispose();
-      if (this.fogParticles.material) this.fogParticles.material.dispose();
-      this.scene.remove(this.fogParticles);
-      this.fogParticles = null;
-    }
+  createSoftParticleTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+    grad.addColorStop(0.2, 'rgba(200, 240, 255, 0.8)');
+    grad.addColorStop(0.5, 'rgba(100, 180, 255, 0.25)');
+    grad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 64, 64);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
   }
 
   initFog() {
+    this.particleCount = 1200;
     const geom = new THREE.BufferGeometry();
     const positions = new Float32Array(this.particleCount * 3);
-    const sizes = new Float32Array(this.particleCount);
-    const opacities = new Float32Array(this.particleCount);
 
     for (let i = 0; i < this.particleCount; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 40;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 20 + 2;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 40;
-
-      sizes[i] = Math.random() * 2.5 + 0.5;
-      opacities[i] = Math.random() * 0.4 + 0.1;
+      positions[i * 3] = (Math.random() - 0.5) * 50;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 25 + 2;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 50;
     }
 
     geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geom.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
-    // Particle Haze Material
+    // Particle Haze Material with soft circular texture map
+    this.particleTexture = this.createSoftParticleTexture();
     const mat = new THREE.PointsMaterial({
-      color: 0x88ccff,
-      size: 1.2,
+      color: 0x99ddff,
+      size: 0.35,
+      map: this.particleTexture,
       transparent: true,
-      opacity: 0.25,
+      opacity: 0.3,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
 
     this.fogParticles = new THREE.Points(geom, mat);
     this.scene.add(this.fogParticles);
+  }
+
+  dispose() {
+    if (this.particleTexture) {
+      this.particleTexture.dispose();
+      this.particleTexture = null;
+    }
+    if (this.fogParticles) {
+      if (this.fogParticles.geometry) this.fogParticles.geometry.dispose();
+      if (this.fogParticles.material) this.fogParticles.material.dispose();
+      this.scene.remove(this.fogParticles);
+      this.fogParticles = null;
+    }
   }
 
   setDensity(density) {

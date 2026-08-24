@@ -318,6 +318,18 @@ export class PresetManager {
     return this.customPresets.find(item => item.hotkey === cleanKey) || null;
   }
 
+  updateURLPresetParam(presetKey) {
+    try {
+      if (typeof window !== 'undefined' && window.history && window.location) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('preset', presetKey);
+        window.history.replaceState(null, '', url.toString());
+      }
+    } catch (e) {
+      // Ignore if URL modification is restricted
+    }
+  }
+
   loadCustomPreset(id) {
     const preset = this.customPresets.find(item => item.id === id);
     if (!preset) return false;
@@ -337,15 +349,12 @@ export class PresetManager {
       this.laserBeams.updateUniforms();
       this.laserBeams.rebuildBeams();
     }
+
+    this.updateURLPresetParam(id);
     return true;
   }
 
-  loadPreset(presetKey) {
-    // Check if custom preset ID
-    if (presetKey.startsWith('custom_')) {
-      return this.loadCustomPreset(presetKey);
-    }
-
+  applyFactoryPreset(presetKey) {
     const p = FACTORY_PRESETS[presetKey] || FACTORY_PRESETS.neon_rave;
 
     if (p.bloom !== undefined) {
@@ -367,7 +376,44 @@ export class PresetManager {
       this.laserBeams.updateUniforms();
       this.laserBeams.rebuildBeams();
     }
-    return true;
+  }
+
+  loadPreset(presetQuery) {
+    if (!presetQuery) return false;
+    const cleanQuery = presetQuery.trim();
+
+    // 1. Direct match on custom preset ID
+    const customById = this.customPresets.find(item => item.id === cleanQuery);
+    if (customById) {
+      return this.loadCustomPreset(cleanQuery);
+    }
+
+    // 2. Match on custom preset Name
+    const customByName = this.customPresets.find(item => item.name.toLowerCase() === cleanQuery.toLowerCase());
+    if (customByName) {
+      return this.loadCustomPreset(customByName.id);
+    }
+
+    // 3. Match on Factory Preset Key
+    if (FACTORY_PRESETS[cleanQuery]) {
+      this.applyFactoryPreset(cleanQuery);
+      this.updateURLPresetParam(cleanQuery);
+      return true;
+    }
+
+    // 4. Match on Factory Preset Display Name
+    for (const [key, p] of Object.entries(FACTORY_PRESETS)) {
+      if (p.name.toLowerCase().includes(cleanQuery.toLowerCase()) || key.includes(cleanQuery.toLowerCase())) {
+        this.applyFactoryPreset(key);
+        this.updateURLPresetParam(key);
+        return true;
+      }
+    }
+
+    // Default fallback
+    this.applyFactoryPreset('neon_rave');
+    this.updateURLPresetParam('neon_rave');
+    return false;
   }
 
   exportPresetsJSON() {
