@@ -421,6 +421,7 @@ export class PresetManager {
       const jsonStr = atob(base64Cfg);
       const state = JSON.parse(jsonStr);
 
+      this.laserBeams.isMorphing = false;
       const p = this.laserBeams.params;
       if (state.bt) p.beamType = state.bt;
       if (state.bc) p.beamCount = state.bc;
@@ -471,6 +472,9 @@ export class PresetManager {
         this.stageLights.setSpeed(state.spSpeed);
       }
 
+      this.laserBeams.morphTargetParams = { ...p };
+      this.laserBeams.morphStartParams = { ...p };
+
       this.laserBeams.updateUniforms();
       this.laserBeams.rebuildBeams();
       return true;
@@ -478,6 +482,51 @@ export class PresetManager {
       console.warn('Failed to parse serialized config from URL:', err);
       return false;
     }
+  }
+
+  parseURLParameters(searchParams) {
+    if (!searchParams) return false;
+    this.laserBeams.isMorphing = false;
+
+    const cfg = searchParams.get('cfg');
+    if (cfg) {
+      this.loadSerializedConfig(cfg);
+    }
+
+    const preset = searchParams.get('preset');
+    if (preset && !cfg) {
+      this.loadPreset(preset);
+    }
+
+    const p = this.laserBeams.params;
+    if (searchParams.get('bt')) p.beamType = searchParams.get('bt');
+    if (searchParams.get('bc')) p.beamCount = parseInt(searchParams.get('bc'));
+    if (searchParams.get('th')) p.thickness = parseFloat(searchParams.get('th'));
+    if (searchParams.get('rad')) p.radius = parseFloat(searchParams.get('rad'));
+    if (searchParams.get('c1')) p.color1 = '#' + searchParams.get('c1').replace('#', '');
+    if (searchParams.get('c2')) p.color2 = '#' + searchParams.get('c2').replace('#', '');
+    if (searchParams.get('int')) p.intensity = parseFloat(searchParams.get('int'));
+    if (searchParams.get('ry')) p.rotSpeedY = parseFloat(searchParams.get('ry'));
+    if (searchParams.get('sw')) p.sweepSpeed = parseFloat(searchParams.get('sw'));
+    if (searchParams.get('wa')) p.wobbleAmp = parseFloat(searchParams.get('wa'));
+    if (searchParams.get('sp')) p.spiral = parseFloat(searchParams.get('sp'));
+    if (searchParams.get('ss')) p.strobeSpeed = parseFloat(searchParams.get('ss'));
+    if (searchParams.get('sd')) p.strobeDuty = parseFloat(searchParams.get('sd'));
+
+    if (searchParams.get('bm') && this.laserEngine.bloomPass) {
+      this.laserEngine.setBloomParameters(parseFloat(searchParams.get('bm')), 0.3, 0.2);
+    }
+
+    if (searchParams.get('spots') !== null) {
+      this.stageLights.setVisible(searchParams.get('spots') === '1');
+    }
+
+    this.laserBeams.morphTargetParams = { ...p };
+    this.laserBeams.morphStartParams = { ...p };
+
+    this.laserBeams.updateUniforms();
+    this.laserBeams.rebuildBeams();
+    return true;
   }
 
   exportPresetsJSON() {
