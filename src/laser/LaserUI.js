@@ -290,6 +290,9 @@ export class LaserUI {
       if (isTrans) url.searchParams.set('bg', 'transparent');
       else url.searchParams.delete('bg');
 
+      // OBS Overlay mode: automatically hide menu UI on scene load
+      url.searchParams.set('ui', '0');
+
       return url.toString();
     } catch (e) {
       return window.location.href;
@@ -448,12 +451,13 @@ export class LaserUI {
     });
 
     document.getElementById('ctrl-beamType').addEventListener('change', (e) => {
-      p.beamType = e.target.value;
+      this.laserBeams.params.beamType = e.target.value;
       if (this.laserBeams.isMorphing) {
         this.laserBeams.morphTargetParams.beamType = e.target.value;
         this.laserBeams.morphStartParams.beamType = e.target.value;
       }
       this.laserBeams.rebuildBeams();
+      this.updateShareableURLInput();
     });
 
     // Sliders
@@ -479,6 +483,7 @@ export class LaserUI {
         const val = parseFloat(e.target.value);
         this.laserEngine.setBloomParameters(val, 0.3, 0.2);
         if (bloomVal) bloomVal.textContent = val.toFixed(2);
+        this.updateShareableURLInput();
       });
     }
 
@@ -487,7 +492,7 @@ export class LaserUI {
       const valElem = document.getElementById(`val-${item.id}`);
       elem.addEventListener('input', (e) => {
         const val = item.isInt ? parseInt(e.target.value) : parseFloat(e.target.value);
-        p[item.param] = val;
+        this.laserBeams.params[item.param] = val;
         if (this.laserBeams.isMorphing) {
           this.laserBeams.morphTargetParams[item.param] = val;
           this.laserBeams.morphStartParams[item.param] = val;
@@ -495,12 +500,13 @@ export class LaserUI {
         if (valElem) valElem.textContent = val.toString();
         this.laserBeams.updateUniforms();
         if (item.rebuild) this.laserBeams.rebuildBeams();
+        this.updateShareableURLInput();
       });
     });
 
     // Colors
     document.getElementById('ctrl-color1').addEventListener('input', (e) => {
-      p.color1 = e.target.value;
+      this.laserBeams.params.color1 = e.target.value;
       if (this.laserBeams.isMorphing) {
         this.laserBeams.morphTargetParams.color1 = e.target.value;
         this.laserBeams.morphStartParams.color1 = e.target.value;
@@ -508,9 +514,10 @@ export class LaserUI {
         this.laserBeams.morphStartC1.set(e.target.value);
       }
       this.laserBeams.updateUniforms();
+      this.updateShareableURLInput();
     });
     document.getElementById('ctrl-color2').addEventListener('input', (e) => {
-      p.color2 = e.target.value;
+      this.laserBeams.params.color2 = e.target.value;
       if (this.laserBeams.isMorphing) {
         this.laserBeams.morphTargetParams.color2 = e.target.value;
         this.laserBeams.morphStartParams.color2 = e.target.value;
@@ -518,6 +525,7 @@ export class LaserUI {
         this.laserBeams.morphStartC2.set(e.target.value);
       }
       this.laserBeams.updateUniforms();
+      this.updateShareableURLInput();
     });
 
     // Morphing Controls
@@ -537,12 +545,13 @@ export class LaserUI {
     // Checkboxes
     document.getElementById('chk-purecolor').addEventListener('change', (e) => {
       const val = e.target.checked ? 1.0 : 0.0;
-      p.pureColor = val;
+      this.laserBeams.params.pureColor = val;
       if (this.laserBeams.isMorphing) {
         this.laserBeams.morphTargetParams.pureColor = val;
         this.laserBeams.morphStartParams.pureColor = val;
       }
       this.laserBeams.updateUniforms();
+      this.updateShareableURLInput();
     });
 
     document.getElementById('chk-blackmode').addEventListener('change', (e) => {
@@ -555,6 +564,7 @@ export class LaserUI {
         this.laserEngine.scene.background = new THREE.Color(0x020208);
         this.laserEngine.gridHelper.visible = true;
       }
+      this.updateShareableURLInput();
     });
 
     document.getElementById('chk-transparent').addEventListener('change', (e) => {
@@ -562,6 +572,7 @@ export class LaserUI {
         document.getElementById('chk-blackmode').checked = false;
       }
       this.laserEngine.setTransparent(e.target.checked);
+      this.updateShareableURLInput();
     });
 
     document.getElementById('chk-stagelights').addEventListener('change', (e) => {
