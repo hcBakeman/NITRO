@@ -84,6 +84,25 @@ html, body {
   animation: pulse-glow 1.5s infinite alternate;
 }
 
+.btn-copy-url-hdr {
+  background: rgba(0, 255, 204, 0.15);
+  border: 1px solid var(--primary-neon);
+  color: var(--primary-neon);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-left: 6px;
+  transition: all 0.2s;
+  letter-spacing: 0.05em;
+}
+.btn-copy-url-hdr:hover {
+  background: var(--primary-neon);
+  color: #000;
+  box-shadow: 0 0 12px rgba(0, 255, 204, 0.7);
+}
+
 @keyframes pulse-glow {
   from { opacity: 0.6; box-shadow: 0 0 4px var(--primary-neon); }
   to { opacity: 1.0; box-shadow: 0 0 12px var(--primary-neon); }

@@ -24,7 +24,8 @@ export class LaserUI {
     this.container.innerHTML = `
       <div class="ui-header">
         <div class="ui-title">
-          <span class="laser-dot"></span> VOLUMETRIC LASER STUDIO <span class="obs-badge">OBS READY</span>
+          <span class="laser-dot"></span> VOLUMETRIC LASER STUDIO
+          <button id="btn-copy-url-hdr" class="btn-copy-url-hdr" title="Copy Full 100% Exact Preset URL to Clipboard">📋 COPY URL</button>
         </div>
         <div class="ui-actions">
           <button id="btn-toggle-ui" title="Hide UI (Hotkey: H)">👁️ Hide [H]</button>
@@ -247,20 +248,31 @@ export class LaserUI {
       const state = {
         bt: p.beamType,
         bc: p.beamCount,
+        bl: p.beamLength || 25,
         th: Number(p.thickness.toFixed(3)),
         rad: Number(p.radius.toFixed(2)),
-        c1: p.color1.replace('#', ''),
-        c2: p.color2.replace('#', ''),
-        rs: Number((p.rainbowSpeed || 0).toFixed(2)),
-        int: Number(p.intensity.toFixed(2)),
-        bm: Number((this.laserEngine.bloomPass ? this.laserEngine.bloomPass.strength : 0.85).toFixed(2)),
+        fa: p.freqA || 3,
+        fb: p.freqB || 4,
+        fc: p.freqC || 5,
+        po: p.phaseOffset !== undefined ? Number(p.phaseOffset.toFixed(2)) : 1.57,
+        rx: Number((p.rotSpeedX || 0).toFixed(2)),
         ry: Number((p.rotSpeedY || 0).toFixed(2)),
+        rz: Number((p.rotSpeedZ || 0).toFixed(2)),
         sw: Number((p.sweepSpeed || 0).toFixed(2)),
+        sa: Number((p.sweepAngle || 0.8).toFixed(2)),
+        wf: Number((p.wobbleFreq || 0).toFixed(2)),
         wa: Number((p.wobbleAmp || 0).toFixed(2)),
         sp: Number((p.spiral || 0).toFixed(2)),
+        c1: p.color1.replace('#', ''),
+        c2: p.color2.replace('#', ''),
+        cb: Number((p.colorBlend || 0.8).toFixed(2)),
+        rs: Number((p.rainbowSpeed || 0).toFixed(2)),
+        int: Number(p.intensity.toFixed(2)),
         ss: Number((p.strobeSpeed || 0).toFixed(2)),
         sd: Number((p.strobeDuty || 0.5).toFixed(2)),
         pc: p.pureColor > 0.5 ? 1 : 0,
+        bm: Number((this.laserEngine.bloomPass ? this.laserEngine.bloomPass.strength : 0.85).toFixed(2)),
+        fd: Number((this.atmosphere ? this.atmosphere.fogParticles?.material?.opacity * 2.5 : 0.5).toFixed(2)),
         spots: this.stageLights.enabled ? 1 : 0,
         so: Number((this.stageLights.params.opacity || 0.15).toFixed(2)),
         spSpeed: Number((this.stageLights.params.speed || 1.0).toFixed(2))
@@ -324,12 +336,25 @@ export class LaserUI {
     const current = this.randomizer.getCurrentPreset();
     const badge = document.getElementById('preset-id-badge');
     const counter = document.getElementById('preset-counter-badge');
+    const selectElem = document.getElementById('select-preset');
 
     if (current && badge && counter) {
-      badge.textContent = current.name || `Preset #${current.id}`;
+      const presetName = current.name || `Preset #${current.id}`;
+      badge.textContent = presetName;
       const total = this.randomizer.history.length;
       const idx = this.randomizer.historyIndex + 1;
       counter.textContent = `(${idx} of ${total})`;
+
+      if (selectElem) {
+        let randOpt = selectElem.querySelector('option[value="current_random"]');
+        if (!randOpt) {
+          randOpt = document.createElement('option');
+          randOpt.value = 'current_random';
+          selectElem.insertBefore(randOpt, selectElem.firstChild);
+        }
+        randOpt.textContent = `🎲 ${presetName}`;
+        selectElem.value = current.key || 'current_random';
+      }
     }
     this.updateShareableURLInput();
   }
@@ -358,15 +383,14 @@ export class LaserUI {
       this.updatePresetBadge();
     });
 
-    // Copy URL button listener
+    // Copy URL button listeners (Header and Bar)
     const copyUrlBtn = document.getElementById('btn-copy-url');
+    const copyUrlHdrBtn = document.getElementById('btn-copy-url-hdr');
     const shareInput = document.getElementById('input-share-url');
-    if (copyUrlBtn) {
-      copyUrlBtn.addEventListener('click', () => this.copyURLToClipboard());
-    }
-    if (shareInput) {
-      shareInput.addEventListener('click', () => this.copyURLToClipboard());
-    }
+
+    if (copyUrlBtn) copyUrlBtn.addEventListener('click', () => this.copyURLToClipboard());
+    if (copyUrlHdrBtn) copyUrlHdrBtn.addEventListener('click', () => this.copyURLToClipboard());
+    if (shareInput) shareInput.addEventListener('click', () => this.copyURLToClipboard());
 
     // Moving Head Spotlight Controls
     const spotOpacityElem = document.getElementById('ctrl-spotOpacity');

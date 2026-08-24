@@ -424,22 +424,41 @@ export class PresetManager {
       const p = this.laserBeams.params;
       if (state.bt) p.beamType = state.bt;
       if (state.bc) p.beamCount = state.bc;
+      if (state.bl) p.beamLength = state.bl;
       if (state.th !== undefined) p.thickness = state.th;
       if (state.rad !== undefined) p.radius = state.rad;
-      if (state.c1) p.color1 = '#' + state.c1;
-      if (state.c2) p.color2 = '#' + state.c2;
-      if (state.rs !== undefined) p.rainbowSpeed = state.rs;
-      if (state.int !== undefined) p.intensity = state.int;
+
+      if (state.fa !== undefined) p.freqA = state.fa;
+      if (state.fb !== undefined) p.freqB = state.fb;
+      if (state.fc !== undefined) p.freqC = state.fc;
+      if (state.po !== undefined) p.phaseOffset = state.po;
+
+      if (state.rx !== undefined) p.rotSpeedX = state.rx;
       if (state.ry !== undefined) p.rotSpeedY = state.ry;
+      if (state.rz !== undefined) p.rotSpeedZ = state.rz;
+
       if (state.sw !== undefined) p.sweepSpeed = state.sw;
+      if (state.sa !== undefined) p.sweepAngle = state.sa;
+
+      if (state.wf !== undefined) p.wobbleFreq = state.wf;
       if (state.wa !== undefined) p.wobbleAmp = state.wa;
       if (state.sp !== undefined) p.spiral = state.sp;
+
+      if (state.c1) p.color1 = '#' + state.c1;
+      if (state.c2) p.color2 = '#' + state.c2;
+      if (state.cb !== undefined) p.colorBlend = state.cb;
+      if (state.rs !== undefined) p.rainbowSpeed = state.rs;
+      if (state.int !== undefined) p.intensity = state.int;
       if (state.ss !== undefined) p.strobeSpeed = state.ss;
       if (state.sd !== undefined) p.strobeDuty = state.sd;
       if (state.pc !== undefined) p.pureColor = state.pc;
 
       if (state.bm !== undefined && this.laserEngine.bloomPass) {
         this.laserEngine.setBloomParameters(state.bm, 0.3, 0.2);
+      }
+
+      if (state.fd !== undefined && this.atmosphere) {
+        this.atmosphere.setDensity(state.fd);
       }
 
       if (state.spots !== undefined) {
