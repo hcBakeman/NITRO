@@ -67,13 +67,13 @@ export class Randomizer {
       color2: palette.c2,
       colorBlend: THREE.MathUtils.randFloat(0.2, 1.0),
       rainbowSpeed: isRainbow ? THREE.MathUtils.randFloat(0.5, 2.5) : 0.0,
-      intensity: THREE.MathUtils.randFloat(0.9, 1.5),
+      intensity: THREE.MathUtils.randFloat(0.2, 0.5),
 
       strobeSpeed: isStrobe ? THREE.MathUtils.randFloat(1.0, 8.0) : 0.0,
       strobeDuty: THREE.MathUtils.randFloat(0.2, 0.7),
 
       patternSize: THREE.MathUtils.randFloat(0.6, 1.8),
-      bloomStrength: THREE.MathUtils.randFloat(0.4, 1.3)
+      bloomStrength: THREE.MathUtils.randFloat(0.1, 0.5)
     };
   }
 
