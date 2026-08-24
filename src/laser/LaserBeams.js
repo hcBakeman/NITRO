@@ -152,7 +152,7 @@ export class LaserBeams {
     };
 
     // Smooth Morphing Engine State
-    this.morphEnabled = true;
+    this.morphEnabled = false;
     this.morphDuration = 1.5;
     this.isMorphing = false;
 

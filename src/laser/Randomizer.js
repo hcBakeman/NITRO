@@ -24,12 +24,27 @@ export class Randomizer {
     this.autoChaosInterval = 8.0; // Seconds between random shifts
     this.timer = 0;
 
+    // Parameter Locking System
+    this.lockedParams = new Set();
+
     // Infinite Preset Queue & History System
     this.history = [];
     this.historyIndex = -1;
 
     // Generate initial seed preset
     this.generateNextPreset();
+  }
+
+  setParamLock(paramName, locked) {
+    if (locked) {
+      this.lockedParams.add(paramName);
+    } else {
+      this.lockedParams.delete(paramName);
+    }
+  }
+
+  isParamLocked(paramName) {
+    return this.lockedParams.has(paramName);
   }
 
   // Generate a procedural preset object
@@ -39,15 +54,16 @@ export class Randomizer {
     const palette = PALETTES[Math.floor(Math.random() * PALETTES.length)];
 
     const id = Math.floor(Math.random() * 9000000) + 1000000; // 7-digit Preset ID
+    const cur = this.laserBeams ? this.laserBeams.params : {};
 
     return {
       id: id,
       name: `Preset #${id}`,
-      beamType: BEAM_TYPES[Math.floor(Math.random() * BEAM_TYPES.length)],
-      beamCount: Math.floor(THREE.MathUtils.randFloat(16, 120)),
+      beamType: this.isParamLocked('beamType') ? (cur.beamType || 'lissajous') : BEAM_TYPES[Math.floor(Math.random() * BEAM_TYPES.length)],
+      beamCount: this.isParamLocked('beamCount') ? (cur.beamCount || 64) : Math.floor(THREE.MathUtils.randFloat(16, 120)),
       beamLength: THREE.MathUtils.randFloat(15, 35),
-      thickness: THREE.MathUtils.randFloat(0.08, 0.22),
-      radius: THREE.MathUtils.randFloat(3, 10),
+      thickness: this.isParamLocked('thickness') ? (cur.thickness || 0.12) : THREE.MathUtils.randFloat(0.08, 0.22),
+      radius: this.isParamLocked('radius') ? (cur.radius || 6) : THREE.MathUtils.randFloat(3, 10),
 
       freqA: Math.floor(THREE.MathUtils.randFloat(1, 9)),
       freqB: Math.floor(THREE.MathUtils.randFloat(1, 9)),
@@ -72,7 +88,7 @@ export class Randomizer {
       strobeSpeed: isStrobe ? THREE.MathUtils.randFloat(1.0, 8.0) : 0.0,
       strobeDuty: THREE.MathUtils.randFloat(0.2, 0.7),
 
-      patternSize: THREE.MathUtils.randFloat(0.6, 1.8),
+      patternSize: this.isParamLocked('patternSize') ? (cur.patternSize || 1.0) : THREE.MathUtils.randFloat(0.6, 1.8),
       bloomStrength: THREE.MathUtils.randFloat(0.1, 0.5)
     };
   }

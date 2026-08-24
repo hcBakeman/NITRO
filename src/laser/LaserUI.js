@@ -92,32 +92,47 @@ export class LaserUI {
           <div class="section-title">📐 Geometry & Laser Pattern</div>
           <div class="ui-row">
             <label>Pattern Type</label>
-            <select id="ctrl-beamType">
-              <option value="lissajous">Lissajous Curves</option>
-              <option value="spirograph">Spirograph / Rose</option>
-              <option value="tunnel">Cyber Laser Tunnel</option>
-              <option value="fan">Laser Fan Array</option>
-              <option value="cone">Cone Scanner</option>
-              <option value="grid">Grid Matrix</option>
-              <option value="starburst">Starburst Radial</option>
-              <option value="wave">Wave Ray Array</option>
-            </select>
+            <div class="ui-control-with-lock">
+              <select id="ctrl-beamType">
+                <option value="lissajous">Lissajous Curves</option>
+                <option value="spirograph">Spirograph / Rose</option>
+                <option value="tunnel">Cyber Laser Tunnel</option>
+                <option value="fan">Laser Fan Array</option>
+                <option value="cone">Cone Scanner</option>
+                <option value="grid">Grid Matrix</option>
+                <option value="starburst">Starburst Radial</option>
+                <option value="wave">Wave Ray Array</option>
+              </select>
+              <label class="lock-toggle" title="Lock Pattern Type during Randomize"><input type="checkbox" class="chk-param-lock" data-param="beamType"> 🔒</label>
+            </div>
           </div>
           <div class="ui-row">
             <label>Beam Count (<span id="val-beamCount">64</span>)</label>
-            <input type="range" id="ctrl-beamCount" min="4" max="128" step="4" value="64">
+            <div class="ui-control-with-lock">
+              <input type="range" id="ctrl-beamCount" min="4" max="128" step="4" value="64">
+              <label class="lock-toggle" title="Lock Beam Count during Randomize"><input type="checkbox" class="chk-param-lock" data-param="beamCount"> 🔒</label>
+            </div>
           </div>
           <div class="ui-row">
             <label>Thickness (<span id="val-thickness">0.12</span>)</label>
-            <input type="range" id="ctrl-thickness" min="0.04" max="0.30" step="0.01" value="0.12">
+            <div class="ui-control-with-lock">
+              <input type="range" id="ctrl-thickness" min="0.04" max="0.30" step="0.01" value="0.12">
+              <label class="lock-toggle" title="Lock Thickness during Randomize"><input type="checkbox" class="chk-param-lock" data-param="thickness"> 🔒</label>
+            </div>
           </div>
           <div class="ui-row">
             <label>Pattern Radius (<span id="val-radius">6</span>)</label>
-            <input type="range" id="ctrl-radius" min="2" max="15" step="0.5" value="6">
+            <div class="ui-control-with-lock">
+              <input type="range" id="ctrl-radius" min="2" max="15" step="0.5" value="6">
+              <label class="lock-toggle" title="Lock Pattern Radius during Randomize"><input type="checkbox" class="chk-param-lock" data-param="radius"> 🔒</label>
+            </div>
           </div>
           <div class="ui-row">
             <label>Overall Pattern Size (<span id="val-patternSize">1.0</span>x)</label>
-            <input type="range" id="ctrl-patternSize" min="0.2" max="3.0" step="0.1" value="1.0">
+            <div class="ui-control-with-lock">
+              <input type="range" id="ctrl-patternSize" min="0.2" max="3.0" step="0.1" value="1.0">
+              <label class="lock-toggle" title="Lock Pattern Size during Randomize"><input type="checkbox" class="chk-param-lock" data-param="patternSize"> 🔒</label>
+            </div>
           </div>
         </div>
 
@@ -152,11 +167,11 @@ export class LaserUI {
             <input type="range" id="ctrl-rotSpeedY" min="-3.0" max="3.0" step="0.1" value="0.3">
           </div>
           <div class="ui-row">
-            <label>Sweep Pan Speed (<span id="val-sweepSpeed">0.5</span>)</label>
+            <label>Sweep Angle Speed (<span id="val-sweepSpeed">0.5</span>)</label>
             <input type="range" id="ctrl-sweepSpeed" min="0" max="3.0" step="0.1" value="0.5">
           </div>
           <div class="ui-row">
-            <label>Wobble Wave (<span id="val-wobbleAmp">0.3</span>)</label>
+            <label>Wobble Wave Amplitude (<span id="val-wobbleAmp">0.3</span>)</label>
             <input type="range" id="ctrl-wobbleAmp" min="0" max="1.5" step="0.05" value="0.3">
           </div>
           <div class="ui-row">
@@ -172,7 +187,7 @@ export class LaserUI {
             <input type="range" id="ctrl-strobeDuty" min="0.05" max="0.95" step="0.05" value="0.5">
           </div>
           <div class="ui-row-check">
-            <label><input type="checkbox" id="chk-morph" checked> 🌀 Smooth Preset Morphing [Hotkey: M]</label>
+            <label><input type="checkbox" id="chk-morph"> 🌀 Smooth Preset Morphing [Hotkey: M]</label>
           </div>
           <div class="ui-row">
             <label>Morph Duration (<span id="val-morphDuration">1.5</span>s)</label>
@@ -480,8 +495,8 @@ export class LaserUI {
       this.updateShareableURLInput();
     });
 
-    // Morphing Controls
-    this.laserBeams.morphEnabled = true;
+    // Morphing Controls (OFF by default)
+    this.laserBeams.morphEnabled = false;
     this.laserBeams.morphDuration = 1.5;
 
     document.getElementById('chk-morph').addEventListener('change', (e) => {
@@ -492,6 +507,16 @@ export class LaserUI {
       const val = parseFloat(e.target.value);
       this.laserBeams.morphDuration = val;
       document.getElementById('val-morphDuration').textContent = val.toFixed(1);
+    });
+
+    // Parameter Lock Checkboxes (🔒)
+    document.querySelectorAll('.chk-param-lock').forEach(chk => {
+      chk.addEventListener('change', (e) => {
+        const param = e.target.getAttribute('data-param');
+        if (param) {
+          this.randomizer.setParamLock(param, e.target.checked);
+        }
+      });
     });
 
     // Prevent wheel scrolling from being intercepted by canvas or OrbitControls
