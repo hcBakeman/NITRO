@@ -428,6 +428,7 @@ export class PresetManager {
       if (state.bl) p.beamLength = state.bl;
       if (state.th !== undefined) p.thickness = state.th;
       if (state.rad !== undefined) p.radius = state.rad;
+      if (state.ps !== undefined) p.patternSize = state.ps;
 
       if (state.fa !== undefined) p.freqA = state.fa;
       if (state.fb !== undefined) p.freqB = state.fb;
@@ -503,6 +504,7 @@ export class PresetManager {
     if (searchParams.get('bc')) p.beamCount = parseInt(searchParams.get('bc'));
     if (searchParams.get('th')) p.thickness = parseFloat(searchParams.get('th'));
     if (searchParams.get('rad')) p.radius = parseFloat(searchParams.get('rad'));
+    if (searchParams.get('ps')) p.patternSize = parseFloat(searchParams.get('ps'));
     if (searchParams.get('c1')) p.color1 = '#' + searchParams.get('c1').replace('#', '');
     if (searchParams.get('c2')) p.color2 = '#' + searchParams.get('c2').replace('#', '');
     if (searchParams.get('int')) p.intensity = parseFloat(searchParams.get('int'));

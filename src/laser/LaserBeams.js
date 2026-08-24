@@ -470,6 +470,7 @@ export class LaserBeams {
       p.strobeDuty = THREE.MathUtils.lerp(start.strobeDuty || 0.5, target.strobeDuty || 0.5, t);
       p.rainbowSpeed = THREE.MathUtils.lerp(start.rainbowSpeed || 0, target.rainbowSpeed || 0, t);
       p.pureColor = THREE.MathUtils.lerp(start.pureColor !== undefined ? start.pureColor : 1.0, target.pureColor !== undefined ? target.pureColor : 1.0, t);
+      p.patternSize = THREE.MathUtils.lerp(start.patternSize || 1.0, target.patternSize || 1.0, t);
 
       // Lerp colors
       const curC1 = new THREE.Color().copy(this.morphStartC1).lerp(this.morphTargetC1, t);
@@ -488,6 +489,10 @@ export class LaserBeams {
     } else {
       this.updateUniforms();
     }
+
+    // Apply dynamic 3D scale/size multiplier
+    const sz = this.params.patternSize || 1.0;
+    this.beamGroup.scale.set(sz, sz, sz);
 
     // Apply dynamic 3D rotation of laser rig
     this.beamGroup.rotation.x += (this.params.rotSpeedX || 0) * delta * 2.0;

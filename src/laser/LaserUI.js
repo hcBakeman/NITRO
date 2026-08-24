@@ -114,6 +114,10 @@ export class LaserUI {
             <label>Pattern Radius (<span id="val-radius">6</span>)</label>
             <input type="range" id="ctrl-radius" min="2" max="15" step="0.5" value="6">
           </div>
+          <div class="ui-row">
+            <label>Overall Pattern Size (<span id="val-patternSize">1.0</span>x)</label>
+            <input type="range" id="ctrl-patternSize" min="0.2" max="3.0" step="0.1" value="1.0">
+          </div>
         </div>
 
         <div class="ui-section">
@@ -233,6 +237,7 @@ export class LaserUI {
       url.searchParams.set('bc', p.beamCount);
       url.searchParams.set('th', p.thickness.toFixed(3));
       url.searchParams.set('rad', p.radius.toFixed(2));
+      url.searchParams.set('ps', (p.patternSize || 1.0).toFixed(2));
       url.searchParams.set('c1', p.color1.replace('#', ''));
       url.searchParams.set('c2', p.color2.replace('#', ''));
       url.searchParams.set('int', p.intensity.toFixed(2));
@@ -251,6 +256,7 @@ export class LaserUI {
         bl: p.beamLength || 25,
         th: Number(p.thickness.toFixed(3)),
         rad: Number(p.radius.toFixed(2)),
+        ps: Number((p.patternSize || 1.0).toFixed(2)),
         fa: p.freqA || 3,
         fb: p.freqB || 4,
         fc: p.freqC || 5,
@@ -465,6 +471,7 @@ export class LaserUI {
       { id: 'beamCount', param: 'beamCount', isInt: true, rebuild: true },
       { id: 'thickness', param: 'thickness', isInt: false, rebuild: true },
       { id: 'radius', param: 'radius', isInt: false, rebuild: true },
+      { id: 'patternSize', param: 'patternSize', isInt: false, rebuild: false },
       { id: 'rainbowSpeed', param: 'rainbowSpeed', isInt: false, rebuild: false },
       { id: 'intensity', param: 'intensity', isInt: false, rebuild: false },
       { id: 'rotSpeedY', param: 'rotSpeedY', isInt: false, rebuild: false },
