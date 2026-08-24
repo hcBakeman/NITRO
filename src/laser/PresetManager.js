@@ -416,6 +416,51 @@ export class PresetManager {
     return false;
   }
 
+  loadSerializedConfig(base64Cfg) {
+    try {
+      const jsonStr = atob(base64Cfg);
+      const state = JSON.parse(jsonStr);
+
+      const p = this.laserBeams.params;
+      if (state.bt) p.beamType = state.bt;
+      if (state.bc) p.beamCount = state.bc;
+      if (state.th !== undefined) p.thickness = state.th;
+      if (state.rad !== undefined) p.radius = state.rad;
+      if (state.c1) p.color1 = '#' + state.c1;
+      if (state.c2) p.color2 = '#' + state.c2;
+      if (state.rs !== undefined) p.rainbowSpeed = state.rs;
+      if (state.int !== undefined) p.intensity = state.int;
+      if (state.ry !== undefined) p.rotSpeedY = state.ry;
+      if (state.sw !== undefined) p.sweepSpeed = state.sw;
+      if (state.wa !== undefined) p.wobbleAmp = state.wa;
+      if (state.sp !== undefined) p.spiral = state.sp;
+      if (state.ss !== undefined) p.strobeSpeed = state.ss;
+      if (state.sd !== undefined) p.strobeDuty = state.sd;
+      if (state.pc !== undefined) p.pureColor = state.pc;
+
+      if (state.bm !== undefined && this.laserEngine.bloomPass) {
+        this.laserEngine.setBloomParameters(state.bm, 0.3, 0.2);
+      }
+
+      if (state.spots !== undefined) {
+        this.stageLights.setVisible(state.spots === 1);
+      }
+      if (state.so !== undefined) {
+        this.stageLights.setOpacity(state.so);
+      }
+      if (state.spSpeed !== undefined) {
+        this.stageLights.setSpeed(state.spSpeed);
+      }
+
+      this.laserBeams.updateUniforms();
+      this.laserBeams.rebuildBeams();
+      return true;
+    } catch (err) {
+      console.warn('Failed to parse serialized config from URL:', err);
+      return false;
+    }
+  }
+
   exportPresetsJSON() {
     return JSON.stringify(this.customPresets, null, 2);
   }

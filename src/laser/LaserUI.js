@@ -220,13 +220,36 @@ export class LaserUI {
   getShareableURL() {
     try {
       const url = new URL(window.location.href);
-      const urlParams = new URLSearchParams(window.location.search);
-      const activePreset = urlParams.get('preset') || 'neon_rave';
-      url.searchParams.set('preset', activePreset);
+      const p = this.laserBeams.params;
+
+      const state = {
+        bt: p.beamType,
+        bc: p.beamCount,
+        th: Number(p.thickness.toFixed(3)),
+        rad: Number(p.radius.toFixed(2)),
+        c1: p.color1.replace('#', ''),
+        c2: p.color2.replace('#', ''),
+        rs: Number((p.rainbowSpeed || 0).toFixed(2)),
+        int: Number(p.intensity.toFixed(2)),
+        bm: Number((this.laserEngine.bloomPass ? this.laserEngine.bloomPass.strength : 0.85).toFixed(2)),
+        ry: Number((p.rotSpeedY || 0).toFixed(2)),
+        sw: Number((p.sweepSpeed || 0).toFixed(2)),
+        wa: Number((p.wobbleAmp || 0).toFixed(2)),
+        sp: Number((p.spiral || 0).toFixed(2)),
+        ss: Number((p.strobeSpeed || 0).toFixed(2)),
+        sd: Number((p.strobeDuty || 0.5).toFixed(2)),
+        pc: p.pureColor > 0.5 ? 1 : 0,
+        spots: this.stageLights.enabled ? 1 : 0,
+        so: Number((this.stageLights.params.opacity || 0.15).toFixed(2)),
+        spSpeed: Number((this.stageLights.params.speed || 1.0).toFixed(2))
+      };
+
+      const base64Str = btoa(JSON.stringify(state));
+      url.searchParams.set('cfg', base64Str);
 
       const isBlack = document.getElementById('chk-blackmode')?.checked;
       const isTrans = document.getElementById('chk-transparent')?.checked;
-      
+
       if (isBlack) url.searchParams.set('mode', 'black');
       else url.searchParams.delete('mode');
 

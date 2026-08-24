@@ -68,9 +68,14 @@
         ui.setUIVisible(false);
       }
 
-      // Preset Parameter (?preset=cyber_tunnel)
+      // Full Manual State Parameter (?cfg=...) or Preset Parameter (?preset=cyber_tunnel)
+      const cfgParam = urlParams.get('cfg');
       const presetParam = urlParams.get('preset');
-      if (presetParam) {
+
+      if (cfgParam) {
+        presetManager.loadSerializedConfig(cfgParam);
+        ui.syncControlsFromParams();
+      } else if (presetParam) {
         presetManager.loadPreset(presetParam);
         ui.syncControlsFromParams();
       }

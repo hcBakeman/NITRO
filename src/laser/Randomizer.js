@@ -70,20 +70,15 @@ export class Randomizer {
       intensity: THREE.MathUtils.randFloat(0.9, 1.5),
 
       strobeSpeed: isStrobe ? THREE.MathUtils.randFloat(1.0, 8.0) : 0.0,
-      strobeDuty: THREE.MathUtils.randFloat(0.2, 0.7),
-
-      stageLightSpeed: THREE.MathUtils.randFloat(0.5, 2.5),
-      stageLightVisible: Math.random() > 0.3,
-      fogDensity: THREE.MathUtils.randFloat(0.2, 0.8),
-      bloomStrength: THREE.MathUtils.randFloat(0.6, 1.1)
+      strobeDuty: THREE.MathUtils.randFloat(0.2, 0.7)
     };
   }
 
   applyPreset(preset) {
-    this.stageLights.params.speed = preset.stageLightSpeed;
-    this.stageLights.setVisible(preset.stageLightVisible);
-    this.atmosphere.setDensity(preset.fogDensity);
-    this.laserEngine.setBloomParameters(preset.bloomStrength, 0.4, 0.15);
+    // Preserve manual ON/OFF toggles set by the user (do NOT randomize stageLightVisible or toggle switches)
+    if (preset.bloomStrength !== undefined) {
+      this.laserEngine.setBloomParameters(preset.bloomStrength, 0.3, 0.2);
+    }
 
     if (this.laserBeams.morphEnabled) {
       this.laserBeams.startMorph(preset, this.laserBeams.morphDuration || 1.5);
